@@ -529,7 +529,7 @@ def run_dart_analysis(
         check_remote_sync,
         check_working_tree,
     )
-    from modules.target_config import DART, ensure_server_constants_version_sync
+    from modules.target_config import DART, ensure_api_md_version_sync, ensure_server_constants_version_sync
 
     heading("Dart \u00b7 Prerequisites")
     for name, fn in [
@@ -608,6 +608,10 @@ def run_dart_analysis(
     if not run_step("Server constants version", ensure_server_constants_version_sync, results):
         return "", False
 
+    heading("Dart \u00b7 API doc version")
+    if not run_step("API doc version", ensure_api_md_version_sync, results):
+        return "", False
+
     if not _run_dart_build_steps(args, results):
         return "", False
 
@@ -627,6 +631,14 @@ def run_dart_analysis(
     if not run_step(
         "Server constants version (post-bump)",
         ensure_server_constants_version_sync,
+        results,
+    ):
+        return version, False
+
+    heading("Dart \u00b7 API doc version (post-bump)")
+    if not run_step(
+        "API doc version (post-bump)",
+        ensure_api_md_version_sync,
         results,
     ):
         return version, False

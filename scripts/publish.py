@@ -347,6 +347,7 @@ _STEP_EXIT_CODES = {
     "Publish workflow": ExitCode.PREREQUISITE_FAILED,
     "Web assets sync": ExitCode.QUALITY_FAILED,
     "Server constants version": ExitCode.QUALITY_FAILED,
+    "API doc version": ExitCode.QUALITY_FAILED,
     "Dart format": ExitCode.QUALITY_FAILED,
     "Dart tests": ExitCode.TEST_FAILED,
     "Dart analysis": ExitCode.QUALITY_FAILED,

@@ -19,6 +19,7 @@ CHANGELOG_PATH = os.path.join(REPO_ROOT, "CHANGELOG.md")
 # analysis step.  Lives in the scripts/ directory (git-ignored).
 CHECKPOINT_PATH = os.path.join(SCRIPT_DIR, ".publish_checkpoint.json")
 ABOUT_SAROPA_PATH = os.path.join(REPO_ROOT, "ABOUT_SAROPA.md")
+API_MD_PATH = os.path.join(REPO_ROOT, "doc", "API.md")
 TEST_DIR = os.path.join(REPO_ROOT, "test")
 LIB_DIR = os.path.join(REPO_ROOT, "lib")
 

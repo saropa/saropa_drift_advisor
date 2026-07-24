@@ -9,8 +9,9 @@ This module is the single place for:
 * **Version I/O** — ``read_version`` / ``write_version`` for ``pubspec.yaml`` and
   ``package.json``, plus changelog-driven helpers such as ``read_max_version``.
 * **Derived constant sync** — When the Dart package version changes,
-  ``write_version(DART, ...)`` updates ``extension/.../add-package.ts`` and
-  ``lib/.../server_constants.dart`` so embedded semver strings stay consistent.
+  ``write_version(DART, ...)`` updates ``extension/.../add-package.ts``,
+  ``lib/.../server_constants.dart``, and ``doc/API.md`` so embedded semver
+  strings stay consistent.
 
 **Server constants vs pubspec:** Developers sometimes bump ``pubspec.yaml`` without
 going through ``write_version``. ``ensure_server_constants_version_sync`` (called from
@@ -31,6 +32,7 @@ from dataclasses import dataclass, field
 
 from modules.constants import (
     ADD_PACKAGE_TS_PATH,
+    API_MD_PATH,
     CHANGELOG_PATH,
     EXTENSION_DIR,
     PACKAGE_JSON_PATH,
@@ -203,6 +205,7 @@ def write_version(config: TargetConfig, version: str) -> bool:
     if config.name == "dart":
         sync_add_package_version(version)
         sync_server_constants_version(version)
+        sync_api_md_version(version)
 
     return True
 
@@ -306,6 +309,94 @@ def sync_server_constants_version(version: str) -> bool:
     except OSError:
         fail(f"Could not write {os.path.basename(SERVER_CONSTANTS_PATH)}")
         return False
+    return True
+
+
+# Patterns in doc/API.md that carry the package version.  Each targets a
+# specific context so example versions (e.g. "3.7.3") and IP addresses
+# ("127.0.0.1") are left untouched.
+_API_MD_VERSION_PATTERNS = [
+    # **API version:** X.Y.Z
+    (r"(\*\*API version:\*\*\s*)\d+\.\d+\.\d+", r"\g<1>{v}"),
+    # "version": "X.Y.Z" as a standalone JSON field (line starts with
+    # optional whitespace then the key).  Excludes inline nested objects
+    # like "producer": { ..., "version": "3.7.3" } which are examples.
+    (r'^(\s*"version"\s*:\s*")\d+\.\d+\.\d+(")', r"\g<1>{v}\2"),
+    # @vX.Y.Z in jsDelivr CDN URLs
+    (r"(@v)\d+\.\d+\.\d+", r"\g<1>{v}"),
+]
+
+
+def sync_api_md_version(version: str) -> bool:
+    """Update package-version references in doc/API.md.
+
+    Targets three specific patterns: the **API version:** header, JSON
+    ``"version"`` fields, and the jsDelivr ``@vX.Y.Z`` tag.  Other
+    semver-shaped text (example payloads, IP addresses) is left alone.
+    """
+    try:
+        with open(API_MD_PATH, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        fail(f"Could not read {os.path.basename(API_MD_PATH)}")
+        return False
+
+    updated = content
+    for pattern, replacement in _API_MD_VERSION_PATTERNS:
+        updated = re.sub(
+            pattern, replacement.format(v=version), updated, flags=re.MULTILINE,
+        )
+
+    if updated == content:
+        ok(f"doc/API.md already at {version}")
+        return True
+
+    try:
+        with open(API_MD_PATH, "w", encoding="utf-8") as f:
+            f.write(updated)
+    except OSError:
+        fail(f"Could not write {os.path.basename(API_MD_PATH)}")
+        return False
+    return True
+
+
+def _read_api_md_header_version() -> str | None:
+    """Return the semver from the **API version:** header, or None."""
+    try:
+        with open(API_MD_PATH, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        return None
+    m = re.search(r"\*\*API version:\*\*\s*(\d+\.\d+\.\d+)", content)
+    return m.group(1) if m else None
+
+
+def ensure_api_md_version_sync() -> bool:
+    """Ensure doc/API.md version header matches pubspec.yaml.
+
+    Mirrors ensure_server_constants_version_sync — catches manual bumps
+    that bypass write_version().
+    """
+    pub_ver = read_version(DART)
+    if not _SEMVER_RE.match(pub_ver):
+        fail(f"Invalid or unreadable pubspec version: {pub_ver!r}")
+        return False
+
+    current = _read_api_md_header_version()
+    if current is None:
+        fail("Could not parse **API version:** header from doc/API.md")
+        return False
+
+    if current == pub_ver:
+        ok(f"doc/API.md version matches pubspec ({pub_ver})")
+        return True
+
+    info(
+        f"doc/API.md ({current}) out of sync with pubspec ({pub_ver}); updating."
+    )
+    if not sync_api_md_version(pub_ver):
+        return False
+    ok(f"Updated doc/API.md version to {pub_ver}")
     return True
 
 

@@ -41,6 +41,14 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+[log](https://github.com/saropa/saropa_drift_advisor/blob/v{version}/CHANGELOG.md)
+
+### 
+
+---
+
 ## [4.2.4]
 
 Exported reports no longer count the schema browser's own lookups as app queries, and each export now records which extension and server version produced it. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.4/CHANGELOG.md)
@@ -63,9 +71,10 @@ Exported reports no longer count the schema browser's own lookups as app queries
 - `staticTables` threaded through `start()`/`_startInternal`/stub/`startDriftViewer` → `ServerContext.staticTables` → `AnomalyDetector.getAnomaliesResult` (auto-derives `potential_outlier` suppressions) and the two `analytics_handler` call sites. New `outlier_check_hint` anomaly type (additive to the issues envelope). Regression tests in `test/anomaly_detector_test.dart`.
 - Parallelized independent sequential awaits in `analytics_handler` (PRAGMA queries, per-table stats), `compare_handler` (schema/table queries, column maps), and `report_handler` (table info/rows/count) — uses typed record `.wait` to avoid unsafe `as` casts. Converted manual index loops to `asMap().entries` in `edits_batch_handler`, `index_batch_handler`, and `sql_validator`. Extracted `_dispatchRoutes` helper in `Router` — route dispatch is now a documented single-point closure loop, preventing new routes from being added outside the dispatch chain. Added long-poll delay comment in `generation_handler`. Suppressed false-positive lint warnings with inline rationale where sequential execution is intentional (shutdown ordering, guard-then-query, in-place mutation). Fixed `example/pubspec.yaml` formatting and dependency ordering.
 - Feature 61 hardening: the introspection filter now matches `sqlite_master`/`sqlite_schema` only as a `FROM`/`JOIN` target (a literal mention in an app query still counts); the no-app-queries hint leads with `reportAppQuery` so it fits callback-API users, not only interceptor users; `reportAppQuery` documents its same-isolate requirement; the example `AdvisorTimingInterceptor` gained `runCustom`/`runBatched` overrides and is installed only in `kDebugMode` (zero release overhead). `DriftDebugServer.reportAppQuery` gained an end-to-end test; new tests for the literal-`sqlite_master` case and the interceptor's custom/batched paths.
-- `doc/API.md` updated to version 4.2.3: added 16 previously undocumented endpoint sections (views, declared schema, relationships, report, snapshots list/delete/rename, cell update, index preview/apply, soft relationships, query history, DVR, mutations, `/api/docs`); added HTTP 403 status code; expanded query parameter reference table. DVR 404 response now documents the extra `error`/`message` sibling keys alongside the envelope.
+- `doc/API.md` updated to version 4.2.4: added 16 previously undocumented endpoint sections (views, declared schema, relationships, report, snapshots list/delete/rename, cell update, index preview/apply, soft relationships, query history, DVR, mutations, `/api/docs`); added HTTP 403 status code; expanded query parameter reference table. DVR 404 response now documents the extra `error`/`message` sibling keys alongside the envelope.
 - `GET /api/docs` endpoint: new route in `_routePreQuery` (pre-gate, no DB dependency) serving `doc/API.md` via the existing `_sendWebAsset` file-serving pipeline. Path constants `pathApiDocs`/`pathApiDocsAlt` added; endpoint listed in `healthEndpoints` and `apiIndexEndpoints`.
 - `test/version_sync_test.dart` gains a test that asserts `doc/API.md`'s `**API version:**` header matches `ServerConstants.packageVersion`, preventing the version string from drifting on future releases.
+- Publish pipeline now auto-syncs `doc/API.md` version strings from pubspec. `ensure_api_md_version_sync` runs pre- and post-bump (mirroring the server-constants sync) and `write_version(DART, ...)` calls `sync_api_md_version` so `--bump` flows also update the doc. Exit-code mapping added for the new `API doc version` step.
 
 </details>
 
