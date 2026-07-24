@@ -5,6 +5,8 @@
  * is isolated from the extension-integration plumbing on the bridge class.
  */
 
+import * as vscode from 'vscode';
+
 import type { DriftApiClient } from '../api-client';
 import type { PerformanceData } from '../api-types';
 import type {
@@ -134,6 +136,21 @@ export async function buildSessionEndContributions(
 
   const baseUrl = client.baseUrl;
 
+  // Stamp producer versions so an exported report can be tied to the release
+  // that made it (Finding 4). Extension version from our own manifest; server
+  // version from the health payload. Omit the key when neither resolves so the
+  // sidecar stays clean rather than carrying an empty object.
+  const extensionVersion = (
+    vscode.extensions.getExtension('saropa.drift-viewer')?.packageJSON as
+      | { version?: string }
+      | undefined
+  )?.version;
+  const serverVersion = health?.version;
+  const versions =
+    extensionVersion || serverVersion
+      ? { extension: extensionVersion, server: serverVersion }
+      : undefined;
+
   const metaPayload: DriftAdvisorMetaPayload = {
     baseUrl,
     performance: buildMetaPerformance(perf),
@@ -153,6 +170,7 @@ export async function buildSessionEndContributions(
   const sidecar: DriftAdvisorSidecar = {
     generatedAt: new Date().toISOString(),
     baseUrl,
+    versions,
     performance: perf ?? {
       totalQueries: 0,
       totalDurationMs: 0,

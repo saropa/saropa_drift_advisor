@@ -316,6 +316,10 @@ extension StartDriftViewerExtension on Object {
     DriftDebugWriteQueryWithBindings? writeQueryWithBindings,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
+    // Tables holding static/seed/bundled content: the numeric-outlier scan is
+    // suppressed on them (an outlier in immutable seed data can never be a
+    // defect). Other anomaly kinds still run. See [DriftDebugServer.start].
+    List<String> staticTables = const <String>[],
     // Global monitoring & logging kill switch (default true = active). False
     // starts the server dormant: health answers, data endpoints return 403,
     // nothing is recorded. See [DriftDebugServer.start] for full semantics.
@@ -351,6 +355,7 @@ extension StartDriftViewerExtension on Object {
       writeQueryWithBindings: writeQueryWithBindings,
       onLog: onLog,
       onError: onError,
+      staticTables: staticTables,
       monitoringEnabled: monitoringEnabled,
     );
   }

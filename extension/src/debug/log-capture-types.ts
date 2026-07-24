@@ -83,6 +83,14 @@ export interface DriftAdvisorSidecarIssue {
 export interface DriftAdvisorSidecar {
   generatedAt: string;
   baseUrl: string;
+  /**
+   * Producer versions, so an exported report can be correlated with the
+   * release that generated it (BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md
+   * Finding 4). `extension` is this VS Code extension's manifest version;
+   * `server` is the connected Dart server's package version (from
+   * `/api/health`). Either may be absent when unresolvable.
+   */
+  versions?: { extension?: string; server?: string };
   performance: PerformanceData;
   anomalies: Anomaly[];
   schema: TableMetadata[];

@@ -114,7 +114,7 @@ describe('LogCaptureBridge', () => {
         },
         anomalies: [{ message: 'Anomaly 1', severity: 'warning' }],
         schema: [{ name: 'users', columns: [], rowCount: 10 }],
-        health: { ok: true, extensionConnected: true },
+        health: { ok: true, extensionConnected: true, version: '9.9.9' },
         indexSuggestions: [],
       });
 
@@ -144,6 +144,10 @@ describe('LogCaptureBridge', () => {
       // refs. Shapes only — the shared mock's workspace/git state varies by order.
       assert.ok(sidecarData.commitSha === undefined || typeof sidecarData.commitSha === 'string');
       assert.ok(sidecarData.suiteMirrors === undefined || Array.isArray(sidecarData.suiteMirrors));
+      // Version stamp (Finding 4): server version flows from the health payload.
+      // Extension version comes from getExtension(), which the shared vscode mock
+      // does not populate, so assert only the server side here.
+      assert.strictEqual(sidecarData.versions.server, '9.9.9');
     });
 
     it('should return only header when includeInLogCaptureSession is header', async () => {

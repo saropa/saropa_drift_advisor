@@ -178,6 +178,7 @@ class _DriftDebugServerImpl {
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
     int? declaredSchemaVersion,
+    List<String> staticTables = const <String>[],
     String? snapshotStorePath,
     String? discoveryDirectory,
     bool monitoringEnabled = true,
@@ -215,6 +216,7 @@ class _DriftDebugServerImpl {
         declaredSchema: declaredSchema,
         declaredRelationships: declaredRelationships,
         declaredSchemaVersion: declaredSchemaVersion,
+        staticTables: staticTables,
         snapshotStorePath: snapshotStorePath,
         discoveryDirectory: discoveryDirectory,
         monitoringEnabled: monitoringEnabled,
@@ -247,6 +249,7 @@ class _DriftDebugServerImpl {
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
     int? declaredSchemaVersion,
+    List<String> staticTables = const <String>[],
     String? snapshotStorePath,
     String? discoveryDirectory,
     bool monitoringEnabled = true,
@@ -416,6 +419,7 @@ class _DriftDebugServerImpl {
       declaredSchema: declaredSchema,
       declaredRelationships: declaredRelationships,
       declaredSchemaVersion: declaredSchemaVersion,
+      staticTables: staticTables.toSet(),
       snapshotStorePath: snapshotStorePath,
       loopbackOnly: loopbackOnly,
       monitoringEnabled: monitoringEnabled,
@@ -940,6 +944,17 @@ mixin DriftDebugServer {
     /// server at its own directory to isolate its manifest. Host configuration.
     String? discoveryDirectory,
 
+    /// Tables holding static/seed/bundled content, so the numeric-outlier scan
+    /// (max-vs-mean 3σ) is suppressed on them. An outlier in immutable seed data
+    /// can never indicate a defect, yet recurred as info-level noise in every
+    /// exported report. Other anomaly kinds (NULL-in-NOT-NULL, orphan FKs) still
+    /// run on these tables. When a table not listed here produces an outlier,
+    /// the anomaly result carries a one-line hint naming it and the exact
+    /// `staticTables:` snippet, so the fix is discoverable from the finding
+    /// itself. Host configuration. See
+    /// bugs/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md (Finding 3).
+    List<String> staticTables = const <String>[],
+
     /// Global monitoring & logging kill switch (default true = monitoring
     /// active). When false the server starts deliberately dormant: no query
     /// recording, no timing capture, no change-detection sweeps, and every
@@ -972,6 +987,7 @@ mixin DriftDebugServer {
     declaredSchema: declaredSchema,
     declaredRelationships: declaredRelationships,
     declaredSchemaVersion: declaredSchemaVersion,
+    staticTables: staticTables,
     snapshotStorePath: snapshotStorePath,
     discoveryDirectory: discoveryDirectory,
     monitoringEnabled: monitoringEnabled,

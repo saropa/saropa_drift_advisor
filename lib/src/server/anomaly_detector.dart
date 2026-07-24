@@ -50,6 +50,7 @@ abstract final class AnomalyDetector {
     List<DeclaredRelationship> declaredRelationships =
         const <DeclaredRelationship>[],
     List<AnomalySuppression> suppressions = const <AnomalySuppression>[],
+    Set<String> staticTables = const <String>{},
   }) async {
     final tableNames = await ServerUtils.getTableNames(query);
     final anomalies = <Map<String, dynamic>>[];
@@ -165,11 +166,51 @@ abstract final class AnomalyDetector {
       );
     }
 
-    // Remove anomalies matching caller-supplied suppressions. Each
-    // suppression targets a table[.column][.type] combination — the
-    // server-side equivalent of `// drift-advisor:ignore` in Dart source.
-    if (suppressions.isNotEmpty) {
-      anomalies.removeWhere((a) => suppressions.any((s) => s.matches(a)));
+    // Remove anomalies matching suppressions. Two sources merge here:
+    //  - caller-supplied suppressions (server-side `// drift-advisor:ignore`);
+    //  - one `potential_outlier` suppression per host-declared static table
+    //    (Finding 3): an outlier in immutable seed data can never be a defect,
+    //    but recurred as info-level noise in every export. Only the outlier
+    //    kind is suppressed — a NULL-in-NOT-NULL or orphan FK in seed data is
+    //    still a real bug worth reporting.
+    final effectiveSuppressions = <AnomalySuppression>[
+      ...suppressions,
+      for (final t in staticTables)
+        AnomalySuppression(table: t, type: 'potential_outlier'),
+    ];
+    if (effectiveSuppressions.isNotEmpty) {
+      anomalies.removeWhere(
+        (a) => effectiveSuppressions.any((s) => s.matches(a)),
+      );
+    }
+
+    // Discoverability (Finding 3): any potential_outlier that survived is on a
+    // table NOT declared static (static ones were just suppressed). Emit ONE
+    // hint — not one per finding — naming those tables and the exact snippet
+    // that silences them, so the fix is visible from the finding itself rather
+    // than buried in docs. The tool cannot know which tables are truly static,
+    // so the message states the mechanism and lets the developer decide.
+    final outlierSet = <String>{};
+    for (final a in anomalies) {
+      final t = a['table'];
+      // `is String` promotes t, so no unsafe cast is needed.
+      if (a['type'] == 'potential_outlier' && t is String) {
+        outlierSet.add(t);
+      }
+    }
+    final outlierTables = outlierSet.toList()..sort();
+    if (outlierTables.isNotEmpty) {
+      final snippetList = outlierTables.map((t) => "'$t'").join(', ');
+      anomalies.add(<String, dynamic>{
+        'type': 'outlier_check_hint',
+        'severity': 'info',
+        'message':
+            'Outlier checks ran on ${outlierTables.join(', ')}. '
+            'The max-vs-mean (3σ) check cannot indicate a defect on static or '
+            'seed data. If any of these hold bundled/static content, mark them '
+            'static to silence this: '
+            'startDriftViewer(db, staticTables: [$snippetList]).',
+      });
     }
 
     // Sort anomalies by severity: error → warning → info.

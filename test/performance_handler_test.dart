@@ -295,6 +295,42 @@ void main() {
         expect(recent, hasLength(2));
       });
 
+      test(
+        'PRAGMA introspection excluded from aggregates, slow, and recent',
+        () async {
+          // Regression: BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md Finding 2.
+          // The schema browser records one PRAGMA table_info per table via
+          // the instrumented query path; these self-introspection rows must
+          // never pollute performance analytics or the exported report.
+          final ctx = createTestContext();
+          ctx.queryTimings.addAll([
+            _timing('SELECT * FROM users', 150), // real app query, slow
+            _timing('PRAGMA table_info("users")', 200), // browser noise, slow
+            _timing(
+              '  pragma table_info("orders")',
+              5,
+            ), // lowercase + leading ws
+          ]);
+          final handler = PerformanceHandler(ctx);
+
+          final data = await handler.getPerformanceData();
+
+          // Only the real query counts toward aggregates.
+          expect(data['totalQueries'], 1);
+          expect(data['totalDurationMs'], 150);
+
+          // The 200ms PRAGMA must not appear as a slow query.
+          final slowQueries = data['slowQueries'] as List;
+          expect(slowQueries, hasLength(1));
+          expect((slowQueries.first as Map)['sql'], 'SELECT * FROM users');
+
+          // recentQueries carries only the real query — no PRAGMA rows.
+          final recent = data['recentQueries'] as List;
+          expect(recent, hasLength(1));
+          expect((recent.first as Map)['sql'], 'SELECT * FROM users');
+        },
+      );
+
       test('recentQueries capped at 50 entries', () async {
         final ctx = createTestContext();
         // Add 60 timings.

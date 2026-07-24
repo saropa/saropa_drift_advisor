@@ -58,6 +58,7 @@ final class ServerContext {
     this.declaredSchema,
     this.declaredRelationships,
     this.declaredSchemaVersion,
+    this.staticTables = const <String>{},
     this.snapshotStorePath,
     this.loopbackOnly = true,
     this.monitoringEnabled = true,
@@ -212,6 +213,15 @@ final class ServerContext {
   /// to detect incomplete or skipped migrations. Null when the host is not a
   /// Drift `GeneratedDatabase` or the getter is inaccessible.
   final int? declaredSchemaVersion;
+
+  /// Tables the host has declared to hold static/seed/bundled content, so the
+  /// numeric-outlier scan (max-vs-mean 3σ) is suppressed on them: an outlier in
+  /// immutable seed data can never indicate a defect, yet recurred as info-level
+  /// noise in every export. Other anomaly kinds (NULL-in-NOT-NULL, orphan FKs)
+  /// still run — a constraint violation is a real bug even in seed data. Empty
+  /// by default (no suppression). See
+  /// bugs/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md (Finding 3).
+  final Set<String> staticTables;
 
   /// In-memory snapshots (oldest first): each holds id, createdAt, optional
   /// label, and full table data per table. Capped at [maxSnapshots] with

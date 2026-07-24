@@ -5,6 +5,8 @@
  * Reuses timeout and issue-serialization helpers from the bridge to avoid duplication.
  */
 
+import * as vscode from 'vscode';
+
 import type { DriftApiClient } from './api-client';
 import type {
   DriftAdvisorSidecar,
@@ -80,9 +82,24 @@ export async function buildSessionSnapshot(
   const issues = getIssues?.() ?? [];
   const sidecarIssues = serializeIssues(issues);
 
+  // Stamp producer versions so a snapshot pulled by a sibling extension can be
+  // tied to the release that made it (mirrors the session sidecar). Extension
+  // version from our own manifest; server version from the health payload.
+  const extensionVersion = (
+    vscode.extensions.getExtension('saropa.drift-viewer')?.packageJSON as
+      | { version?: string }
+      | undefined
+  )?.version;
+  const serverVersion = health?.version;
+  const versions =
+    extensionVersion || serverVersion
+      ? { extension: extensionVersion, server: serverVersion }
+      : undefined;
+
   const snapshot: DriftAdvisorSnapshot = {
     generatedAt: new Date().toISOString(),
     baseUrl: client.baseUrl,
+    versions,
     performance: perf ?? {
       totalQueries: 0,
       totalDurationMs: 0,

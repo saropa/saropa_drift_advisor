@@ -41,6 +41,27 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+Exported reports no longer count the schema browser's own lookups as app queries, and each export now records which extension and server version produced it. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Fixed
+
+- **Performance analytics no longer counts schema-browser introspection as application queries.** Opening the schema browser issues one `PRAGMA table_info` per table; these were filling the "recent queries" list (and could evict real app queries from the timing buffer), so an exported report showed the advisor measuring itself instead of the app. PRAGMA statements are now excluded from query totals, slow queries, patterns, and the recent-queries list. See `bugs/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md`.
+
+- **Anomaly outlier checks can be silenced on static/seed tables.** `startDriftViewer` (and `DriftDebugServer.start`) accept a new `staticTables:` list; the max-vs-mean outlier scan is skipped for those tables, since an outlier in immutable seed data can never indicate a defect. Other checks (missing values, orphaned references) still run on them. When an outlier is found on a table you have *not* marked static, the finding now carries a one-line hint naming the table and the exact `staticTables:` snippet, so the fix is discoverable from the finding itself.
+
+### Added
+
+- **Exported reports are now version-stamped.** The `.drift-advisor.json` sidecar carries a `versions` block with the extension version and the connected server version, so a report can be tied to the release that produced it.
+
+<details><summary>Maintenance</summary>
+
+- `HealthResponse` type gains an optional `version` field (already emitted by `/api/health`). `DriftAdvisorSidecar` gains an optional `versions` block. Regression test added in `test/performance_handler_test.dart` for PRAGMA exclusion.
+- `staticTables` threaded through `start()`/`_startInternal`/stub/`startDriftViewer` → `ServerContext.staticTables` → `AnomalyDetector.getAnomaliesResult` (auto-derives `potential_outlier` suppressions) and the two `analytics_handler` call sites. New `outlier_check_hint` anomaly type (additive to the issues envelope). Regression tests in `test/anomaly_detector_test.dart`.
+
+</details>
+
 ## [4.2.3]
 
 New schema diagnostics warn about missing schema snapshots and catch version mismatches before they cause silent black screens. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.3/CHANGELOG.md)

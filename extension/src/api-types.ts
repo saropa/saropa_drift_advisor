@@ -40,6 +40,8 @@ export interface HealthResponse {
   extensionConnected?: boolean;
   /** Present when server supports browser writes (writeQuery configured). */
   writeEnabled?: boolean;
+  /** Dart server package version (`ServerConstants.packageVersion`). */
+  version?: string;
 }
 
 export interface IndexSuggestion {

@@ -1030,10 +1030,11 @@ Scans all tables for data quality anomalies: NULL values, empty strings, orphane
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `anomalies[].type` | string | `"null_values"`, `"empty_strings"`, `"orphaned_fk"`, `"duplicate_rows"`, or `"potential_outlier"` |
+| `anomalies[].type` | string | `"null_values"`, `"empty_strings"`, `"orphaned_fk"`, `"duplicate_rows"`, `"potential_outlier"`, or `"outlier_check_hint"` |
 | `anomalies[].severity` | string | `"error"`, `"warning"`, or `"info"` |
-| `anomalies[].count` | int | Number of affected rows (not present for `potential_outlier`) |
-| `anomalies[].column` | string | Affected column (not present for `duplicate_rows`) |
+| `anomalies[].count` | int | Number of affected rows (not present for `potential_outlier` / `outlier_check_hint`) |
+| `anomalies[].column` | string | Affected column (not present for `duplicate_rows` / `outlier_check_hint`) |
+| `anomalies[].message` | string | For `outlier_check_hint` (info): names the tables that produced outlier findings and the exact `startDriftViewer(db, staticTables: [...])` snippet to suppress them. Emitted once per scan only when unsuppressed outliers exist; has no `table`/`column`. |
 | `tablesScanned` | int | Number of tables analyzed |
 | `analyzedAt` | string | ISO 8601 UTC timestamp |
 
@@ -1205,7 +1206,7 @@ The list is wrapped in the **Saropa Diagnostic Envelope** — the shared cross-t
 | `title` | string | yes | Localized one-line summary. Same text as `message` today; emitted as the suite-standard field so cross-tool consumers read one key. |
 | `message` | string | yes | Human-readable description (retained for backward compatibility; alias of `title`) |
 | `suggestedSql` | string | no | Ready-to-run SQL: `CREATE INDEX` for index suggestions, `DROP TABLE` for orphan tables |
-| `type` | string | no | Anomalies: `null_values`, `empty_strings`, `orphaned_fk`, `duplicate_rows`, `potential_outlier`. Orphan tables: `orphan_table` |
+| `type` | string | no | Anomalies: `null_values`, `empty_strings`, `orphaned_fk`, `duplicate_rows`, `potential_outlier`, `outlier_check_hint`. Orphan tables: `orphan_table` |
 | `count` | int | no | Anomalies only: number of affected rows (not present for `potential_outlier`) |
 | `priority` | string | no | Index suggestions only: `"high"`, `"medium"`, or `"low"` |
 | `fix` | object | no | Primary action for a table-scoped issue: `{ "kind": "command", "command": "driftViewer.goToDefinitionForTable", "args": [{ "table": "<name>" }], "title": "Go to table definition" }`. A consumer renders this as a button (gated on the command being registered). Absent on issues with no table. |

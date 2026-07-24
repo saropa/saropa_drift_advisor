@@ -21,13 +21,24 @@ final class PerformanceHandler {
   Future<Map<String, dynamic>> getPerformanceData({int slowThresholdMs = 100}) {
     final timings = List<QueryTiming>.of(_ctx.queryTimings);
 
+    // Drop PRAGMA statements from EVERY perf output, including recentQueries.
+    // The schema browser issues one `PRAGMA table_info("<table>")` per table
+    // through the instrumented query path (source:"browser"); browsing a
+    // schema before an export otherwise fills the 50-entry recentQueries
+    // window — and, on a large schema, evicts real app queries from the
+    // 500-entry ring buffer — with the advisor measuring its own
+    // introspection. These are never application workload, so they must not
+    // appear in performance analytics or the exported report.
+    // See bugs/BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md (Finding 2).
+    final workloadTimings = timings.where((t) => !_isIntrospection(t)).toList();
+
     // Exclude extension-internal queries (change-detection probes,
     // sqlite_master lookups, etc.) so the extension's own overhead
     // is not reported as a user-application performance problem.
     // Aggregate stats, slow queries, and patterns all use this
     // filtered list; recentQueries still includes internal queries
     // (tagged via isInternal in JSON) for full visibility.
-    final userTimings = timings.where((t) => !t.isInternal).toList();
+    final userTimings = workloadTimings.where((t) => !t.isInternal).toList();
 
     final totalQueries = userTimings.length;
     final totalDuration = userTimings.fold<int>(
@@ -76,13 +87,23 @@ final class PerformanceHandler {
       'slowThresholdMs': slowThresholdMs,
       'slowQueries': slowQueries.take(20).map((t) => t.toJson()).toList(),
       'queryPatterns': patterns.take(20).toList(),
-      'recentQueries': timings.reversed
+      'recentQueries': workloadTimings.reversed
           .take(50)
           .map((t) => t.toJson())
           .toList(),
     };
     return Future<Map<String, dynamic>>.value(data);
   }
+
+  /// True when a timing records the advisor's own schema introspection rather
+  /// than application workload. Currently that is any `PRAGMA` statement — the
+  /// schema browser's `PRAGMA table_info` sweeps and the handlers that inspect
+  /// column metadata all emit PRAGMAs the developer never wrote. Matching the
+  /// keyword (case-insensitively, after trimming) is sufficient: PRAGMA is the
+  /// only statement kind here that is pure introspection, and it is never a
+  /// legitimate application query the report should surface.
+  static bool _isIntrospection(QueryTiming t) =>
+      t.sql.trimLeft().toUpperCase().startsWith('PRAGMA');
 
   /// GET /api/analytics/performance — returns query timing stats,
   /// slow queries, and patterns.

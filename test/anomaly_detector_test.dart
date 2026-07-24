@@ -355,6 +355,95 @@ void main() {
         expect(outlier['message'], contains('σ from mean'));
       });
 
+      // -------------------------------------------------------
+      // Static-table suppression + discoverability hint
+      // (BUG_EXPORT_PERF_SECTION_FALSE_POSITIVES.md Finding 3)
+      // -------------------------------------------------------
+
+      // The same outlier fixture as above, reused by the next three tests.
+      Future<List<Map<String, dynamic>>> Function(String) outlierFixture() =>
+          _anomalyQuery(
+            tableColumns: {
+              'items': [_col('id', 'INTEGER', pk: 1), _col('price', 'REAL')],
+            },
+            counts: {'items': 50},
+            numericStats: {
+              'items.price': {
+                'avg_val': 10.0,
+                'min_val': 5.0,
+                'max_val': 150.0,
+                'variance': 100.0,
+                'cnt': 50,
+              },
+            },
+          );
+
+      test(
+        'staticTables suppresses potential_outlier for that table',
+        () async {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            outlierFixture(),
+            staticTables: {'items'},
+          );
+
+          final anomalies = (result['anomalies'] as List)
+              .cast<Map<String, dynamic>>();
+          // The outlier is suppressed, so no potential_outlier — and no hint,
+          // since no unsuppressed outlier table remains.
+          expect(
+            anomalies.where((a) => a['type'] == 'potential_outlier'),
+            isEmpty,
+          );
+          expect(
+            anomalies.where((a) => a['type'] == 'outlier_check_hint'),
+            isEmpty,
+          );
+        },
+      );
+
+      test(
+        'outlier on a non-static table emits a discoverability hint',
+        () async {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            outlierFixture(),
+          );
+
+          final anomalies = (result['anomalies'] as List)
+              .cast<Map<String, dynamic>>();
+          // Outlier still reported...
+          expect(
+            anomalies.where((a) => a['type'] == 'potential_outlier'),
+            isNotEmpty,
+          );
+          // ...and exactly one hint names the table and the exact snippet.
+          final hints = anomalies
+              .where((a) => a['type'] == 'outlier_check_hint')
+              .toList();
+          expect(hints, hasLength(1));
+          final message = hints.first['message'] as String;
+          expect(message, contains('items'));
+          expect(message, contains("staticTables: ['items']"));
+        },
+      );
+
+      test('no hint when there are no outliers', () async {
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'items': [_col('id', 'INTEGER', pk: 1)],
+            },
+            counts: {'items': 0},
+          ),
+        );
+
+        final anomalies = (result['anomalies'] as List)
+            .cast<Map<String, dynamic>>();
+        expect(
+          anomalies.where((a) => a['type'] == 'outlier_check_hint'),
+          isEmpty,
+        );
+      });
+
       test('no outlier when range is within 3 sigma', () async {
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(

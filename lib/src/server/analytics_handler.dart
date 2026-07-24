@@ -92,6 +92,7 @@ final class AnalyticsHandler {
         query,
         declaredRelationships: _resolveDeclaredRelationships(),
         suppressions: suppressions,
+        staticTables: _ctx.staticTables,
       );
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
@@ -264,6 +265,7 @@ final class AnalyticsHandler {
           query,
           declaredRelationships: _resolveDeclaredRelationships(),
           suppressions: suppressions,
+          staticTables: _ctx.staticTables,
         );
         if (result.containsKey(ServerConstants.jsonKeyError)) {
           return result;

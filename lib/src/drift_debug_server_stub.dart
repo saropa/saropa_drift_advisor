@@ -53,6 +53,7 @@ mixin DriftDebugServer {
     DeclaredSchemaCallback? declaredSchema,
     DeclaredRelationshipsCallback? declaredRelationships,
     int? declaredSchemaVersion,
+    List<String> staticTables = const <String>[],
     String? snapshotStorePath,
     String? discoveryDirectory,
     bool monitoringEnabled = true,
