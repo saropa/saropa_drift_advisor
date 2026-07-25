@@ -88,7 +88,7 @@ final class SqlHandler {
     } on TimeoutException catch (error, stack) {
       // Statement timeout: log for the host, but return a calm JSON error the
       // client can act on rather than the raw exception text.
-      _ctx.logError(error, stack);
+      _ctx.logError(error, stack, kind: DriftDebugErrorKind.userQuery);
       return <String, String>{
         ServerConstants.jsonKeyError: ServerConstants.errorSqlTimeout,
       };
@@ -231,7 +231,7 @@ final class SqlHandler {
         'indexes': indexes,
       };
     } on TimeoutException catch (error, stack) {
-      _ctx.logError(error, stack);
+      _ctx.logError(error, stack, kind: DriftDebugErrorKind.userQuery);
       return <String, String>{
         ServerConstants.jsonKeyError: ServerConstants.errorSqlTimeout,
       };
@@ -279,7 +279,7 @@ final class SqlHandler {
     try {
       decoded = jsonDecode(body);
     } on Object catch (error, stack) {
-      _ctx.logError(error, stack);
+      _ctx.logError(error, stack, kind: DriftDebugErrorKind.userQuery);
       return (body: null, error: ServerConstants.errorInvalidJson);
     }
     if (decoded is! Map<String, dynamic>) {
@@ -318,7 +318,7 @@ final class SqlHandler {
       }
       body = utf8.decode(bytes);
     } on Object catch (error, stack) {
-      _ctx.logError(error, stack);
+      _ctx.logError(error, stack, kind: DriftDebugErrorKind.userQuery);
       res.statusCode = HttpStatus.badRequest;
       _ctx.setJsonHeaders(res);
       res.write(
@@ -383,7 +383,7 @@ final class SqlHandler {
       return <String, String>{ServerConstants.jsonKeyError: rawMessage};
     }
 
-    _ctx.logError(error, stack);
+    _ctx.logError(error, stack, kind: DriftDebugErrorKind.userQuery);
 
     // Schema-mismatch failures (unknown column, or a reserved word misused as
     // an alias) are the common /api/sql mistakes the source-file checker

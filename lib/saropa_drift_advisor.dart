@@ -34,6 +34,12 @@
 /// * **[DriftDebugOnError]** — Optional callback for
 ///   errors and stack traces. Pass as `onError` to
 ///   [DriftDebugServer.start].
+/// * **[DriftDebugOnClassifiedError]** — Like
+///   [DriftDebugOnError] but includes a
+///   [DriftDebugErrorKind] so the host can route
+///   user-input errors differently from server bugs.
+///   Pass as `onClassifiedError`; when set, `onError`
+///   is not called.
 /// * **[DriftDebugGetDatabaseBytes]** — Optional
 ///   callback that returns the raw SQLite file bytes.
 ///   Pass as `getDatabaseBytes` to enable

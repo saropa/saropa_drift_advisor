@@ -45,6 +45,7 @@ final class ServerContext {
     this.corsOrigin,
     this.onLog,
     this.onError,
+    this.onClassifiedError,
     this.authToken,
     this.basicAuthUser,
     this.basicAuthPassword,
@@ -142,8 +143,13 @@ final class ServerContext {
   /// messages).
   final DriftDebugOnLog? onLog;
 
-  /// Optional error callback.
+  /// Optional error callback (unclassified).
   final DriftDebugOnError? onError;
+
+  /// Optional classified error callback. When set, [logError] calls this
+  /// instead of [onError], passing the [DriftDebugErrorKind] so the host
+  /// can distinguish user-input mistakes from server bugs.
+  final DriftDebugOnClassifiedError? onClassifiedError;
 
   /// Optional Bearer token for auth; stored in memory and
   /// compared constant-time. Null = Bearer auth disabled.
@@ -484,9 +490,16 @@ final class ServerContext {
     if (callback != null) callback(message);
   }
 
-  /// Logs an error via dart:developer and the [onError]
-  /// callback (if set).
-  void logError(Object error, StackTrace stack) {
+  /// Logs an error via dart:developer and the error callback (if set).
+  ///
+  /// [kind] defaults to [DriftDebugErrorKind.server]. When
+  /// [onClassifiedError] is set it receives the classification; otherwise
+  /// the legacy [onError] callback fires without it.
+  void logError(
+    Object error,
+    StackTrace stack, {
+    DriftDebugErrorKind kind = DriftDebugErrorKind.server,
+  }) {
     developer.log(
       error.toString(),
       name: 'DriftDebugServer',
@@ -494,8 +507,13 @@ final class ServerContext {
       stackTrace: stack,
     );
 
-    final callback = onError;
+    final classified = onClassifiedError;
+    if (classified != null) {
+      classified(error, stack, kind);
+      return;
+    }
 
+    final callback = onError;
     if (callback != null) callback(error, stack);
   }
 

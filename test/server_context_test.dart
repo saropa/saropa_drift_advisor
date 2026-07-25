@@ -518,6 +518,38 @@ void main() {
         expect(loggedError, isA<Exception>());
       });
 
+      test('logError calls onClassifiedError instead of onError when set', () {
+        Object? legacyError;
+        Object? classifiedError;
+        DriftDebugErrorKind? receivedKind;
+        final ctx = ServerContext(
+          query: (_) async => <Map<String, dynamic>>[],
+          onError: (error, stack) => legacyError = error,
+          onClassifiedError: (error, stack, kind) {
+            classifiedError = error;
+            receivedKind = kind;
+          },
+        );
+
+        ctx.logError(Exception('test'), StackTrace.current,
+            kind: DriftDebugErrorKind.userQuery);
+        expect(classifiedError, isA<Exception>());
+        expect(receivedKind, DriftDebugErrorKind.userQuery);
+        expect(legacyError, isNull,
+            reason: 'onError must not fire when onClassifiedError is set');
+      });
+
+      test('logError defaults kind to server', () {
+        DriftDebugErrorKind? receivedKind;
+        final ctx = ServerContext(
+          query: (_) async => <Map<String, dynamic>>[],
+          onClassifiedError: (error, stack, kind) => receivedKind = kind,
+        );
+
+        ctx.logError(Exception('test'), StackTrace.current);
+        expect(receivedKind, DriftDebugErrorKind.server);
+      });
+
       test('recordTiming adds entry to queryTimings', () {
         final ctx = ServerContext(query: (_) async => <Map<String, dynamic>>[]);
 

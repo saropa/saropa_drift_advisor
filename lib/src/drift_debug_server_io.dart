@@ -172,6 +172,7 @@ class _DriftDebugServerImpl {
     DriftDebugWriteQueryWithBindings? writeQueryWithBindings,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
+    DriftDebugOnClassifiedError? onClassifiedError,
     Duration? sessionDuration,
     int? maxRequestsPerSecond,
     Set<String>? declaredTableNames,
@@ -210,6 +211,7 @@ class _DriftDebugServerImpl {
         writeQueryWithBindings: writeQueryWithBindings,
         onLog: onLog,
         onError: onError,
+        onClassifiedError: onClassifiedError,
         sessionDuration: sessionDuration,
         maxRequestsPerSecond: maxRequestsPerSecond,
         declaredTableNames: declaredTableNames,
@@ -243,6 +245,7 @@ class _DriftDebugServerImpl {
     DriftDebugWriteQueryWithBindings? writeQueryWithBindings,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
+    DriftDebugOnClassifiedError? onClassifiedError,
     Duration? sessionDuration,
     int? maxRequestsPerSecond,
     Set<String>? declaredTableNames,
@@ -406,6 +409,7 @@ class _DriftDebugServerImpl {
       corsOrigin: corsOrigin,
       onLog: onLog,
       onError: onError,
+      onClassifiedError: onClassifiedError,
       authToken: (authToken != null && authToken.isNotEmpty) ? authToken : null,
       basicAuthUser: basicAuthUser,
       basicAuthPassword: basicAuthPassword,
@@ -907,6 +911,7 @@ mixin DriftDebugServer {
     DriftDebugWriteQueryWithBindings? writeQueryWithBindings,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
+    DriftDebugOnClassifiedError? onClassifiedError,
 
     /// Optional session duration override. Defaults to 1 hour.
     /// Controls how long collaborative shared sessions remain valid
@@ -1001,6 +1006,7 @@ mixin DriftDebugServer {
     writeQueryWithBindings: writeQueryWithBindings,
     onLog: onLog,
     onError: onError,
+    onClassifiedError: onClassifiedError,
     sessionDuration: sessionDuration,
     maxRequestsPerSecond: maxRequestsPerSecond,
     declaredTableNames: declaredTableNames,

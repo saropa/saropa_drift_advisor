@@ -316,6 +316,7 @@ extension StartDriftViewerExtension on Object {
     DriftDebugWriteQueryWithBindings? writeQueryWithBindings,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
+    DriftDebugOnClassifiedError? onClassifiedError,
     // Tables holding static/seed/bundled content: the numeric-outlier scan is
     // suppressed on them (an outlier in immutable seed data can never be a
     // defect). Other anomaly kinds still run. See [DriftDebugServer.start].
@@ -355,6 +356,7 @@ extension StartDriftViewerExtension on Object {
       writeQueryWithBindings: writeQueryWithBindings,
       onLog: onLog,
       onError: onError,
+      onClassifiedError: onClassifiedError,
       staticTables: staticTables,
       monitoringEnabled: monitoringEnabled,
     );

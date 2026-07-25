@@ -26,9 +26,29 @@ typedef DriftDebugQueryWithBindings =
 /// Optional callback for log messages.
 typedef DriftDebugOnLog = void Function(String message);
 
+/// Classifies errors the server reports via the error callback so host apps
+/// can route user-input mistakes differently from genuine server failures.
+enum DriftDebugErrorKind {
+  /// Bad SQL from the user (syntax error, unknown column, timeout on a
+  /// user-authored statement). The server already returned a JSON error
+  /// response to the web client — this is informational.
+  userQuery,
+
+  /// Server-internal error (bind failure, snapshot corruption, request
+  /// handler exception). Warrants halt / crash reporting.
+  server,
+}
+
 /// Optional callback for errors (and optional stack
 /// trace).
 typedef DriftDebugOnError = void Function(Object error, StackTrace stack);
+
+/// Like [DriftDebugOnError] but includes an error classification so the host
+/// can route user-input mistakes (warning log) differently from server bugs
+/// (halt / crash report). When both [DriftDebugOnError] and this callback are
+/// set, only this one fires.
+typedef DriftDebugOnClassifiedError =
+    void Function(Object error, StackTrace stack, DriftDebugErrorKind kind);
 
 /// Optional callback that returns the raw SQLite
 /// database file bytes.

@@ -1,6 +1,6 @@
 # onError callback receives no error classification — host apps cannot distinguish user-input errors from server bugs
 
-## Status: Open
+## Status: Fixed
 
 ## Summary
 
@@ -93,3 +93,50 @@ entirely.
 Low — workaround exists (log all errors at warning level). The risk is a genuine
 server bug going unnoticed in the console noise, which is a developer-experience
 degradation, not a user-facing defect.
+
+## Finish Report (2026-07-25)
+
+### Resolution
+
+Error classification was added via a parallel callback rather than by widening
+the existing `DriftDebugOnError` typedef. The proposed-fix approach of changing
+`DriftDebugOnError` to `void Function(Object, StackTrace, {DriftDebugErrorKind kind})`
+is **not** source-compatible in Dart: a host closure written as
+`(Object e, StackTrace s) => ...` cannot be assigned to a type declaring a
+named parameter, so every existing caller would fail to compile. The backward-
+compatibility claim in the original proposal was wrong for that reason; the
+report's own fallback (a separate callback) was taken instead.
+
+### Changes
+
+- `server_typedefs.dart`: added `DriftDebugErrorKind` enum (`userQuery`,
+  `server`) and `DriftDebugOnClassifiedError` typedef.
+- `server_context.dart`: added optional `onClassifiedError` field. `logError`
+  now takes an optional `kind:` (default `DriftDebugErrorKind.server`). When
+  `onClassifiedError` is set it fires with the kind and `onError` is skipped;
+  otherwise the legacy `onError` path is unchanged.
+- `sql_handler.dart`: five user-input error sites tagged `userQuery` — the two
+  statement-timeout catches, the query-error handler, JSON-decode failure, and
+  request-body decode failure.
+- `drift_debug_server_io.dart` / `start_drift_viewer_extension.dart`: threaded
+  `onClassifiedError` through all three `start` overloads, `_startInternal`,
+  the `ServerContext` constructor, and `startDriftViewer`.
+- `error_logger.dart`: added `classifiedErrorCallback()` factory routing
+  `userQuery` to info-level logging and `server` to SEVERE with stack traces.
+
+### Classification boundary
+
+The ~45 other `logError` sites across the server default to `server` and were
+left unclassified. The `SqlErrorEnricher.enrich` `onError` tear-off intentionally
+reports at the default `server` level: it signals a failure of the internal
+column-suggestion PRAGMA lookup, not the user's original query (which is already
+logged as `userQuery` immediately before enrichment). Write-path handlers
+(`cell_update_handler`, `edits_batch_handler`, `index_batch_handler`) still
+report unclassified; extending classification to constraint-violation errors
+there is a follow-up, not part of this fix.
+
+### Verification
+
+`dart test test/server_context_test.dart test/sql_handler_test.dart` — all pass.
+Two tests added in `server_context_test.dart`: classified-callback priority over
+`onError`, and the `server` default kind.

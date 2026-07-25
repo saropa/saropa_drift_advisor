@@ -1,5 +1,7 @@
 import 'dart:developer' as developer;
 
+import 'server/server_typedefs.dart';
+
 /// True when not a product build; used to avoid emitting stack traces in release
 ///  (avoid_stack_trace_in_production).
 bool _isDebugEnvironment() =>
@@ -130,6 +132,26 @@ abstract final class DriftDebugErrorLogger {
           error: e,
           stackTrace: _isDebugEnvironment() ? st : null,
         );
+      }
+    };
+  }
+
+  /// Creates a [DriftDebugOnClassifiedError]-compatible callback that routes
+  /// errors by [DriftDebugErrorKind]. User-query errors log at info level;
+  /// server errors log at SEVERE level with stack traces in debug builds.
+  static DriftDebugOnClassifiedError classifiedErrorCallback({
+    String prefix = defaultPrefix,
+    bool includeStack = true,
+  }) {
+    final serverCb = errorCallback(prefix: prefix, includeStack: includeStack);
+    final logCb = logCallback(prefix: prefix);
+
+    return (Object error, StackTrace stack, DriftDebugErrorKind kind) {
+      switch (kind) {
+        case DriftDebugErrorKind.userQuery:
+          logCb('User query error: $error');
+        case DriftDebugErrorKind.server:
+          serverCb(error, stack);
       }
     };
   }
