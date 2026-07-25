@@ -147,11 +147,14 @@ abstract final class DriftDebugErrorLogger {
     final logCb = logCallback(prefix: prefix);
 
     return (Object error, StackTrace stack, DriftDebugErrorKind kind) {
-      switch (kind) {
-        case DriftDebugErrorKind.userQuery:
-          logCb('User query error: $error');
-        case DriftDebugErrorKind.server:
-          serverCb(error, stack);
+      // Binary void dispatch (not a value mapping): user-query errors are
+      // expected input mistakes → quiet info log; anything else is treated as
+      // a server fault → SEVERE with stack. A future non-server kind would
+      // fall through to the server branch, which is the safe (louder) default.
+      if (kind == DriftDebugErrorKind.userQuery) {
+        logCb('User query error: $error');
+      } else {
+        serverCb(error, stack);
       }
     };
   }

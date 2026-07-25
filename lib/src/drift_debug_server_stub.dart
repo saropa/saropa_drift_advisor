@@ -5,6 +5,7 @@
 export 'server/server_typedefs.dart';
 
 import 'server/server_types.dart';
+import 'server/server_typedefs.dart';
 
 /// Unsupported-error message when VM (dart:io) is not available.
 const String _kUnsupportedMessage =
@@ -47,6 +48,8 @@ mixin DriftDebugServer {
     writeQueryWithBindings,
     void Function(String message)? onLog,
     void Function(Object error, StackTrace stack)? onError,
+    void Function(Object error, StackTrace stack, DriftDebugErrorKind kind)?
+    onClassifiedError,
     Duration? sessionDuration,
     int? maxRequestsPerSecond,
     Set<String>? declaredTableNames,
