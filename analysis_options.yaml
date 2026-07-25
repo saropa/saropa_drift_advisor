@@ -8,6 +8,14 @@ formatter:
 
 analyzer:
   exclude:
+    - "bugs/**"
+    - "doc/**"
+    - "docs/**"
+    - "output/**"
+    - "plans/**"
+    - "reports/**"
+    - "tmp/**"
+
     - "**/*.bak"
     - "**/*.g.dart"
     - ".dart_tool/**"
@@ -47,7 +55,8 @@ linter:
 
 plugins:
   saropa_lints:
-    version: "14.3.7"
+    version: "14.3.8"
+    log_level: info # off | error | warning | info | debug
     rule_packs:
       enabled:
         - collection_compat

@@ -531,12 +531,18 @@ void main() {
           },
         );
 
-        ctx.logError(Exception('test'), StackTrace.current,
-            kind: DriftDebugErrorKind.userQuery);
+        ctx.logError(
+          Exception('test'),
+          StackTrace.current,
+          kind: DriftDebugErrorKind.userQuery,
+        );
         expect(classifiedError, isA<Exception>());
         expect(receivedKind, DriftDebugErrorKind.userQuery);
-        expect(legacyError, isNull,
-            reason: 'onError must not fire when onClassifiedError is set');
+        expect(
+          legacyError,
+          isNull,
+          reason: 'onError must not fire when onClassifiedError is set',
+        );
       });
 
       test('logError defaults kind to server', () {
