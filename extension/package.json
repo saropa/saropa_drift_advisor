@@ -1922,9 +1922,9 @@
     "@types/sinon": "^22.0.0",
     "@types/vscode": "^1.115.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.1.0",
+    "lint-staged": "^17.2.0",
     "mocha": "^11.7.6",
-    "sinon": "^22.0.0",
+    "sinon": "^22.1.0",
     "typescript": "^7.0.2"
   }
 }
