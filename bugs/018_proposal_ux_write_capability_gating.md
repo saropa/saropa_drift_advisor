@@ -54,7 +54,7 @@ Today's experience on a read-only server: the user picks **Seed Test Data**, con
 says "This will modify your database", and gets an HTTP error string with no explanation that the
 app never wired a write callback. `createAllIndexes` is worse — it reports
 `Created 0 index(es), 12 failed.` with the errors swallowed (see
-`001_proposal_ux_index_apply_with_timing.md`).
+`plans/history/2026.09/20260902/001_proposal_ux_index_apply_with_timing.md`).
 
 ---
 

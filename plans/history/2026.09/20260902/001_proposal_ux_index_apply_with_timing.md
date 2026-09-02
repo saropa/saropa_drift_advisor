@@ -1,6 +1,6 @@
 # PROPOSAL: One-Click Index Apply with Before/After Timing (extension currently cannot create any index)
 
-**Status: Fix Ready**
+**Status: Fixed**
 
 Created: 2026-09-02
 Type: UX improvement
