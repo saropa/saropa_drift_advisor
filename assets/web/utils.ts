@@ -3,12 +3,24 @@
  * No shared state dependencies — these are safe to import anywhere.
  */
 
-/** HTML-escape a string for safe insertion into innerHTML. */
+/**
+ * HTML-escape for BOTH text and attribute contexts.
+ *
+ * BUG FIX: the previous textContent -> innerHTML round-trip escaped only
+ * & < > — the HTML serializer never escapes quotes inside a text node — so
+ * any value containing a double quote broke out of `attr="..."` and the rest
+ * of the value was parsed as further attributes (event-handler injection).
+ * Escaping the quotes explicitly closes that hole for all ~325 call sites at
+ * once, rather than auditing each sink for text-vs-attribute position.
+ */
 export function esc(s: unknown): string {
   if (s == null) return '';
-  const d = document.createElement('div');
-  d.textContent = String(s);
-  return d.innerHTML;
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**

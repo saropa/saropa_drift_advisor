@@ -1,6 +1,6 @@
 # BUG: `POST /api/import` with `format: "sql"` executes arbitrary unvalidated SQL (DROP/ATTACH/PRAGMA)
 
-**Status: Open**
+**Status: Fix Ready**
 
 Created: 2026-09-02
 Component: Server
@@ -159,7 +159,23 @@ loop over `_splitSqlStatements(data)` calling `writeQuery('$stmt;')`. The functi
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+Implemented step 1 of the fix sketch only (per-statement validation). Steps 2–4
+(per-statement table-match check, transaction wrapping, `allowRawSqlImport`
+opt-in flag) are deferred follow-ups, not part of this change.
+
+- `lib/src/drift_debug_import.dart`: imported `SqlValidator`
+  (`lib/src/server/sql_validator.dart`). In `_importSql`, each statement
+  produced by `_splitSqlStatements` is now checked with
+  `SqlValidator.isSingleDataMutationSql(stmt)` before execution. A statement
+  that fails validation (DDL, `ATTACH`, `PRAGMA`, multi-statement, or anything
+  that isn't a single `INSERT INTO` / `UPDATE` / `DELETE FROM`) is appended to
+  the `errors` list and skipped — `writeQuery` is never called for it.
+- This closes the immediate arbitrary-SQL-execution hole: `DROP TABLE`,
+  `ATTACH DATABASE`, `PRAGMA journal_mode=...` etc. are now rejected before
+  reaching the write callback. The `table` field is still not cross-checked
+  against each statement's target table (step 2, deferred) — an import
+  request scoped to `users` can still `UPDATE`/`DELETE`/`INSERT` a different
+  table, as long as the statement itself is valid single-statement DML.
 
 ---
 

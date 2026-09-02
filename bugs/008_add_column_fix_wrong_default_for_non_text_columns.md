@@ -1,6 +1,6 @@
 # BUG: Generated migration adds `NOT NULL DEFAULT ''` to INTEGER/REAL/BLOB columns, corrupting existing rows
 
-**Status: Open**
+**Status: Fix Ready**
 
 Created: 2026-09-02
 Component: Extension
@@ -164,36 +164,31 @@ defect has never surfaced in CI.
 
 ## Root Cause
 
-`migration-codegen.ts:196-197`:
+`migration-codegen.ts:196-197` (pre-fix):
 
 ```ts
 const nullable = action.nullable ?? true;
 const suffix = nullable ? '' : " NOT NULL DEFAULT ''";
 ```
 
-`action.newType` is available on the same object (it is interpolated two lines below) but is not consulted when choosing the default. The empty string was presumably chosen as "a value that satisfies NOT NULL" without accounting for SQLite type affinity, which does not coerce `''` to `0` / `0.0` / `x''`.
+`action.newType` is available on the same object (it is interpolated two lines below) but was not consulted when choosing the default. The empty string was presumably chosen as "a value that satisfies NOT NULL" without accounting for SQLite type affinity, which does not coerce `''` to `0` / `0.0` / `x''`.
 
-**Fix sketch**
+---
 
-1. Choose the default from `action.newType`:
+## Changes Made
 
-   ```ts
-   // SQLite type affinity will NOT coerce '' to a number: an INTEGER column
-   // backfilled with '' stores TEXT, and Drift's generated mapper then throws
-   // on the first read. Pick a literal of the column's own affinity.
-   function defaultLiteralFor(sqlType: string): string {
-     switch (sqlType.toUpperCase()) {
-       case 'INTEGER': case 'BOOLEAN': return '0';
-       case 'REAL':    return '0.0';
-       case 'BLOB':    return "x''";
-       default:        return "''";   // TEXT and unknown affinities
-     }
-   }
-   ```
+- `extension/src/migration-gen/migration-codegen.ts`: added `defaultLiteralForSqlType(sqlType)`, mapping `TEXT` -> `''`, `INTEGER`/`BOOLEAN` -> `0`, `REAL` -> `0.0`, `BLOB` -> `x''`, and any other/unrecognized type -> `null`. `generateAddColumn` now:
+  - Emits no `DEFAULT` clause at all for nullable columns (previously emitted `${action.newType}` with an empty suffix — no behavior change there, just now an explicit early return rather than string-concatenating an empty suffix).
+  - For non-nullable columns with a recognized type, emits `NOT NULL DEFAULT <type-appropriate literal>` plus a `// TODO` comment noting the value is a sentinel, not a real value, and should be reviewed.
+  - For non-nullable columns with an unrecognized/ambiguous type, emits `NOT NULL` with **no** default and a `// TODO` comment telling the reviewer to add `DEFAULT <value>` manually — avoids guessing wrong the same way the original bug did.
+- `extension/src/test/migration-codegen.test.ts`: added regression cases for INTEGER, BOOLEAN, REAL, BLOB defaults, the unrecognized-type TODO fallback, and confirmed nullable columns still get no `NOT NULL`/`DEFAULT` clause.
+- `CHANGELOG.md`: added a `[Unreleased]` **Fixed** entry describing the corruption and the fix.
+- Not implemented (deferred, out of scope for this fix): the bug report's suggestion to special-case `DateTimeColumn` with `strftime('%s','now')`. `DateTimeColumn` compiles to SQL type `INTEGER` in this codebase's schema-diff layer, so it currently gets the generic INTEGER default (`0`, i.e. epoch) plus the generic sentinel TODO comment — which is a safe, non-corrupting value, just not a "real" timestamp. A dedicated DateTime-aware default would need to distinguish `DateTimeColumn` from plain `IntColumn` earlier in the pipeline (schema-diff/dart-schema), which is a bigger change than this bug's scope.
 
-2. Emit a `// TODO:` comment above every backfilled column reminding the reviewer that `0` is a *sentinel*, not a real value - a non-nullable column added to a populated table has no correct default, only a survivable one. The file already leads with "review before using!", but a per-column marker is what makes it actionable.
-3. For `DateTimeColumn` specifically, `0` means 1970-01-01; consider emitting `strftime('%s','now')` (or the TEXT ISO form when `store_date_time_values_as_text` is set - see `024_column_type_drift_false_positive_datetime_as_text.md`) and flagging it in the TODO.
-4. Test: `extension/src/test/migration-codegen.test.ts` currently has no case asserting the default literal per type. Add one per affinity.
+## Verification
+
+- `npx tsc --noEmit -p extension/tsconfig.json` — no errors in `migration-codegen.ts` or its test file (one pre-existing unrelated error surfaced in `editing-bridge.ts` from concurrent work on a different bug; not touched here).
+- `cd extension && npx tsc -p ./ && node --max-old-space-size=4096 node_modules/mocha/bin/mocha.js --require test/register-mock.js --reporter min out/test/migration-codegen.test.js` — all tests passing, including the 6 new cases added for this fix.
 
 ---
 

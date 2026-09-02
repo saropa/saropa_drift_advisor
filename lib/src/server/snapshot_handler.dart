@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'blob_safe_select.dart';
 import 'server_constants.dart';
 import 'server_context.dart';
 import 'server_utils.dart';
@@ -36,9 +37,14 @@ final class SnapshotHandler {
       final tables = await ServerUtils.getTableNames(query);
       final Map<String, List<Map<String, dynamic>>> data = {};
       for (final table in tables) {
-        final List<Map<String, dynamic>> rows = await query(
-          'SELECT * FROM ${ServerUtils.quoteIdent(table)}',
-        );
+        // BLOB-safe + row-capped: an unbounded `SELECT *` here materialized
+        // every BLOB byte and every row of every table into this isolate,
+        // the same OOM defect fixed for the extension's TS capture sweeps in
+        // v4.1.17 (see bugs/005_infra_snapshot_capture_select_star_blob_oom.md).
+        // BlobSafeSelect.buildQuery replaces BLOB columns with their byte
+        // length and caps rows at ServerConstants.maxSqlResultRows.
+        final sql = await BlobSafeSelect.buildQuery(query, table);
+        final List<Map<String, dynamic>> rows = await query(sql);
         data[table] = rows.map((r) => Map<String, dynamic>.from(r)).toList();
       }
 
@@ -226,9 +232,12 @@ final class SnapshotHandler {
         final rowsThen = fromSnap.tables[table] ?? [];
         final rowsNowList = toSnap == null
             ? (tablesNow.contains(table)
+                  // Same BLOB-safe + row-capped read as handleSnapshotCreate
+                  // above — the live-DB compare target hit the identical
+                  // unbounded `SELECT *` OOM risk.
                   ? ServerUtils.normalizeRows(
                       await query(
-                        'SELECT * FROM ${ServerUtils.quoteIdent(table)}',
+                        await BlobSafeSelect.buildQuery(query, table),
                       ),
                     )
                   : <Map<String, dynamic>>[])

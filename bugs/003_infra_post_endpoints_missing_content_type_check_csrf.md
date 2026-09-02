@@ -1,6 +1,6 @@
 # BUG: Only `/api/sql` enforces `Content-Type: application/json`; every other POST endpoint is cross-site forgeable
 
-**Status: Open**
+**Status: Fix Ready**
 
 Created: 2026-09-02
 Component: Server
@@ -138,23 +138,45 @@ unaffected; the fix must land in `lib/src/`.
 The `Content-Type` check was added to `SqlHandler` in isolation and never lifted to a shared
 pre-dispatch guard, so each handler independently omits it.
 
-**Proposed fix sketch:**
-
-1. Add `ServerUtils.requireJsonContentType(HttpRequest) -> bool` (or a `_ctx.rejectNonJson(...)`
-   helper) and call it from a single place: in `Router._dispatch`, immediately after the
-   rate-limit gate, for `request.method == POST || PUT`. One gate is cheaper to keep correct than
-   nine handler-local checks.
-2. Additionally reject a request carrying an `Origin` header that does not equal the configured
-   `corsOrigin` (and reject any `Origin` at all when `corsOrigin` is null, the secure default) —
-   this closes the vector even for a future endpoint that legitimately accepts another mime type.
-3. Add a regression test in `test/handler_integration_test.dart` posting `text/plain` to each
-   mutating endpoint and asserting `415` / `400` and that no write occurred.
+A single blanket gate in `Router._dispatch` for every `POST`/`PUT` (the originally proposed
+fix sketch, option 1) turns out to be unsafe: several POST endpoints in this router never read a
+body at all — `/api/dvr/start`, `/api/dvr/stop`, `/api/dvr/pause` — and their only caller (the VS
+Code extension, `extension/src/api-client-http-dvr.ts`) never sets a `Content-Type` header on
+those bodyless requests (confirmed: every call site that DOES send a body, in both the extension
+and the bundled web viewer `assets/web/bundle.js`, always sets
+`'Content-Type': 'application/json'` alongside `body: JSON.stringify(...)`). A blanket gate would
+415 those legitimate bodyless requests. `/api/session/{id}/extend` similarly drains but never
+JSON-decodes its body, so it was deliberately left out of scope too.
 
 ---
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+Added the check as a shared helper called explicitly from each of the 9 affected route branches,
+rather than one blanket pre-dispatch gate (see Root Cause for why blanket gating is unsafe here):
+
+- `lib/src/server/server_utils.dart` — new `ServerUtils.hasJsonContentType(HttpRequest)`, a pure
+  static helper mirroring `SqlHandler.parseSqlBody`'s existing check (`mimeType ==
+  'application/json'`, missing header also rejected).
+- `lib/src/server/server_context.dart` — new `ServerContext.sendUnsupportedMediaType(HttpResponse)`
+  sends the `415` JSON error envelope, modeled on the existing `sendPayloadTooLarge` (`413`)
+  helper.
+- `lib/src/server/server_constants.dart` — new `ServerConstants.errorUnsupportedMediaType`
+  message constant (`'Content-Type must be application/json'`, same text `SqlHandler` already
+  used inline).
+- `lib/src/server/router.dart` — new private `Router._rejectNonJsonBody(request, response)`
+  helper (checks `hasJsonContentType`, sends 415 and returns `true` when it fails), called from
+  the POST branches for exactly the 9 endpoints named in this report: `/api/cell/update`,
+  `/api/edits/apply`, `/api/indexes/apply`, `/api/import`, `/api/snapshot` (create),
+  `/api/session/share`, `/api/monitoring`, `/api/change-detection`, `/api/activity/capture`.
+  `/api/indexes/preview` (shares `_routeWriteApi` with `/api/indexes/apply` but performs no write)
+  and the bodyless/non-JSON-decoding endpoints above were left untouched.
+
+`dart analyze lib/src/server/router.dart` reports no issues.
+
+The report's item 2 (reject requests carrying a mismatched `Origin` header) and item 3 (a
+regression test posting `text/plain` to each endpoint) are **not** implemented in this pass —
+tracked as follow-up, not closed by this fix.
 
 ---
 

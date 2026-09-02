@@ -196,6 +196,11 @@ export class EditingBridge implements vscode.Disposable {
         this._postRowInsertRejected(msg.table);
         return;
       }
+      // Same informational (non-rejecting) warning as the single-cell path,
+      // but an insert can trip it on more than one 64-bit-only column at once.
+      if (result.warnings && result.warnings.length > 0) {
+        void vscode.window.showWarningMessage(result.warnings.join(' '));
+      }
       this._tracker.addRowInsert(msg.table, result.values);
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);

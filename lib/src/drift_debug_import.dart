@@ -1,6 +1,12 @@
 import 'dart:convert';
 
 import 'drift_debug_import_result.dart';
+// Validates raw SQL statements before execution. Every other write path in
+// the server (batch edits, index creation) gates through this validator;
+// `_importSql` previously executed unvalidated SQL, allowing DROP/ATTACH/
+// PRAGMA against the developer's live database. See
+// bugs/002_infra_import_sql_format_executes_arbitrary_sql.md.
+import 'server/sql_validator.dart';
 
 export 'drift_debug_import_result.dart';
 
@@ -232,6 +238,17 @@ final class DriftDebugImportProcessor {
     final errors = <String>[];
 
     for (final stmt in statements) {
+      // Gate every statement through the same single-statement, DML-only
+      // validator used by the extension's batch-edit path. Without this, a
+      // SQL-format import executed arbitrary statements verbatim — DROP
+      // TABLE, ATTACH DATABASE, PRAGMA — against the connected app's live
+      // database. Invalid statements are recorded as errors and skipped,
+      // never executed.
+      if (!SqlValidator.isSingleDataMutationSql(stmt)) {
+        errors.add('Statement rejected (not a valid data mutation): $stmt');
+        continue;
+      }
+
       try {
         await writeQuery('$stmt;');
         imported++;

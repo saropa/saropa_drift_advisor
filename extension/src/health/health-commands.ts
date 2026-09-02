@@ -8,6 +8,7 @@ import { HealthScorer } from './health-scorer';
 import { HealthPanel } from './health-panel';
 import { IndexSuggestionsPanel } from './index-suggestions-panel';
 import { AnomaliesPanel } from './anomalies-panel';
+import { createAllIndexesCommand } from './index-apply';
 
 /** Register the health score command and action commands. */
 export function registerHealthCommands(
@@ -78,31 +79,21 @@ export function registerHealthCommands(
     vscode.commands.registerCommand(
       'driftViewer.createAllIndexes',
       async (args?: { indexes?: IndexSuggestion[] }) => {
-        const indexes = args?.indexes ?? await client.indexSuggestions();
-        if (indexes.length === 0) {
-          vscode.window.showInformationMessage('No missing indexes to create.');
-          return;
+        try {
+          // Bug 001: this used to post CREATE INDEX SQL to client.sql() ->
+          // POST /api/sql, which the read-only validator rejects for
+          // everything but SELECT/WITH, so every index failed behind a bare
+          // catch. createAllIndexesCommand wires the same preview/apply
+          // endpoints the browser viewer uses and surfaces real errors.
+          const indexes = args?.indexes ?? await client.indexSuggestions();
+          await createAllIndexesCommand(client, indexes);
+        } catch (err: unknown) {
+          // Top-level guard for failures createAllIndexesCommand itself does
+          // not catch (e.g. the initial indexSuggestions() fetch) — no bare
+          // catch here, per the bug this command is fixing.
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Create indexes failed: ${msg}`);
         }
-        const confirm = await vscode.window.showWarningMessage(
-          `Create ${indexes.length} index(es)? This will modify your database.`,
-          { modal: true },
-          'Create Indexes',
-        );
-        if (confirm !== 'Create Indexes') return;
-
-        let created = 0;
-        let failed = 0;
-        for (const idx of indexes) {
-          try {
-            await client.sql(idx.sql);
-            created++;
-          } catch {
-            failed++;
-          }
-        }
-        vscode.window.showInformationMessage(
-          `Created ${created} index(es)${failed > 0 ? `, ${failed} failed` : ''}.`,
-        );
       },
     ),
   );

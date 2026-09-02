@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { PendingChange } from '../editing/change-tracker';
-import { generateSql, generateSqlStatements } from '../editing/sql-generator';
+import { generateSql, generateSqlStatements, sqlLiteral } from '../editing/sql-generator';
 
 describe('generateSql', () => {
   it('should return a comment for empty changes', () => {
@@ -173,5 +173,36 @@ describe('generateSql', () => {
     const sql = generateSql(changes);
     assert.ok(sql.includes("'Alice'"));
     assert.ok(sql.includes('NULL'));
+  });
+
+  // Regression coverage for bug 007: an INTEGER value above
+  // Number.MAX_SAFE_INTEGER (2^53) must reach SQL exactly, not rounded by a
+  // JS-number round trip. `sqlite-cell-value.ts` wraps such values in a
+  // RawIntegerLiteral; sqlLiteral must emit the digits unquoted.
+  it('sqlLiteral emits a RawIntegerLiteral as an unquoted number literal', () => {
+    assert.strictEqual(
+      sqlLiteral({ rawInteger: '9007199254740993' }),
+      '9007199254740993',
+    );
+    assert.strictEqual(
+      sqlLiteral({ rawInteger: '-72057594037927937' }),
+      '-72057594037927937',
+    );
+  });
+
+  it('generateSql round-trips a 64-bit-only INTEGER cell edit exactly', () => {
+    const changes: PendingChange[] = [
+      {
+        kind: 'cell', id: '14', table: 'messages', pkColumn: 'id',
+        pkValue: 1, column: 'remote_id', oldValue: 1,
+        // 2^53 + 1: the smallest integer a JS `number` cannot represent exactly.
+        newValue: { rawInteger: '9007199254740993' }, timestamp: 0,
+      },
+    ];
+    const sql = generateSql(changes);
+    assert.ok(
+      sql.includes('SET "remote_id" = 9007199254740993'),
+      'Expected the exact 64-bit digit string, not a rounded double',
+    );
   });
 });

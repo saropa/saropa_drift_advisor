@@ -705,6 +705,19 @@ abstract final class ServerConstants {
   static const String errorPayloadTooLarge =
       'Request body too large (limit 64 MiB).';
   static const String errorInvalidJson = 'Invalid JSON';
+
+  /// Returned by the router when a POST request to a JSON-body-mutating
+  /// endpoint declares a Content-Type mime type other than
+  /// `application/json` (bug 003: only `SqlHandler.parseSqlBody` used to
+  /// enforce this). A cross-origin HTML form with `enctype="text/plain"` —
+  /// a CORS-safelisted content type, so no preflight is issued — can produce
+  /// a body that is valid JSON, letting a page on any origin drive a
+  /// mutating endpoint with no user interaction. Rejecting anything but the
+  /// exact JSON mime type forces a genuine cross-origin JSON POST through a
+  /// CORS preflight instead, which this server has no route for (404),
+  /// blocking the request before any handler runs.
+  static const String errorUnsupportedMediaType =
+      'Content-Type must be application/json';
   static const String errorMissingSql = 'Missing or empty sql';
 
   /// Returned by POST /api/sql (and /explain) when execution exceeds

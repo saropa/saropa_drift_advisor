@@ -275,6 +275,31 @@ final class Router {
     return false;
   }
 
+  /// Rejects a POST request whose declared Content-Type mime type is not
+  /// `application/json`, sending 415 and returning true (request handled).
+  /// Returns false when the Content-Type is acceptable, so the caller should
+  /// proceed to its normal handler.
+  ///
+  /// Bug 003: `SqlHandler.parseSqlBody` was the only place this check
+  /// existed, so a cross-origin HTML form with `enctype="text/plain"` (a
+  /// CORS-safelisted content type — no preflight) could drive every other
+  /// JSON-body-mutating endpoint. This helper is called from each affected
+  /// route branch below (rather than from one blanket pre-dispatch gate)
+  /// because several POST endpoints in this router — `/api/dvr/start`,
+  /// `/api/dvr/stop`, `/api/dvr/pause`, `/api/session/{id}/extend` — never
+  /// read a body and legitimate callers do not set Content-Type on those
+  /// bodyless requests; gating every POST unconditionally would 415 them.
+  Future<bool> _rejectNonJsonBody(
+    HttpRequest request,
+    HttpResponse response,
+  ) async {
+    if (ServerUtils.hasJsonContentType(request)) {
+      return false;
+    }
+    await _ctx.sendUnsupportedMediaType(response);
+    return true;
+  }
+
   // -------- Pre-DB route group --------
 
   /// Routes health, generation, and change-detection
@@ -369,6 +394,9 @@ final class Router {
         return true;
       }
       if (request.method == ServerConstants.methodPost) {
+        // Bug 003: reject a non-JSON body before it reaches the handler —
+        // see [_rejectNonJsonBody].
+        if (await _rejectNonJsonBody(request, response)) return true;
         await _handleSetChangeDetection(request);
 
         return true;
@@ -387,6 +415,9 @@ final class Router {
         return true;
       }
       if (request.method == ServerConstants.methodPost) {
+        // Bug 003: reject a non-JSON body before it reaches the handler —
+        // see [_rejectNonJsonBody].
+        if (await _rejectNonJsonBody(request, response)) return true;
         await _handleSetMonitoring(request);
 
         return true;
@@ -450,6 +481,9 @@ final class Router {
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiActivityCapture ||
             path == ServerConstants.pathApiActivityCaptureAlt)) {
+      // Bug 003: reject a non-JSON body before it reaches the handler — see
+      // [_rejectNonJsonBody].
+      if (await _rejectNonJsonBody(request, response)) return true;
       await _handleActivityCapture(request);
 
       return true;
@@ -800,6 +834,11 @@ final class Router {
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiSnapshot ||
             path == ServerConstants.pathApiSnapshotAlt)) {
+      // Bug 003: reject a non-JSON body before it reaches the handler — see
+      // [_rejectNonJsonBody]. Every legitimate caller sends
+      // Content-Type: application/json even for the empty-label case
+      // (assets/web/bundle.js), so this cannot reject a real request.
+      if (await _rejectNonJsonBody(request, response)) return true;
       await _snapshot.handleSnapshotCreate(request, response, query);
 
       return true;
@@ -1006,12 +1045,18 @@ final class Router {
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiCellUpdate ||
             path == ServerConstants.pathApiCellUpdateAlt)) {
+      // Bug 003: reject a non-JSON body before it reaches the handler — see
+      // [_rejectNonJsonBody].
+      if (await _rejectNonJsonBody(request, response)) return true;
       await _cellUpdate.handleCellUpdate(request);
       return true;
     }
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiEditsApply ||
             path == ServerConstants.pathApiEditsApplyAlt)) {
+      // Bug 003: reject a non-JSON body before it reaches the handler — see
+      // [_rejectNonJsonBody].
+      if (await _rejectNonJsonBody(request, response)) return true;
       await _editsBatch.handleApplyBatch(request);
       return true;
     }
@@ -1026,12 +1071,20 @@ final class Router {
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiIndexesApply ||
             path == ServerConstants.pathApiIndexesApplyAlt)) {
+      // Bug 003: reject a non-JSON body before it reaches the handler — see
+      // [_rejectNonJsonBody]. (The read-only /api/indexes/preview branch
+      // above is deliberately NOT gated — it validates SQL but never writes,
+      // and is out of scope for the bug's forgeable-write list.)
+      if (await _rejectNonJsonBody(request, response)) return true;
       await _indexBatch.handleApply(request);
       return true;
     }
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiImport ||
             path == ServerConstants.pathApiImportAlt)) {
+      // Bug 003: reject a non-JSON body before it reaches the handler — see
+      // [_rejectNonJsonBody].
+      if (await _rejectNonJsonBody(request, response)) return true;
       await _import.handleImport(request);
 
       return true;
@@ -1054,6 +1107,9 @@ final class Router {
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiSessionShare ||
             path == ServerConstants.pathApiSessionShareAlt)) {
+      // Bug 003: reject a non-JSON body before it reaches the handler — see
+      // [_rejectNonJsonBody].
+      if (await _rejectNonJsonBody(request, response)) return true;
       await _session.handleSessionShare(request);
 
       return true;

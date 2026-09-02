@@ -32,7 +32,19 @@ export { extractClassBody } from './dart-parser-utils';
 // These patterns encode knowledge of Drift/Dart table class syntax and stay
 // in this file (not in the generic utils module).
 
-const TABLE_CLASS_PATTERN = /class\s+(\w+)\s+extends\s+Table\s*\{/g;
+// Dart class-header grammar allows optional `with <mixins>` and
+// `implements <interfaces>` clauses between the superclass and the class
+// body, in that order, both optional (and Drift's own docs recommend a
+// mixin for sharing audit columns like createdAt/updatedAt across tables,
+// so the bare `extends Table {` form is not even the common case). The
+// previous pattern anchored `Table` directly to `\{`, so any class using a
+// mixin or `implements` was invisible to every diagnostic, migration
+// generator, and schema diff (bug 006). `\b` after `Table` prevents an
+// accidental match on `extends TableCompanion` or similar. `[\s\S]+?` (not
+// `.+?`) lets the clause list span a formatter-wrapped line break, e.g.
+// `class Foo extends Table\n    with TimestampMixin {`.
+const TABLE_CLASS_PATTERN =
+  /class\s+(\w+)\s+extends\s+Table\b(?:\s+(?:with|implements)\s+[\s\S]+?)?\s*\{/g;
 const COLUMN_PATTERN = /(\w+Column)\s+get\s+(\w+)\s*=>\s*([^;]+);/g;
 const TABLE_NAME_RE =
   /String\s+get\s+tableName\s*=>\s*['"](\w+)['"]/;
@@ -48,6 +60,13 @@ const INDEX_GETTER_RE = /List<Index>\s+get\s+indexes\s*=>/;
 const UNIQUE_KEYS_GETTER_RE = /List<Set<Column>>\s+get\s+uniqueKeys\s*=>/;
 const INDEX_CALL_RE =
   /(UniqueIndex|Index)\s*\(\s*['"]([^'"]+)['"]\s*,\s*columns:\s*\[/g;
+// Drift's natural/composite primary-key idiom: `Set<Column> get primaryKey
+// => {col1, col2};`. Note this is a bare `Set<Column>`, not the
+// `List<Set<Column>>` that `uniqueKeys` uses, so it needs its own getter
+// pattern and its own `{`-balanced extraction below (bug 010: this getter
+// was never parsed at all, so `autoIncrement` was the only primary-key
+// signal reaching the migration generator).
+const PRIMARY_KEY_GETTER_RE = /Set<Column>\s+get\s+primaryKey\s*=>/;
 
 /**
  * Parses `Index(...)` / `UniqueIndex(...)` entries from the body of `indexes => [ ... ]`.
@@ -82,6 +101,36 @@ export function parseDriftUniqueKeySets(listInner: string): string[][] {
     if (cols.length > 0) sets.push(cols);
   }
   return sets;
+}
+
+/**
+ * Parses a `Set<Column> get primaryKey => {col1, col2};` override — Drift's
+ * idiom for a natural or composite primary key (bug 010: this getter used
+ * to be invisible to the parser, so `dartColToDef` fell back to treating
+ * `autoIncrement` as the only primary-key signal, and any table using this
+ * override got a `CREATE TABLE` with no `PRIMARY KEY` clause at all).
+ *
+ * Returns Dart getter names (not SQL column names) for consistency with
+ * `IDartIndexDef.columns` and `uniqueKeys` — callers must resolve them
+ * against the table's parsed `columns` list. Returns `undefined` when the
+ * getter is absent or its `{...}` body is empty/unbalanced, so callers can
+ * tell "no override" apart from "override with zero columns" (impossible in
+ * valid Dart, but a malformed source shouldn't be treated as a real key).
+ */
+function parsePrimaryKeyGetter(body: string): string[] | undefined {
+  const m = PRIMARY_KEY_GETTER_RE.exec(body);
+  if (!m || m.index === undefined) return undefined;
+
+  // Advance past `=>` to the start of the `{...}` set literal, skipping
+  // whitespace the same way extractListLiteralAfterGetter does for `[...]`.
+  let i = m.index + m[0].length;
+  while (i < body.length && /\s/.test(body[i])) i++;
+
+  const balanced = extractBalanced(body, i, '{', '}');
+  if (!balanced) return undefined;
+
+  const cols = parseColumnRefList(balanced.inner);
+  return cols.length > 0 ? cols : undefined;
 }
 
 /** Parse a single column getter from its builder chain. */
@@ -205,12 +254,18 @@ export function parseDartTables(
     const uniqueInner = extractListLiteralAfterGetter(body, UNIQUE_KEYS_GETTER_RE);
     const uniqueKeys = uniqueInner ? parseDriftUniqueKeySets(uniqueInner) : [];
 
+    // Natural/composite primary key override (bug 010) — see
+    // parsePrimaryKeyGetter's doc comment for why this is a separate
+    // extraction from indexes/uniqueKeys (bare Set<Column>, not List<...>).
+    const primaryKey = parsePrimaryKeyGetter(body);
+
     tables.push({
       dartClassName: className,
       sqlTableName,
       columns,
       indexes,
       uniqueKeys,
+      primaryKey,
       fileUri,
       line: lineAt(source, match.index),
     });

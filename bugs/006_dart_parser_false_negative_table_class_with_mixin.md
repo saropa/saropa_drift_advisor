@@ -1,6 +1,6 @@
 # BUG: Tables declared with a mixin or `implements` clause are invisible to every diagnostic
 
-**Status: Open**
+**Status: Fix Ready**
 
 Created: 2026-09-02
 Component: Extension
@@ -139,6 +139,40 @@ class ContactPointsWithAVeryLongName extends Table
 3. Tests: add fixtures to `extension/src/test/dart-parser-tables.test.ts` for `with M`, `with M1, M2`, `implements I`, `with M implements I`, and a header wrapped across two lines.
 
 ---
+
+## Changes Made
+
+Implemented fix-sketch option (b): the regex no longer hides the class, but
+columns declared inside a mixin's own body are still not merged (documented
+limitation below, tracked separately if it becomes necessary).
+
+- `extension/src/schema-diff/dart-parser.ts:35` — `TABLE_CLASS_PATTERN` changed from
+  `/class\s+(\w+)\s+extends\s+Table\s*\{/g` to
+  `/class\s+(\w+)\s+extends\s+Table\b(?:\s+(?:with|implements)\s+[\s\S]+?)?\s*\{/g`.
+  The `\b` after `Table` preserves the existing guard against matching
+  `extends TableCompanion`. The optional non-greedy `[\s\S]+?` (not `.+?`)
+  absorbs a `with`/`implements` clause of any length, including one wrapped
+  across a formatter-inserted line break, and stops at the first `{`.
+- `extension/src/test/dart-parser-mixin.test.ts` (new) — 9 regression cases:
+  bare `extends Table {`, single mixin, multiple comma-separated mixins,
+  `with` + `implements` together, bare `implements` with a generic type
+  argument, a line-wrapped header, and three negative cases (`*Table`-named
+  non-Table class, class with no `extends Table` at all, and
+  `extends TableCompanion` to confirm the word-boundary guard still holds).
+  Kept in its own file rather than added to `dart-parser-tables.test.ts` to
+  respect the repo's ~300-line-per-test-file convention.
+
+**Known remaining limitation (not fixed here):** columns declared inside the
+mixin body itself (`mixin TimestampMixin on Table { ... }`) are still not
+parsed — `extractClassBody` only ever reads the table class's own body. A
+table using a mixin is now visible with its own columns, and the
+`extra-table-in-db` false positive is gone, but `createdAt`/`updatedAt`-style
+columns defined only in the mixin will not appear in that table's
+`IDartTable.columns`. Fully resolving that (fix-sketch option (a): parsing
+`mixin X on Table { ... }` bodies and merging them into every class that
+names them, including across files) is a separate, larger change and was
+intentionally left out of this fix per the bug's own guidance not to ship
+(a) without handling cross-file mixins.
 
 ## Impact
 

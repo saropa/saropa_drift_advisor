@@ -826,6 +826,24 @@ final class ServerContext {
     await response.close();
   }
 
+  /// Sends HTTP 415 (Unsupported Media Type) when a POST request's declared
+  /// Content-Type mime type is not `application/json`. Pairs with
+  /// [ServerUtils.hasJsonContentType], which each mutating JSON-body
+  /// endpoint's router branch now checks before dispatching to its handler
+  /// (bug 003) — a cross-origin `enctype="text/plain"` form POST is
+  /// CORS-safelisted (no preflight) and can otherwise produce a body that
+  /// decodes as valid JSON.
+  Future<void> sendUnsupportedMediaType(HttpResponse response) async {
+    response.statusCode = HttpStatus.unsupportedMediaType;
+    setJsonHeaders(response);
+    response.write(
+      jsonEncode(<String, String>{
+        ServerConstants.jsonKeyError: ServerConstants.errorUnsupportedMediaType,
+      }),
+    );
+    await response.close();
+  }
+
   /// Sets Content-Disposition (attachment) and
   /// Content-Type headers for file downloads.
   void setAttachmentHeaders(HttpResponse response, String filename) {

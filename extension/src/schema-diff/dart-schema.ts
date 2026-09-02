@@ -47,6 +47,18 @@ export interface IDartTable {
   indexes: IDartIndexDef[];
   /** Composite unique constraints from `List<Set<Column>> get uniqueKeys`. */
   uniqueKeys: string[][];
+  /**
+   * Dart getter names (camelCase) declared by a `@override Set<Column> get
+   * primaryKey => {...}` override — Drift's idiom for a natural or composite
+   * primary key. `undefined` when the table has no such override (the
+   * common case: `autoIncrement()` is the primary-key signal instead).
+   * Consumers must map these to SQL column names via `columns` before use —
+   * kept as Dart names here for the same reason `IDartIndexDef.columns` and
+   * `uniqueKeys` are (bug 010: a keyless `CREATE TABLE` was silently
+   * generated because this field didn't exist and `autoIncrement` was the
+   * only primary-key signal available downstream).
+   */
+  primaryKey?: string[];
   /** Source file URI string. */
   fileUri: string;
   /** Line number of the class declaration (0-based). */

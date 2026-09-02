@@ -20,6 +20,8 @@ library;
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'blob_safe_select.dart';
+import 'server_constants.dart';
 import 'server_typedefs.dart';
 import 'server_utils.dart';
 
@@ -236,8 +238,20 @@ class MutationTracker {
     required String whereClause,
   }) async {
     try {
+      // BLOB-safe select: an UPDATE/DELETE's WHERE clause can match many
+      // rows (e.g. an unconditional update), so this capture is not
+      // guaranteed single-row. Without a BLOB-safe projection, capturing an
+      // arbitrary WHERE match on a table with BLOB columns hits the same
+      // OOM defect fixed in snapshot_handler.dart (see
+      // bugs/005_infra_snapshot_capture_select_star_blob_oom.md). The row
+      // cap mirrors ServerConstants.maxSqlResultRows used elsewhere.
+      final selectList = await BlobSafeSelect.selectListForTable(
+        readQuery,
+        table,
+      );
       final sql =
-          'SELECT * FROM ${ServerUtils.quoteIdent(table)} WHERE $whereClause';
+          'SELECT $selectList FROM ${ServerUtils.quoteIdent(table)} '
+          'WHERE $whereClause LIMIT ${ServerConstants.maxSqlResultRows}';
       return await readQuery(sql);
     } on Object catch (error, stack) {
       // Capture is optional; log and continue when snapshot reads fail.
@@ -257,9 +271,17 @@ class MutationTracker {
   }) async {
     try {
       // Capture a single row (best-effort). For multi-row inserts, this will
-      // only reflect the last inserted row.
+      // only reflect the last inserted row. `rowid = last_insert_rowid()`
+      // already bounds this to at most one row, but a BLOB column on that
+      // row can still be arbitrarily large, so project it BLOB-safe the same
+      // as the WHERE-based capture above rather than assuming "one row" also
+      // means "small".
+      final selectList = await BlobSafeSelect.selectListForTable(
+        readQuery,
+        table,
+      );
       final sql =
-          'SELECT * FROM ${ServerUtils.quoteIdent(table)} '
+          'SELECT $selectList FROM ${ServerUtils.quoteIdent(table)} '
           'WHERE rowid = last_insert_rowid()';
       return await readQuery(sql);
     } on Object catch (error, stack) {

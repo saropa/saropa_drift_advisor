@@ -34,3 +34,7 @@ export {
   httpDvrConfig,
   httpDvrQuery,
 } from './api-client-http-dvr';
+export {
+  httpIndexPreview,
+  httpIndexApply,
+} from './api-client-http-indexes';

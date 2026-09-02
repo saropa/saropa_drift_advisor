@@ -1,6 +1,6 @@
 # BUG: Generated `CREATE TABLE` migration silently drops the table's primary key when it comes from a `primaryKey` override
 
-**Status: Open**
+**Status: Fix Ready**
 
 Created: 2026-09-02
 Component: Extension
@@ -168,6 +168,67 @@ The same gap makes `pk-checker.ts:21` (`hasPkInDart = dartTable.columns.some(c =
 3. When the parser cannot resolve a `primaryKey` getter (e.g. it references a column from a mixin), emit an explicit `// UNRESOLVED PRIMARY KEY - review` comment rather than silently producing a keyless table.
 4. Fix `pk-checker.ts:21` to consult the new field in the same change, so the two consumers agree.
 5. Tests: `extension/src/test/migration-codegen.test.ts` has no `primaryKey`-override fixture. Add composite and single-column natural-key cases.
+
+---
+
+## Changes Made
+
+Confirmed the root cause and fix sketch above; implemented with one deliberate
+deviation from the sketch (noted below).
+
+1. **`extension/src/schema-diff/dart-schema.ts`** — added `primaryKey?:
+   string[]` to `IDartTable`. Deviation from the fix sketch: stores **Dart
+   getter names**, not SQL column names, for consistency with the existing
+   `IDartIndexDef.columns` and `uniqueKeys` fields (both of which already
+   store raw Dart identifiers and leave SQL-name resolution to the
+   consumer). Optional, like `IDartColumn.hasDefault`, so existing fixture
+   objects across the test suite did not need touching.
+
+2. **`extension/src/schema-diff/dart-parser.ts`** — added
+   `PRIMARY_KEY_GETTER_RE` (`/Set<Column>\s+get\s+primaryKey\s*=>/`) and
+   `parsePrimaryKeyGetter()`, which locates the getter then uses the
+   existing `extractBalanced(body, i, '{', '}')` utility (not a `[^}]+`
+   regex) to pull out the `{...}` body correctly even if it spans a
+   formatter-wrapped line break, then reuses `parseColumnRefList` (same
+   utility `uniqueKeys`/`indexes` use). Wired into `parseDartTables`.
+
+3. **`extension/src/migration-gen/migration-codegen.ts`**:
+   - Added `resolveTablePrimaryKey(table)`, which maps `table.primaryKey`
+     (Dart getter names) to SQL names via `table.columns`, skips the
+     table-level constraint entirely when any column is `autoIncrement`
+     (avoids a duplicate `PRIMARY KEY` on a rowid-alias column), and
+     returns `unresolved: true` — with an **empty** name list, not a
+     partial one — when any getter name can't be matched to a column. A
+     partial constraint would silently enforce uniqueness on the wrong
+     column set, which is worse than emitting nothing.
+   - `diffToActions` now calls this for every `tablesOnlyInCode` entry and
+     carries `primaryKey`/`primaryKeyUnresolved` onto the `createTable`
+     action.
+   - `generateCreateTable` emits `PRIMARY KEY ("a", "b")` as a table-level
+     line when `action.primaryKey` is set, and a `// TODO: ... could not be
+     fully resolved ...` comment (adjacent to the existing "review before
+     using!" banner) when `primaryKeyUnresolved` is set — per item 3 of the
+     sketch, this never guesses. Column-line generation was refactored from
+     manual trailing-comma bookkeeping (`i < cols.length - 1 ? ',' : ''`)
+     to `colLines.join(',\n')` so the constraint line participates in the
+     same comma logic without an index parameter.
+
+4. **Not changed (out of scope for this fix, per explicit instruction to
+   scope tightly to the parser + codegen)**: `pk-checker.ts:21`
+   (`hasPkInDart = dartTable.columns.some(c => c.autoIncrement)`) still has
+   the same blind spot the root cause describes — it is masked by the
+   `hasPkInDb` clause today, so it does not misfire on its own, but it does
+   not yet consult `table.primaryKey`. Sketch item 4 remains open; worth a
+   follow-up bug/PR referencing this one.
+
+Tests added: `extension/src/test/dart-parser-tables.test.ts` (composite key,
+single natural key, no-override-leaves-undefined) and
+`extension/src/test/migration-codegen.test.ts` (composite key emits
+`PRIMARY KEY ("user_id", "group_id")`, single natural key emits `PRIMARY KEY
+("uuid")`, autoIncrement + primaryKey override does not duplicate the
+constraint, unresolved getter name emits the TODO comment and no
+constraint). `npx tsc --noEmit -p extension/tsconfig.json` is clean; the
+full mocha suite (3146 tests) passes with 0 failures.
 
 ---
 

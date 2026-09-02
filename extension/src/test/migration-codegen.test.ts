@@ -287,4 +287,137 @@ describe('generateMigrationDart', () => {
     const code = generateMigrationDart(diff, 1, 2);
     assert.ok(code.includes("NOT NULL DEFAULT ''"));
   });
+
+  // Regression coverage for bug 008: `NOT NULL DEFAULT ''` is only a valid
+  // literal for TEXT affinity. Each case below pins the type-appropriate
+  // default so INTEGER/REAL/BLOB/BOOLEAN columns don't get backfilled with
+  // a string SQLite can't coerce, which previously made Drift throw a cast
+  // error on the first read of pre-existing rows.
+  function addColumnDiff(sqlType: string): ISchemaDiffResult {
+    const diff = emptyDiff();
+    diff.tableDiffs = [{
+      tableName: 'users',
+      codeTable: dartTable(),
+      columnsOnlyInCode: [
+        dartCol({ sqlName: 'retry_count', sqlType, nullable: false }),
+      ],
+      columnsOnlyInDb: [],
+      typeMismatches: [],
+      matchedColumns: 1,
+    }];
+    return diff;
+  }
+
+  it('should default non-nullable INTEGER add column to 0', () => {
+    const code = generateMigrationDart(addColumnDiff('INTEGER'), 1, 2);
+    assert.ok(code.includes('INTEGER NOT NULL DEFAULT 0'));
+    assert.ok(!code.includes("DEFAULT ''"));
+  });
+
+  it('should default non-nullable BOOLEAN add column to 0', () => {
+    const code = generateMigrationDart(addColumnDiff('BOOLEAN'), 1, 2);
+    assert.ok(code.includes('BOOLEAN NOT NULL DEFAULT 0'));
+    assert.ok(!code.includes("DEFAULT ''"));
+  });
+
+  it('should default non-nullable REAL add column to 0.0', () => {
+    const code = generateMigrationDart(addColumnDiff('REAL'), 1, 2);
+    assert.ok(code.includes('REAL NOT NULL DEFAULT 0.0'));
+    assert.ok(!code.includes("DEFAULT ''"));
+  });
+
+  it('should default non-nullable BLOB add column to the empty blob literal', () => {
+    const code = generateMigrationDart(addColumnDiff('BLOB'), 1, 2);
+    assert.ok(code.includes("BLOB NOT NULL DEFAULT x''"));
+  });
+
+  it('should skip the default and add a TODO for an unrecognized SQL type', () => {
+    const code = generateMigrationDart(addColumnDiff('CUSTOMTYPE'), 1, 2);
+    assert.ok(code.includes('// TODO'));
+    // The generated customStatement() call itself must carry no DEFAULT
+    // clause — the TODO comment text mentions "DEFAULT" as advice, so
+    // assert on the emitted SQL line rather than the whole file.
+    assert.ok(code.includes("' ADD COLUMN \"retry_count\" CUSTOMTYPE NOT NULL',"));
+  });
+
+  // Regression coverage for bug 010: `dartColToDef` used to derive PK
+  // status solely from `autoIncrement`, so a `primaryKey` getter override
+  // (composite or single natural key) produced a CREATE TABLE with no
+  // PRIMARY KEY clause at all.
+  it('should emit a table-level PRIMARY KEY for a composite key override', () => {
+    const diff = emptyDiff();
+    diff.tablesOnlyInCode = [dartTable({
+      sqlTableName: 'memberships',
+      columns: [
+        dartCol({ dartName: 'userId', sqlName: 'user_id', sqlType: 'INTEGER' }),
+        dartCol({ dartName: 'groupId', sqlName: 'group_id', sqlType: 'INTEGER' }),
+      ],
+      primaryKey: ['userId', 'groupId'],
+    })];
+    const code = generateMigrationDart(diff, 1, 2);
+    assert.ok(code.includes('PRIMARY KEY ("user_id", "group_id")'));
+  });
+
+  it('should emit a table-level PRIMARY KEY for a single natural key override', () => {
+    const diff = emptyDiff();
+    diff.tablesOnlyInCode = [dartTable({
+      sqlTableName: 'devices',
+      columns: [
+        dartCol({ dartName: 'uuid', sqlName: 'uuid', sqlType: 'TEXT' }),
+      ],
+      primaryKey: ['uuid'],
+    })];
+    const code = generateMigrationDart(diff, 1, 2);
+    assert.ok(code.includes('PRIMARY KEY ("uuid")'));
+  });
+
+  it('should not duplicate PRIMARY KEY when autoIncrement is also present', () => {
+    const diff = emptyDiff();
+    diff.tablesOnlyInCode = [dartTable({
+      sqlTableName: 'users',
+      columns: [
+        dartCol({ dartName: 'id', sqlName: 'id', sqlType: 'INTEGER', autoIncrement: true }),
+      ],
+      // A primaryKey override referencing the autoIncrement column should
+      // not also produce a table-level constraint — SQLite only accepts
+      // the per-column form for a rowid-alias AUTOINCREMENT column.
+      primaryKey: ['id'],
+    })];
+    const code = generateMigrationDart(diff, 1, 2);
+    assert.ok(code.includes('"id" INTEGER PRIMARY KEY AUTOINCREMENT'));
+    assert.ok(!code.includes('PRIMARY KEY ("id")'));
+  });
+
+  it('should warn instead of guessing when a primaryKey getter name is unresolved', () => {
+    const diff = emptyDiff();
+    diff.tablesOnlyInCode = [dartTable({
+      sqlTableName: 'devices',
+      columns: [
+        dartCol({ dartName: 'uuid', sqlName: 'uuid', sqlType: 'TEXT' }),
+      ],
+      // References a column the parser never saw (e.g. mixin-contributed).
+      primaryKey: ['uuid', 'fromMixin'],
+    })];
+    const code = generateMigrationDart(diff, 1, 2);
+    assert.ok(code.includes('// TODO'));
+    assert.ok(code.includes('could not be fully resolved'));
+    assert.ok(!code.includes('PRIMARY KEY ('));
+  });
+
+  it('should not add a default clause for nullable add columns', () => {
+    const diff = emptyDiff();
+    diff.tableDiffs = [{
+      tableName: 'users',
+      codeTable: dartTable(),
+      columnsOnlyInCode: [
+        dartCol({ sqlName: 'nickname', sqlType: 'TEXT', nullable: true }),
+      ],
+      columnsOnlyInDb: [],
+      typeMismatches: [],
+      matchedColumns: 1,
+    }];
+    const code = generateMigrationDart(diff, 1, 2);
+    assert.ok(!code.includes('NOT NULL'));
+    assert.ok(!code.includes('DEFAULT'));
+  });
 });

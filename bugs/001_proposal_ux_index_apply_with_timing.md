@@ -1,6 +1,6 @@
 # PROPOSAL: One-Click Index Apply with Before/After Timing (extension currently cannot create any index)
 
-**Status: Open**
+**Status: Fix Ready**
 
 Created: 2026-09-02
 Type: UX improvement
@@ -132,13 +132,65 @@ orders_ts_idx      88 ms → 86 ms   (1.0x)  SCAN orders → SCAN orders        
 
 ## Decision
 
-<!-- Fill in when the proposal is accepted or declined -->
+Accepted, scoped down. The core bug — the extension cannot create any index — is
+fixed by wiring to `POST /api/indexes/preview` and `POST /api/indexes/apply`, exactly
+as this proposal specifies. The full "wow" feature set (measured wall-clock
+before/after, DROP-INDEX undo, per-index verify against the real representative
+query, `/api/health` version gating) is deferred; see Root Cause below for why
+wall-clock timing specifically was cut rather than merely postponed.
 
----
+## Root Cause
 
-## Implementation Notes
+`driftViewer.createAllIndexes` (`extension/src/health/health-commands.ts`) called
+`client.sql(idx.sql)`, which posts to `POST /api/sql`. That endpoint validates with
+`SqlValidator.isReadOnlySql` (`lib/src/server/sql_handler.dart`), which requires a
+`SELECT`/`WITH ... SELECT` prefix and rejects all DDL, including `CREATE INDEX`. Every
+index statement therefore failed on every server, and the loop's bare `catch { failed++; }`
+discarded the rejection reason, surfacing only "Created 0 index(es), N failed." The
+correct endpoints (`POST /api/indexes/preview`, `POST /api/indexes/apply`,
+`lib/src/server/index_batch_handler.dart`) already existed and were already used by the
+browser viewer (`assets/web/bundle.js`) — the extension simply never called them (`grep -rn
+"indexes/preview\|indexes/apply" extension/src/` returned zero matches before this fix).
 
-<!-- Fill in when work begins -->
+## Changes Made
+
+- Added `extension/src/api-client-http-indexes.ts` — `httpIndexPreview` and
+  `httpIndexApply`, calling `POST /api/indexes/preview` / `POST /api/indexes/apply` and
+  surfacing the server's `{"error": "..."}` body on failure instead of a bare status code.
+- Re-exported both from `extension/src/api-client-http-impl.ts`; added
+  `DriftApiClient.indexPreview()` / `.indexApply()` in `extension/src/api-client.ts`
+  (HTTP-only — no VM Service RPC exists yet for either endpoint).
+- Added `extension/src/health/index-apply.ts` (`createAllIndexesCommand`), which:
+  - Previews all suggestions first (chunked at 200 per request, mirroring
+    `IndexBatchHandler.maxIndexes`) and shows accepted vs. rejected counts with the
+    server's rejection reason in the confirm dialog, before anything is written.
+  - Applies only the accepted statements, reads the per-index `{ok, error}` results the
+    endpoint already returns instead of a swallowed counter, and always surfaces apply
+    failures (e.g. `writeQuery` not configured) rather than reporting them as generic
+    "failed."
+  - Runs a before/after `EXPLAIN QUERY PLAN` comparison per created index (SCAN vs.
+    SEARCH), written to a new "Saropa Drift Advisor: Index Apply" output channel.
+    **Deliberately EXPLAIN-only, not wall-clock timing**: the only representative query
+    available is `column = 1` on a suggestion that by definition has no index yet, so
+    timing it for real would force a potentially full-table scan per suggestion on the
+    user's live database — exactly the case where the table is largest. `EXPLAIN QUERY
+    PLAN` never executes the query, so it is bounded-cost and safe to run
+    unconditionally.
+- Updated `driftViewer.createAllIndexes` in `extension/src/health/health-commands.ts`
+  to call `createAllIndexesCommand` and wrapped it in a non-bare `catch` that surfaces
+  the error message via `showErrorMessage`.
+
+Deferred (not implemented, tracked for a follow-up if the browser-parity gap matters
+enough to revisit): wall-clock query timing, per-index/whole-batch `DROP INDEX` undo,
+and `/api/health` version-gated fallback for servers too old to have `/api/indexes/*`
+(edge case 1) — that fallback did not previously exist either, and the new preview call
+now surfaces "Index preview failed: 404" verbatim on such a server rather than silently
+retrying the broken path, which is the load-bearing part of the fix.
+
+## Verification
+
+`npx tsc --noEmit -p extension/tsconfig.json` passes with no errors. Not exercised
+against a live server in this pass — no VS Code extension test harness was run.
 
 ---
 

@@ -197,6 +197,47 @@ class Users extends Table {
     assert.deepStrictEqual(tables[0].indexes, []);
     assert.deepStrictEqual(tables[0].uniqueKeys, []);
   });
+
+  // Regression coverage for bug 010: a `primaryKey` getter override (Drift's
+  // idiom for natural/composite keys) used to be invisible to the parser,
+  // so `IDartTable.primaryKey` never existed and the migration generator
+  // fell back to `autoIncrement` as the only primary-key signal.
+  it('should parse a composite primaryKey override', () => {
+    const source = `
+class Memberships extends Table {
+  IntColumn get userId => integer()();
+  IntColumn get groupId => integer()();
+
+  @override
+  Set<Column> get primaryKey => {userId, groupId};
+}
+`;
+    const tables = parseDartTables(source, 'file:///test.dart');
+    assert.deepStrictEqual(tables[0].primaryKey, ['userId', 'groupId']);
+  });
+
+  it('should parse a single-column natural primaryKey override', () => {
+    const source = `
+class Devices extends Table {
+  TextColumn get uuid => text()();
+
+  @override
+  Set<Column> get primaryKey => {uuid};
+}
+`;
+    const tables = parseDartTables(source, 'file:///test.dart');
+    assert.deepStrictEqual(tables[0].primaryKey, ['uuid']);
+  });
+
+  it('should leave primaryKey undefined when there is no override', () => {
+    const source = `
+class Users extends Table {
+  IntColumn get id => integer().autoIncrement()();
+}
+`;
+    const tables = parseDartTables(source, 'file:///test.dart');
+    assert.strictEqual(tables[0].primaryKey, undefined);
+  });
 });
 
 describe('parseDriftIndexCalls / parseDriftUniqueKeySets', () => {

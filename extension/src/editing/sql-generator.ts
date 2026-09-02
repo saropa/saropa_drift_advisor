@@ -1,8 +1,33 @@
 import { PendingChange, groupByTable } from './change-tracker';
 
+/**
+ * Marker for a SQLite INTEGER value that cannot round-trip through a JS
+ * `number` (magnitude above `Number.MAX_SAFE_INTEGER`, e.g. a snowflake ID or
+ * microsecond timestamp). `sqlite-cell-value.ts` produces this instead of a
+ * `number` so the exact digit string reaches SQL untouched by float rounding.
+ * A plain object (not `bigint`) so it survives `JSON.stringify` in
+ * `pending-changes-persistence.ts` without a custom (de)serializer.
+ */
+export interface RawIntegerLiteral {
+  readonly rawInteger: string;
+}
+
+/** True when [value] is a [RawIntegerLiteral] produced for a 64-bit-only edit. */
+export function isRawIntegerLiteral(value: unknown): value is RawIntegerLiteral {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { rawInteger?: unknown }).rawInteger === 'string'
+  );
+}
+
 /** Escape a JS value as a SQL literal (NULL, number, or single-quoted string). */
 export function sqlLiteral(value: unknown): string {
   if (value === null || value === undefined) return 'NULL';
+  // Large INTEGER edits are pre-validated digit strings wrapped so they are
+  // emitted unquoted (as SQL number syntax) rather than falling through to the
+  // quoted-string branch below, which would corrupt the column to TEXT.
+  if (isRawIntegerLiteral(value)) return value.rawInteger;
   if (typeof value === 'number') return String(value);
   if (typeof value === 'boolean') return value ? '1' : '0';
   return `'${String(value).replace(/'/g, "''")}'`;

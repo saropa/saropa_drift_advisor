@@ -1,6 +1,6 @@
 # BUG: New-row insert silently drops the primary key column, producing rows with a NULL PK on TEXT/composite keys
 
-**Status: Open**
+**Status: Fix Ready**
 
 Created: 2026-09-02
 Component: Extension
@@ -179,3 +179,55 @@ The doc comment on the function states the intent explicitly: "(non-PK columns o
 - What is blocked: adding a row to such a table. The composite case fails loudly; the TEXT case fails silently, which is worse.
 - Data risk: **yes** - rows with NULL primary keys are written to the user's real database, are not repairable through the extension's own UI (PK cells are read-only, and DELETE keys on `pkColumn = <value>` which never matches NULL), and break any Drift query that maps the key to a non-nullable Dart field.
 - Frequency: every "add row" on such a table.
+
+---
+
+## Root Cause (confirmed)
+
+`ColumnMetadata` (`extension/src/api-types.ts`) carries no `autoIncrement` flag - only
+`{ name, type, pk, notnull?, driftType? }`, sourced from SQLite's `PRAGMA
+table_info`. So the fix cannot literally check `col.pk && col.autoIncrement`;
+that field does not exist on the wire type. The distinguishing fact SQLite
+actually guarantees is narrower and is derivable from what IS on the type: a
+column is the implicit **rowid alias** (the only column SQLite auto-populates
+on insert) if and only if it is the table's *sole* `PRIMARY KEY` column and its
+declared type is `INTEGER` - independent of whether `AUTOINCREMENT` was
+written in the DDL. Every other `pk` column (TEXT/UUID key, non-INTEGER type,
+or any part of a composite key) is not auto-populated and must come from the
+user, exactly as the bug report's fix sketch concluded.
+
+## Changes Made
+
+`extension/src/editing/sqlite-cell-value.ts`:
+
+- `parseCellEditForColumn` gained a `forInsert = false` parameter. The
+  blanket `col.pk -> "Primary key cannot be edited inline."` rejection now
+  only fires when `forInsert` is false, so `validateCellEdit` (editing an
+  existing row) is unchanged, while `validateRowInsert` (a brand-new row with
+  no key yet to protect) can pass a user-supplied PK value through the normal
+  type/NOT-NULL checks.
+- `validateRowInsert` now computes `pkColumnCount` (how many columns carry
+  `pk`) up front and, per column, decides `isRowidAlias = col.pk &&
+  pkColumnCount === 1 && type === 'INTEGER'`:
+  - rowid alias + no value supplied -> still skipped, as before (SQLite
+    auto-populates it).
+  - `pk` but not a rowid alias, and no value supplied -> **new**: returns
+    `{ ok: false, message: 'Column "<name>" is the primary key and must be
+    supplied.' }` instead of silently dropping the column. This routes
+    through the existing `_handleRowInsert` rejection path in
+    `editing-bridge.ts`, which already shows the message via
+    `vscode.window.showWarningMessage` and calls `_postRowInsertRejected`.
+  - any `pk` column with a supplied value -> included in the coerced output
+    (via `parseCellEditForColumn(col, raw, col.pk)`) and therefore in the
+    generated `INSERT`.
+- Added regression tests in `extension/src/test/sqlite-cell-value.test.ts`
+  covering a TEXT PK insert (value must survive), a TEXT PK insert with the
+  key omitted (must be rejected with the "must be supplied" message), and a
+  composite-key insert (both key parts must survive).
+
+Not changed: `sql-generator.ts`'s `INSERT` building (it already emits
+whatever keys survive `validateRowInsert`, so no change was needed there once
+the PK survives validation).
+
+Verification: `npx tsc --noEmit -p extension/tsconfig.json` passes with no
+errors.

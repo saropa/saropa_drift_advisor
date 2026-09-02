@@ -20,6 +20,10 @@ import type {
   TableMetadata,
 } from './api-types';
 import type { VmServiceClient } from './transport/vm-service-client';
+import type {
+  IIndexApplyResult,
+  IIndexPreviewResult,
+} from './api-client-http-indexes';
 import * as http from './api-client-http';
 import { DriftApiClientBase } from './api-client-base';
 
@@ -166,6 +170,26 @@ export class DriftApiClient extends DriftApiClientBase {
   async indexSuggestions(): Promise<IndexSuggestion[]> {
     if (this._vmClient?.connected) return this._vmClient.getIndexSuggestions();
     return http.httpIndexSuggestions(this._baseUrl, this._headers());
+  }
+
+  /**
+   * Validate CREATE INDEX statements against `IndexBatchHandler.handlePreview`
+   * without writing anything. HTTP-only: there is no VM Service RPC for this
+   * endpoint yet, unlike `indexSuggestions`/`applyEditsBatch` above (bug 001 —
+   * the priority was fixing the broken write path, not adding VM parity).
+   */
+  async indexPreview(indexSqls: string[]): Promise<IIndexPreviewResult> {
+    return http.httpIndexPreview(this._baseUrl, this._headers(), indexSqls);
+  }
+
+  /**
+   * Apply CREATE INDEX statements via `IndexBatchHandler.handleApply`.
+   * Requires the host app's `writeQuery` callback; the server returns a
+   * per-index result array (not a thrown error) so partial success is
+   * reported instead of masked.
+   */
+  async indexApply(indexSqls: string[]): Promise<IIndexApplyResult> {
+    return http.httpIndexApply(this._baseUrl, this._headers(), indexSqls);
   }
 
   async anomalies(): Promise<Anomaly[]> {

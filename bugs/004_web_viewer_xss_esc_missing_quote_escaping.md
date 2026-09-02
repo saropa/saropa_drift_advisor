@@ -1,6 +1,6 @@
 # BUG: Web viewer `esc()` does not escape quotes — database values injected into HTML attributes can break out (XSS)
 
-**Status: Open**
+**Status: Fix Ready**
 
 Created: 2026-09-02
 Component: Server (web viewer bundle, `assets/web/`)
@@ -263,7 +263,9 @@ For contrast, `lib/src/server/report_html.dart:6-14` documents the correct postu
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+- `assets/web/utils.ts`: replaced the `esc()` implementation. It no longer uses the `textContent` -> `innerHTML` DOM round-trip (which only escapes `& < >`); it now does explicit string replacement of `& < > " '` in that order, matching the attribute-safe `escapeHtml` in `extension/src/shared-utils.ts`. All ~325 call sites (text and attribute context alike) pick up the fix from this one change; no call sites were edited.
+- Regression test `assets/web/test/esc.test.mjs` already existed with assertions pinning the quote-escaping behavior (bare `&`/`<`/`>`, double quotes, single quotes, and an attribute round-trip check) and was left as-is — it now exercises the fixed implementation.
+- Not done as part of this change (tracked separately per the Fix Sketch): the CSP `<meta>` hardening for the browser surface (item 3), and the `bundle.js` rebuild (item 4, `npm run build:js`) — the committed bundle still reflects the old `esc()` until rebuilt.
 
 ---
 

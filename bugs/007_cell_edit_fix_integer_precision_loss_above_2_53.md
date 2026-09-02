@@ -1,6 +1,6 @@
 # BUG: Inline cell edit silently corrupts INTEGER values above 2^53
 
-**Status: Open**
+**Status: Fix Ready**
 
 Created: 2026-09-02
 Component: Extension
@@ -160,3 +160,55 @@ So the pipeline is `string -> lossy number -> string`, where the intermediate st
 - What is blocked: nothing visibly; the edit reports success.
 - Data risk: **yes** - a wrong value is written to the user's real database with no warning, no error, and no visual difference in the grid until the row is refetched. If the column is a foreign key or an external system's identifier, the row is now unjoinable and the original value is unrecoverable from the database.
 - Frequency: every inline edit or new-row insert of an INTEGER value above 2^53.
+
+---
+
+## Changes Made
+
+Implemented the string-carrying variant of the fix sketch above (point 3's
+"smaller change" alternative), not `bigint`, so no custom `JSON.stringify`
+envelope is needed anywhere on the `PendingChange` persistence path:
+
+- `extension/src/editing/sql-generator.ts`: added `RawIntegerLiteral`
+  (`{ readonly rawInteger: string }`) and `isRawIntegerLiteral()`. `sqlLiteral`
+  now emits `value.rawInteger` unquoted before falling through to the
+  `typeof value === 'number'` / quoted-string branches, so a wrapped digit
+  string reaches SQL as a number literal instead of being quoted as TEXT.
+
+- `extension/src/editing/sqlite-cell-value.ts`: `coerceNonTextValue` now
+  compares the validated digit string against `Number.MAX_SAFE_INTEGER` /
+  `Number.MIN_SAFE_INTEGER` via `BigInt` (not float comparison, so the
+  boundary check itself cannot round). Values inside the safe range still
+  convert to `number` exactly as before; values outside it are returned as a
+  `RawIntegerLiteral` wrapping the exact digit string. `sqliteTypeCompatibilityError`
+  already guarantees the input matches `/^-?\d+$/`, so the `BigInt(trimmed)`
+  parse cannot throw.
+
+- `parseCellEditForColumn` (same file) now returns an optional `warning`
+  field on the `ok: true` result when the coerced value is a
+  `RawIntegerLiteral` - the edit is **not** rejected (it is stored exactly),
+  the warning is purely informational. `validateCellEdit` passes the field
+  through; `validateRowInsert` collects one `warnings: string[]` array across
+  all columns of an insert.
+
+- `extension/src/editing/editing-bridge.ts`: `_handleCellEdit` and
+  `_handleRowInsert` now show `result.warning` / `result.warnings` via
+  `vscode.window.showWarningMessage` after a successful validation, so the
+  user is told when a value was stored via the 64-bit-exact path.
+
+- Chose the reject-nothing approach over rejecting values above
+  `MAX_SAFE_INTEGER` outright: SQLite INTEGER genuinely supports the full
+  64-bit range, so rejecting would block a legitimate edit (e.g. a real
+  snowflake ID) that the fix can store exactly. The warning tells the user
+  what happened without blocking them.
+
+- Tests added: `extension/src/test/sqlite-cell-value.test.ts` (coercion of
+  `9007199254740993` and `-72057594037927937` to `RawIntegerLiteral`, safe
+  boundary at `Number.MAX_SAFE_INTEGER` still a plain `number`) and
+  `extension/src/test/sql-generator.test.ts` (`sqlLiteral` emits a
+  `RawIntegerLiteral` unquoted; `generateSql` round-trips a 64-bit-only cell
+  edit to the exact digit string in the `UPDATE` statement).
+
+- Verified with `npx tsc --noEmit -p extension/tsconfig.json` (clean) and a
+  scoped mocha run of `sqlite-cell-value.test.js` and `sql-generator.test.js`
+  (33 passing, including the new cases).

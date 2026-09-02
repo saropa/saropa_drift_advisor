@@ -165,6 +165,30 @@ abstract final class ServerUtils {
     return n > ServerConstants.maxOffset ? ServerConstants.maxOffset : n;
   }
 
+  /// Returns true when [request]'s declared Content-Type mime type is
+  /// exactly `application/json`.
+  ///
+  /// Bug 003: `SqlHandler.parseSqlBody` was the ONLY place in the server
+  /// that checked this, so every other JSON-body-mutating POST endpoint
+  /// (`/api/import`, `/api/cell/update`, `/api/edits/apply`,
+  /// `/api/indexes/apply`, `/api/snapshot`, `/api/session/share`,
+  /// `/api/monitoring`, `/api/change-detection`, `/api/activity/capture`)
+  /// decoded the body as JSON regardless of its declared type. A cross-origin
+  /// HTML form using `enctype="text/plain"` — one of the three
+  /// CORS-safelisted content types, so the browser never sends a preflight —
+  /// can be crafted to produce a body that is valid JSON, letting a page on
+  /// any origin drive these endpoints with no user interaction. Rejecting a
+  /// non-`application/json` Content-Type forces a genuine JSON POST from
+  /// another origin through the CORS preflight instead, which this server
+  /// answers with a 404 (no `OPTIONS` route), blocking the request outright.
+  /// This mirrors the existing check in `SqlHandler.parseSqlBody` verbatim so
+  /// callers share identical semantics (a missing header is also rejected —
+  /// every legitimate caller in this codebase sets the header whenever it
+  /// sends a body).
+  static bool hasJsonContentType(HttpRequest request) {
+    return request.headers.contentType?.mimeType == 'application/json';
+  }
+
   /// Reads the full request body into bytes, enforcing a [maxBytes] cap.
   ///
   /// Returns null when the body exceeds the cap — either by the declared

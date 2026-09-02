@@ -1,6 +1,6 @@
 # BUG: Server-side snapshot capture still issues unbounded `SELECT *` per table (the BLOB OOM fixed in the extension in v4.1.17)
 
-**Status: Open**
+**Status: Fix Ready**
 
 Created: 2026-09-02
 Component: Server
@@ -156,7 +156,50 @@ that pass.
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+Added `lib/src/server/blob_safe_select.dart` — a Dart port of
+`extension/src/sql/blob-safe-select.ts`. `BlobSafeSelect` exposes:
+
+- `isBlobColumn(type)` — same case-insensitive `"BLOB"` substring match as the TS version.
+- `selectListFromColumns(columns)` — builds the comma-separated projection from
+  `PRAGMA table_info` rows, substituting `length("col") AS "col"` for BLOB-affinity
+  columns and passing others through quoted; falls back to `*` only when the column
+  list itself is empty.
+- `selectListForTable(queryFn, table)` — runs `PRAGMA table_info` and returns the
+  select list for one table (one round-trip per table, not per row).
+- `buildQuery(queryFn, table, {limit})` — full `SELECT <list> FROM "<table>" LIMIT <n>`,
+  defaulting `limit` to `ServerConstants.maxSqlResultRows` (10,000, the same cap
+  `SqlHandler` already applies to ad-hoc SQL results).
+
+Applied at all four `SELECT *` sites identified by the report's grep:
+
+- `lib/src/server/snapshot_handler.dart:40` (`handleSnapshotCreate`) — now
+  `BlobSafeSelect.buildQuery(query, table)`.
+- `lib/src/server/snapshot_handler.dart:231` (`handleSnapshotCompare`, live-DB
+  target) — same helper.
+- `lib/src/server/mutation_tracker.dart:240` (`_captureByWhere`, used for
+  UPDATE/DELETE before/after capture) — select list from
+  `BlobSafeSelect.selectListForTable`, with `LIMIT ServerConstants.maxSqlResultRows`
+  appended after the WHERE clause (a WHERE can match many rows, e.g. an
+  unconditional UPDATE, so this path needed a row cap the report's sketch did not
+  call for the row-count concern is a distinct correctness detail from the
+  table-sweep case).
+- `lib/src/server/mutation_tracker.dart:262` (`_captureAfterInsert`) — select list
+  from `BlobSafeSelect.selectListForTable`; no LIMIT added since
+  `WHERE rowid = last_insert_rowid()` is already at most one row, but the row itself
+  could still carry a large BLOB, hence the projection fix.
+
+Not done (deliberately out of scope for this fix): a per-table `truncated` flag
+surfaced in the snapshot response. `Snapshot.tables` is a plain
+`Map<String, List<Map<String, dynamic>>>` with no room for a sibling flag, and
+`SnapshotStore` serializes/deserializes that shape directly — plumbing truncation
+through would touch `server_types.dart`, snapshot persistence, and the snapshot
+JSON envelope across three handler methods. The row cap alone fixes the crash (the
+report's primary defect); truncation visibility is a follow-up enhancement, not a
+crash-safety requirement.
+
+`dart analyze` run on only the four changed files
+(`blob_safe_select.dart`, `snapshot_handler.dart`, `mutation_tracker.dart`,
+plus the saropa_lints pass that command includes): no issues found.
 
 ---
 
