@@ -22,6 +22,10 @@ abstract final class ServerConstants {
   /// enough for realistic data imports while still bounding memory (audit H3).
   static const int maxRequestBodyBytes = 64 * 1024 * 1024;
 
+  /// Maximum server-side blocking window for long-poll endpoints
+  /// (`/api/generation`, `/api/mutations`). The extension's
+  /// `LONG_POLL_TIMEOUT_MS` in `extension/src/transport/fetch-utils.ts`
+  /// must exceed this value to avoid aborting healthy idle polls.
   static const Duration longPollTimeout = Duration(seconds: 30);
 
   /// Wall-clock cap on a single POST /api/sql (and /explain) execution.

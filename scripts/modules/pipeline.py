@@ -259,6 +259,33 @@ def _run_ext_dev_checks(
     return True
 
 
+def _check_longpoll_timeout_sync() -> bool:
+    """Assert client LONG_POLL_TIMEOUT_MS exceeds server longPollTimeout.
+
+    Delegates to scripts/check_longpoll_timeout_sync.py so the check
+    has one implementation shared between the publish pipeline and
+    standalone invocation.
+    """
+    import subprocess
+    import sys
+    script = os.path.join(REPO_ROOT, "scripts", "check_longpoll_timeout_sync.py")
+    # Run with the same Python that is running publish.py.
+    result = subprocess.run(
+        [sys.executable, script],
+        capture_output=True,
+        text=True,
+    )
+    if result.stdout:
+        for line in result.stdout.strip().splitlines():
+            info(line)
+    if result.returncode != 0:
+        if result.stderr:
+            for line in result.stderr.strip().splitlines():
+                warn(line)
+        return False
+    return True
+
+
 def _run_ext_build_and_validate(
     args: argparse.Namespace,
     results: list[tuple[str, bool, float]],
@@ -275,6 +302,11 @@ def _run_ext_build_and_validate(
 
     heading("Step 7 \u00b7 Quality Checks")
     if not run_step("File line limits", check_file_line_limits, results):
+        return "", False, None
+
+    # Cross-language long-poll timeout sync: the client LONG_POLL_TIMEOUT_MS
+    # must exceed the server's longPollTimeout to avoid aborting idle polls.
+    if not run_step("Long-poll timeout sync", _check_longpoll_timeout_sync, results):
         return "", False, None
 
     # Catch an @types/vscode > engines.vscode mismatch here (fast manifest read)

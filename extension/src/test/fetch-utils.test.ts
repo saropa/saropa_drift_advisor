@@ -5,6 +5,7 @@ import {
   fetchWithRetry,
   isTransientError,
   DEFAULT_FETCH_TIMEOUT_MS,
+  LONG_POLL_TIMEOUT_MS,
 } from '../transport/fetch-utils';
 import {
   CircuitBreakerOpenError,
@@ -36,6 +37,16 @@ describe('fetchWithTimeout', () => {
   it('should use DEFAULT_FETCH_TIMEOUT_MS when no timeoutMs given', () => {
     assert.strictEqual(typeof DEFAULT_FETCH_TIMEOUT_MS, 'number');
     assert.ok(DEFAULT_FETCH_TIMEOUT_MS > 0);
+  });
+
+  it('LONG_POLL_TIMEOUT_MS exceeds the server 30s long-poll window', () => {
+    // The server blocks for up to 30 000 ms; the client timeout must be
+    // strictly greater to avoid aborting a healthy idle poll.
+    assert.strictEqual(typeof LONG_POLL_TIMEOUT_MS, 'number');
+    assert.ok(LONG_POLL_TIMEOUT_MS > 30000,
+      `LONG_POLL_TIMEOUT_MS (${LONG_POLL_TIMEOUT_MS}) must exceed 30000`);
+    assert.ok(LONG_POLL_TIMEOUT_MS > DEFAULT_FETCH_TIMEOUT_MS,
+      `LONG_POLL_TIMEOUT_MS must exceed DEFAULT_FETCH_TIMEOUT_MS`);
   });
 
   it('should pass custom headers through to native fetch', async () => {

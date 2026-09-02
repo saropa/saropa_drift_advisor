@@ -23,6 +23,20 @@ import {
 /** Default timeout for API requests (ms). */
 export const DEFAULT_FETCH_TIMEOUT_MS = 8000;
 
+/**
+ * Timeout for long-poll endpoints (ms). The server blocks for up to
+ * `ServerConstants.longPollTimeout` (30 s, defined in
+ * `lib/src/server/server_constants.dart:25`) before answering; this
+ * must exceed that window so a normal idle response is not mistaken
+ * for a dead server. Used by both `/api/generation` and
+ * `/api/mutations`. If the Dart constant changes, update this to
+ * match (value + 1 000 ms margin). The 1 s margin covers network
+ * RTT on all supported transports (loopback <1 ms, adb-forward
+ * <10 ms, Wi-Fi <50 ms) plus Dart timer jitter (<100 ms).
+ * Run `scripts/check_longpoll_timeout_sync.py` to verify sync.
+ */
+export const LONG_POLL_TIMEOUT_MS = 31000;
+
 /** Short timeout for discovery health probes (ms). */
 export const HEALTH_PROBE_TIMEOUT_MS = 4500;
 

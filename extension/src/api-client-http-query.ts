@@ -7,7 +7,7 @@ import type {
   IMutationStreamResponse,
   MutationEvent,
 } from './api-types';
-import { fetchWithRetry, fetchWithTimeout } from './transport/fetch-utils';
+import { fetchWithRetry, fetchWithTimeout, LONG_POLL_TIMEOUT_MS } from './transport/fetch-utils';
 import type { ApiHeaders } from './api-client-http';
 import { objectRowsToColumnar } from './shared-utils';
 
@@ -17,9 +17,12 @@ export async function httpGeneration(
   headers: ApiHeaders,
   since: number,
 ): Promise<number> {
+  // /api/generation blocks up to ServerConstants.longPollTimeout (30 s)
+  // before answering; use the long-poll timeout so an idle response is
+  // not aborted by the default 8 s limit.
   const resp = await fetchWithTimeout(
     `${baseUrl}/api/generation?since=${since}`,
-    { headers },
+    { headers, timeoutMs: LONG_POLL_TIMEOUT_MS },
   );
   if (!resp.ok) throw new Error(`Generation poll failed: ${resp.status}`);
   const data = (await resp.json()) as { generation: number };
@@ -36,7 +39,7 @@ export async function httpMutations(
     `${baseUrl}/api/mutations?since=${since}`,
     {
       headers,
-      timeoutMs: 31000,
+      timeoutMs: LONG_POLL_TIMEOUT_MS,
     },
   );
   if (!resp.ok) throw new Error(`Mutation poll failed: ${resp.status}`);
