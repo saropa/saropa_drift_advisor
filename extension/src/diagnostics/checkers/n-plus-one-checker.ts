@@ -7,7 +7,7 @@
 
 import * as vscode from 'vscode';
 import type { PerformanceData, QueryEntry } from '../../api-types';
-import type { ICallerPinnedData, IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
+import { createTypedIssue, type ICallerPinnedData, type IDartFileInfo, type IDiagnosticIssue } from '../diagnostic-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
 import { areSimilarQueries, extractTableFromSql, isReadQuery } from '../utils/sql-utils';
 import { resolveCallerLocation } from '../utils/caller-location-utils';
@@ -106,19 +106,19 @@ export function checkNPlusOnePatterns(
       // call site escalated this to Warning.
       const severity = vscode.DiagnosticSeverity.Information;
 
-      issues.push({
+      // createTypedIssue enforces the DiagnosticDataMap shape for 'n-plus-one'
+      // at compile time: tableName is required, caller-pinned fields are optional.
+      issues.push(createTypedIssue({
         code: 'n-plus-one',
         message: `Potential N+1 query pattern: "${tableName}" queried ${data.count} times in recent window${patternHint}`,
         fileUri,
         range: new vscode.Range(line, 0, line, 999),
         severity,
-        // Carry the table definition URI so the suppression layer can check
-        // ignore directives there when the diagnostic is pinned to a caller.
         data: {
           tableName,
           ...callerPinned,
         },
-      });
+      }));
     }
   });
 }

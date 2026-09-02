@@ -201,4 +201,51 @@ describe('buildDiagnosticsByFile – table-file suppression fallback', () => {
     // slow-query-pattern should NOT be suppressed by the n-plus-one ignore.
     assert.strictEqual(result.size, 1, 'Different code should not be suppressed by n-plus-one ignore');
   });
+
+  it('suppresses slow-query-pattern via ignore directive in table file when pinned to caller', () => {
+    // Table file with an ignore directive targeting slow-query-pattern.
+    const slowIgnoreSrc = [
+      'import \'package:drift/drift.dart\';',
+      '',
+      '// drift-advisor:ignore slow-query-pattern',
+      'class Activities extends Table {',
+      '  IntColumn get id => integer().autoIncrement()();',
+      '}',
+    ].join('\n');
+
+    const df: IDartFileInfo = {
+      uri: TABLE_URI,
+      text: slowIgnoreSrc,
+      tables: [{
+        dartClassName: 'Activities',
+        sqlTableName: 'activities',
+        columns: [],
+        indexes: [],
+        uniqueKeys: [],
+        fileUri: TABLE_URI.toString(),
+        line: 3,
+      }],
+      suppressions: parseInlineSuppressions(slowIgnoreSrc),
+    };
+
+    // Slow-query issue pinned to a caller, carrying table file info.
+    const issue: IDiagnosticIssue = {
+      code: 'slow-query-pattern',
+      message: 'Slow query (250ms): SELECT * FROM activities WHERE ...',
+      fileUri: CALLER_URI,
+      range: new Range(42, 0, 42, 999) as any,
+      severity: DiagnosticSeverity.Information as any,
+      data: {
+        sql: 'SELECT * FROM activities WHERE id = 1',
+        durationMs: 250,
+        tableName: 'activities',
+        tableFileUri: TABLE_URI.toString(),
+        tableFileLine: 3,
+      },
+    };
+
+    const result = buildDiagnosticsByFile([issue], defaultConfig(), [df]);
+
+    assert.strictEqual(result.size, 0, 'slow-query-pattern should be suppressed via table file fallback');
+  });
 });

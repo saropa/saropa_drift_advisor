@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import type { PerformanceData } from '../../api-types';
-import type { ICallerPinnedData, IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
+import { createTypedIssue, type ICallerPinnedData, type IDartFileInfo, type IDiagnosticIssue } from '../diagnostic-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
 import { extractTableFromSql, truncateSql } from '../utils/sql-utils';
 import { resolveCallerLocation } from '../utils/caller-location-utils';
@@ -93,14 +93,16 @@ export function checkSlowQueries(
     // these heuristics are now Information so they don't read as errors.
     const severity = vscode.DiagnosticSeverity.Information;
 
-    issues.push({
+    // createTypedIssue enforces the DiagnosticDataMap shape for
+    // 'slow-query-pattern': sql and durationMs required, caller-pinned optional.
+    issues.push(createTypedIssue({
       code: 'slow-query-pattern',
       message: `Slow query (${query.durationMs.toFixed(0)}ms${rowInfo}): ${truncatedSql}`,
       fileUri,
       range: new vscode.Range(line, 0, line, 999),
       severity,
       data: { sql: query.sql, durationMs: query.durationMs, ...callerPinned },
-    });
+    }));
 
     count++;
   }

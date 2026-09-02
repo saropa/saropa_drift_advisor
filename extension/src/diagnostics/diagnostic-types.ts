@@ -55,6 +55,45 @@ export function hasCallerPinnedData(
   );
 }
 
+/**
+ * Known data shapes per diagnostic code. Checkers that use `createTypedIssue`
+ * get compile-time enforcement of these fields. Checkers not yet migrated
+ * still push plain `IDiagnosticIssue` with `data?: Record<string, unknown>`.
+ *
+ * To add a new code: define its data shape here, then use `createTypedIssue`
+ * in the checker. The consumer side (`diagnostic-apply.ts`) reads fields via
+ * `issue.data?.fieldName` — no casting needed since the runtime shape is the
+ * same `Record<string, unknown>`.
+ */
+export interface DiagnosticDataMap {
+  'n-plus-one': { tableName: string } & Partial<ICallerPinnedData>;
+  'slow-query-pattern': { sql: string; durationMs: number } & Partial<ICallerPinnedData>;
+  'unindexed-where-clause': { sql: string };
+  'unindexed-join': { sql: string };
+  'high-null-rate': { table: string; column: string; nullPct: number };
+  'unused-column': { table: string; column: string; nullPct: number };
+  'empty-table': { table: string; percentage: number };
+  'raw-sql-column-type-mismatch': { tableName: string; column: string };
+  'missing-pk': { tableName: string };
+  'composite-pk-no-index': { tableName: string };
+  'naming-table': { current: string; suggested: string };
+  'naming-column': { current: string; suggested: string };
+}
+
+/**
+ * Create a diagnostic issue with compile-time typed data for a known code.
+ * Returns a plain `IDiagnosticIssue` so it slots into existing arrays
+ * without casting. Checkers not yet migrated can still push raw issues.
+ */
+export function createTypedIssue<C extends keyof DiagnosticDataMap>(
+  issue: Omit<IDiagnosticIssue, 'code' | 'data'> & {
+    code: C;
+    data: DiagnosticDataMap[C];
+  },
+): IDiagnosticIssue {
+  return issue as IDiagnosticIssue;
+}
+
 /** A single diagnostic issue reported by a provider. */
 export interface IDiagnosticIssue {
   /** References a registered diagnostic code. */
@@ -69,7 +108,7 @@ export interface IDiagnosticIssue {
   severity?: vscode.DiagnosticSeverity;
   /** Related information (e.g., suggested SQL). */
   relatedInfo?: vscode.DiagnosticRelatedInformation[];
-  /** Arbitrary data for quick fix actions. */
+  /** Arbitrary data for quick fix actions and suppression fallback. */
   data?: Record<string, unknown>;
 }
 
