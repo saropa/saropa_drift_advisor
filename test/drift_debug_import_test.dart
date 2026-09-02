@@ -345,6 +345,151 @@ void main() {
       );
     });
 
+    group('SQL import — statement validation (fix 002)', () {
+      test('rejects DDL statements and never executes them', () async {
+        final executedSql = <String>[];
+
+        // DROP TABLE is DDL — must be rejected before reaching writeQuery.
+        final result = await processor.processImport(
+          format: 'sql',
+          data: 'DROP TABLE users',
+          table: 'users',
+          writeQuery: (sql) async => executedSql.add(sql),
+          sqlLiteral: testSqlLiteral,
+        );
+
+        expect(result.imported, 0);
+        expect(result.errors, hasLength(1));
+        expect(result.errors[0], contains('rejected'));
+        expect(executedSql, isEmpty, reason: 'DDL must never reach writeQuery');
+      });
+
+      test('rejects PRAGMA and ATTACH statements', () async {
+        final executedSql = <String>[];
+
+        final result = await processor.processImport(
+          format: 'sql',
+          data: 'PRAGMA journal_mode=DELETE; ATTACH DATABASE "x.db" AS ext',
+          table: 'users',
+          writeQuery: (sql) async => executedSql.add(sql),
+          sqlLiteral: testSqlLiteral,
+        );
+
+        // Both statements are non-DML — both rejected.
+        expect(result.imported, 0);
+        expect(result.errors, hasLength(2));
+        expect(executedSql, isEmpty);
+      });
+
+      test('allows valid DML while rejecting interleaved DDL', () async {
+        final executedSql = <String>[];
+
+        // Mix of valid INSERT and invalid CREATE TABLE in one payload.
+        final result = await processor.processImport(
+          format: 'sql',
+          data:
+              'INSERT INTO items (id) VALUES (1); '
+              'CREATE TABLE evil (id INT); '
+              'DELETE FROM items WHERE id = 99',
+          table: 'items',
+          writeQuery: (sql) async => executedSql.add(sql),
+          sqlLiteral: testSqlLiteral,
+        );
+
+        // INSERT and DELETE pass; CREATE is rejected.
+        expect(result.imported, 2);
+        expect(result.errors, hasLength(1));
+        expect(result.errors[0], contains('CREATE TABLE evil'));
+        expect(executedSql, hasLength(2));
+      });
+
+      test(
+        'rejects SELECT statements (read-only, not a data mutation)',
+        () async {
+          final executedSql = <String>[];
+
+          final result = await processor.processImport(
+            format: 'sql',
+            data: 'SELECT * FROM items',
+            table: 'items',
+            writeQuery: (sql) async => executedSql.add(sql),
+            sqlLiteral: testSqlLiteral,
+          );
+
+          expect(result.imported, 0);
+          expect(result.errors, hasLength(1));
+          expect(executedSql, isEmpty);
+        },
+      );
+
+      test('accepts REPLACE INTO as valid DML', () async {
+        final executedSql = <String>[];
+
+        // REPLACE INTO is SQLite's alias for INSERT OR REPLACE INTO.
+        final result = await processor.processImport(
+          format: 'sql',
+          data: "REPLACE INTO items (id, name) VALUES (1, 'updated')",
+          table: 'items',
+          writeQuery: (sql) async => executedSql.add(sql),
+          sqlLiteral: testSqlLiteral,
+        );
+
+        expect(result.imported, 1);
+        expect(result.errors, isEmpty);
+        expect(executedSql, hasLength(1));
+      });
+
+      test('accepts INSERT OR IGNORE INTO as valid DML', () async {
+        final executedSql = <String>[];
+
+        // SQLite conflict-clause variant.
+        final result = await processor.processImport(
+          format: 'sql',
+          data: 'INSERT OR IGNORE INTO items (id) VALUES (1)',
+          table: 'items',
+          writeQuery: (sql) async => executedSql.add(sql),
+          sqlLiteral: testSqlLiteral,
+        );
+
+        expect(result.imported, 1);
+        expect(result.errors, isEmpty);
+      });
+
+      test('accepts INSERT OR REPLACE INTO as valid DML', () async {
+        final executedSql = <String>[];
+
+        final result = await processor.processImport(
+          format: 'sql',
+          data: "INSERT OR REPLACE INTO items (id, name) VALUES (1, 'x')",
+          table: 'items',
+          writeQuery: (sql) async => executedSql.add(sql),
+          sqlLiteral: testSqlLiteral,
+        );
+
+        expect(result.imported, 1);
+        expect(result.errors, isEmpty);
+      });
+
+      test('truncates long SQL in rejection error messages', () async {
+        // Build a statement longer than _maxErrorSqlLength (120 chars).
+        final longValue = 'x' * 200;
+        final result = await processor.processImport(
+          format: 'sql',
+          data: 'DROP TABLE $longValue',
+          table: 'items',
+          writeQuery: (sql) async {},
+          sqlLiteral: testSqlLiteral,
+        );
+
+        expect(result.imported, 0);
+        expect(result.errors, hasLength(1));
+        // Error should contain the truncation marker, not the full SQL.
+        expect(result.errors[0], contains('…'));
+        // Full long value should NOT be in the error.
+        expect(result.errors[0], isNot(contains(longValue)));
+      });
+    });
+
     group('unsupported format', () {
       test('throws FormatException for unknown format', () async {
         expect(

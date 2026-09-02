@@ -471,4 +471,222 @@ void main() {
       });
     });
   });
+
+  group('SqlValidator.isSingleDataMutationSql', () {
+    group('accepts valid DML', () {
+      test('INSERT INTO', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql('INSERT INTO t (id) VALUES (1)'),
+          isTrue,
+        );
+      });
+
+      test('UPDATE', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql('UPDATE t SET x = 1 WHERE id=2'),
+          isTrue,
+        );
+      });
+
+      test('DELETE FROM', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql('DELETE FROM t WHERE id = 1'),
+          isTrue,
+        );
+      });
+
+      test('REPLACE INTO (SQLite alias)', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            "REPLACE INTO t (id, name) VALUES (1, 'a')",
+          ),
+          isTrue,
+        );
+      });
+
+      test('INSERT OR REPLACE INTO', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            "INSERT OR REPLACE INTO t (id) VALUES (1)",
+          ),
+          isTrue,
+        );
+      });
+
+      test('INSERT OR IGNORE INTO', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            'INSERT OR IGNORE INTO t (id) VALUES (1)',
+          ),
+          isTrue,
+        );
+      });
+
+      test('INSERT OR ABORT INTO', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            'INSERT OR ABORT INTO t (id) VALUES (1)',
+          ),
+          isTrue,
+        );
+      });
+
+      test('UPDATE OR ROLLBACK', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            'UPDATE OR ROLLBACK t SET x = 1',
+          ),
+          isTrue,
+        );
+      });
+
+      test('case-insensitive', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            'insert or ignore into t (id) values (1)',
+          ),
+          isTrue,
+        );
+      });
+
+      test('with trailing semicolon', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql('INSERT INTO t VALUES (1);'),
+          isTrue,
+        );
+      });
+
+      test('UPDATE with quoted table name (masked to ? by tokenizer)', () {
+        // Quoted table names are masked by _maskCommentsAndLiterals before
+        // the regex runs. The UPDATE regex must not require a word boundary
+        // after the verb, because '?' is non-word and would fail \b.
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            'UPDATE "Users" SET name = \'x\' WHERE id = 1',
+          ),
+          isTrue,
+        );
+      });
+
+      test('UPDATE with backtick-quoted table name', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql('UPDATE `my table` SET x = 1'),
+          isTrue,
+        );
+      });
+
+      test(
+        'accepts REPLACE() function inside INSERT (not a forbidden verb)',
+        () {
+          // REPLACE() is a SQLite string function — must not trigger the
+          // forbidden-keyword scan now that REPLACE is removed from the set.
+          expect(
+            SqlValidator.isSingleDataMutationSql(
+              "INSERT INTO t (name) VALUES (REPLACE('hello','l','r'))",
+            ),
+            isTrue,
+          );
+        },
+      );
+
+      test('accepts INSERT ... ON CONFLICT DO UPDATE (UPSERT)', () {
+        // SQLite 3.24+ native upsert syntax. UPDATE inside DO UPDATE is
+        // not in the forbidden-keyword set, so this passes the scan.
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            'INSERT INTO t (id, name) VALUES (1, \'a\') '
+            'ON CONFLICT (id) DO UPDATE SET name = excluded.name',
+          ),
+          isTrue,
+        );
+      });
+
+      test('accepts INSERT ... ON CONFLICT DO NOTHING', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            'INSERT INTO t (id) VALUES (1) ON CONFLICT DO NOTHING',
+          ),
+          isTrue,
+        );
+      });
+
+      test('accepts REPLACE() function inside DELETE WHERE clause', () {
+        // REPLACE() as a string function in a WHERE condition — not a
+        // leading verb, should not be treated as forbidden.
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            "DELETE FROM t WHERE REPLACE(name, 'a', 'b') = 'x'",
+          ),
+          isTrue,
+        );
+      });
+
+      test('rejects bare UPDATE with no table name', () {
+        // Structurally invalid — regex requires whitespace after UPDATE
+        // but _singleStatementCoreForAnalysis trims to just "UPDATE".
+        expect(SqlValidator.isSingleDataMutationSql('UPDATE'), isFalse);
+      });
+
+      test('rejects UPDATE with only trailing semicolon', () {
+        // After trimming and semicolon removal, core is "UPDATE" — no
+        // trailing whitespace, regex fails.
+        expect(SqlValidator.isSingleDataMutationSql('UPDATE ;'), isFalse);
+      });
+    });
+
+    group('rejects non-DML', () {
+      test('DROP TABLE', () {
+        expect(SqlValidator.isSingleDataMutationSql('DROP TABLE t'), isFalse);
+      });
+
+      test('CREATE TABLE', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql('CREATE TABLE t (id INT)'),
+          isFalse,
+        );
+      });
+
+      test('PRAGMA', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql('PRAGMA journal_mode=DELETE'),
+          isFalse,
+        );
+      });
+
+      test('ATTACH DATABASE', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql('ATTACH DATABASE "x" AS ext'),
+          isFalse,
+        );
+      });
+
+      test('SELECT', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql('SELECT * FROM t'),
+          isFalse,
+        );
+      });
+
+      test('VACUUM', () {
+        expect(SqlValidator.isSingleDataMutationSql('VACUUM'), isFalse);
+      });
+
+      test('multi-statement (stacked via semicolon)', () {
+        expect(
+          SqlValidator.isSingleDataMutationSql(
+            'INSERT INTO t VALUES (1); DROP TABLE t',
+          ),
+          isFalse,
+        );
+      });
+
+      test('empty string', () {
+        expect(SqlValidator.isSingleDataMutationSql(''), isFalse);
+      });
+
+      test('whitespace only', () {
+        expect(SqlValidator.isSingleDataMutationSql('   '), isFalse);
+      });
+    });
+  });
 }

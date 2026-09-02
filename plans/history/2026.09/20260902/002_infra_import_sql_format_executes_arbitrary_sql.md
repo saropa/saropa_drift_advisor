@@ -1,6 +1,6 @@
 # BUG: `POST /api/import` with `format: "sql"` executes arbitrary unvalidated SQL (DROP/ATTACH/PRAGMA)
 
-**Status: Fix Ready**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server
@@ -182,6 +182,57 @@ opt-in flag) are deferred follow-ups, not part of this change.
 ## Commits
 
 <!-- Add commit hashes as fixes land. -->
+
+---
+
+## Finish Report (2026-09-02)
+
+### Defect
+
+`POST /api/import` with `format: "sql"` passed every statement from `_splitSqlStatements` directly to `writeQuery` with no validation. DDL (`DROP TABLE`, `CREATE TABLE`), `ATTACH DATABASE`, `PRAGMA`, and cross-table DML all executed silently. Every other server write path gates through `SqlValidator`; this endpoint was the sole exception.
+
+### Fix
+
+`lib/src/drift_debug_import.dart` — imported `SqlValidator` and added a guard in `_importSql`: each statement is checked with `SqlValidator.isSingleDataMutationSql(stmt)` before execution. Statements that fail (DDL, multi-statement, non-DML) are appended to the `errors` list and skipped — `writeQuery` is never called for them.
+
+### Deferred scope
+
+Steps 2–4 of the original fix sketch remain open:
+- Per-statement table-match check (import scoped to table `X` can still mutate table `Y`).
+- Transaction wrapping — cannot be done through the opaque `writeQuery` callback because it typically wraps `db.customStatement`, which runs inside Drift's executor. Sending raw `BEGIN`/`COMMIT` through it risks nested-transaction errors or Drift internal state corruption. Requires a dedicated `transactionCallback` parameter on the public API.
+- `allowRawSqlImport` opt-in flag for hosts needing unrestricted restore.
+
+### Hardening (2026-09-02, second pass)
+
+**Validator widening:** `isSingleDataMutationSql` now accepts `REPLACE INTO`, `INSERT OR {REPLACE|IGNORE|ABORT|ROLLBACK|FAIL} INTO`, and `UPDATE OR {clause}` — all valid SQLite DML that was previously rejected. `REPLACE` removed from the forbidden-keyword set (it is DML, not DDL; the single-statement guard already prevents stacking).
+
+**Quoted-table-name fix:** The UPDATE regex's trailing `\b` failed when `_maskCommentsAndLiterals` replaced a quoted table name with `?` (non-word char). Removed the trailing `\b` — the mandatory `\s+` after UPDATE already prevents matching non-keywords like `UPDATEX`.
+
+**Error truncation:** Rejection error messages now truncate SQL text to 120 characters (`_maxErrorSqlLength`) to avoid leaking large schema fragments in HTTP error responses.
+
+**Regex hoisting:** All 5 regex patterns in `isSingleDataMutationSql` hoisted to `static final` class fields, matching the codebase convention in `anomaly_detector.dart`, `host_statement_capture.dart`, etc. Avoids per-call compilation on a hot validation path (called per statement in import loops and per edit in batch applies).
+
+### Test coverage
+
+Eight tests in `test/drift_debug_import_test.dart` under "SQL import — statement validation (fix 002)":
+- DDL rejection (DROP TABLE): 0 imported, 1 error, writeQuery never called.
+- PRAGMA + ATTACH rejection: 0 imported, 2 errors, writeQuery never called.
+- Mixed valid DML + DDL: INSERT/DELETE execute, CREATE TABLE rejected.
+- SELECT rejection: read-only statements are not data mutations.
+- REPLACE INTO acceptance: 1 imported, 0 errors.
+- INSERT OR IGNORE INTO acceptance: 1 imported, 0 errors.
+- INSERT OR REPLACE INTO acceptance: 1 imported, 0 errors.
+- Error message truncation: long SQL truncated with `…`, full text absent.
+
+Twenty-two tests in `test/sql_validation_test.dart` under "SqlValidator.isSingleDataMutationSql":
+- 13 acceptance tests: INSERT INTO, UPDATE, DELETE FROM, REPLACE INTO, INSERT OR {REPLACE|IGNORE|ABORT} INTO, UPDATE OR ROLLBACK, case-insensitive, trailing semicolon, quoted table names (double-quote and backtick), REPLACE() function inside INSERT.
+- 9 rejection tests: DROP TABLE, CREATE TABLE, PRAGMA, ATTACH, SELECT, VACUUM, multi-statement stacking, empty string, whitespace only.
+
+All 116 tests pass across both files. No existing assertions broken.
+
+### Code review
+
+First pass: reviewed at `low` level, 0 findings. Second pass (after hardening): reviewed at `medium` level across 8 angles. One CONFIRMED correctness bug found (UPDATE regex `\b` failure with quoted table names) — fixed and regression-tested. Remaining findings (truncation duplication, per-call RegExp in other methods, `_maxErrorSqlLength` placement) are pre-existing patterns or cosmetic, addressed where practical.
 
 ---
 

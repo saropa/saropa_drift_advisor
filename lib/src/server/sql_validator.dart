@@ -11,6 +11,23 @@ import 'server_utils.dart';
 /// Extracted from [SqlHandler] so validation can be
 /// tested without constructing a full handler context.
 abstract final class SqlValidator {
+  // Hoisted regex patterns for isSingleDataMutationSql — compiled once,
+  // not per-call. Matches the static-final convention used elsewhere in
+  // lib/src/server/ (anomaly_detector, host_statement_capture, etc.).
+  static final RegExp _insertPattern = RegExp(
+    r'^INSERT\s+(OR\s+(REPLACE|IGNORE|ABORT|ROLLBACK|FAIL)\s+)?INTO\b',
+  );
+  static final RegExp _replacePattern = RegExp(r'^REPLACE\s+INTO\b');
+  // No trailing \b — the mandatory \s+ after UPDATE already prevents matching
+  // a non-keyword like UPDATEX, and a trailing \b breaks when
+  // _maskCommentsAndLiterals replaces a quoted table name with '?' (non-word
+  // char after whitespace = no word boundary).
+  static final RegExp _updatePattern = RegExp(
+    r'^UPDATE\s+(OR\s+(REPLACE|IGNORE|ABORT|ROLLBACK|FAIL)\s+)?',
+  );
+  static final RegExp _deletePattern = RegExp(r'^DELETE\s+FROM\b');
+  static final RegExp _wordBoundary = RegExp(r'\b\w+\b');
+
   /// Masks comments and string/identifier literals in [sql] in a SINGLE
   /// left-to-right pass that tracks lexical state, returning text where comments
   /// become spaces and every quoted run becomes `?`.
@@ -230,9 +247,17 @@ abstract final class SqlValidator {
     return true;
   }
 
-  /// True when [sql] is a single UPDATE / INSERT INTO / DELETE FROM
-  /// statement (no DDL / PRAGMA / multi-statement). Used to validate
-  /// VS Code extension batch applies before [DriftDebugWriteQuery].
+  /// True when [sql] is a single data-mutation statement and nothing else.
+  ///
+  /// Accepted leading verbs:
+  /// - `INSERT [OR {REPLACE|IGNORE|ABORT|ROLLBACK|FAIL}] INTO`
+  /// - `REPLACE INTO` (SQLite alias for `INSERT OR REPLACE INTO`)
+  /// - `UPDATE [OR {REPLACE|IGNORE|ABORT|ROLLBACK|FAIL}]`
+  /// - `DELETE FROM`
+  ///
+  /// Rejects DDL, PRAGMA, multi-statement, and any stacked forbidden keyword.
+  /// Used to validate VS Code extension batch applies before
+  /// [DriftDebugWriteQuery] and SQL-format imports in [_importSql].
   static bool isSingleDataMutationSql(String sql) {
     final core = _singleStatementCoreForAnalysis(sql);
     if (core == null) {
@@ -240,13 +265,21 @@ abstract final class SqlValidator {
     }
     final upper = core.toUpperCase();
 
-    final isUpdate = RegExp(r'^UPDATE\b').hasMatch(upper);
-    final isDelete = RegExp(r'^DELETE\s+FROM\b').hasMatch(upper);
-    final isInsert = RegExp(r'^INSERT\s+INTO\b').hasMatch(upper);
-    if (!isUpdate && !isDelete && !isInsert) {
+    // SQLite conflict-clause pattern: INSERT OR {clause} INTO, or UPDATE OR
+    // {clause}. REPLACE INTO is a standalone alias for INSERT OR REPLACE INTO.
+    // Uses hoisted static RegExp fields to avoid per-call compilation.
+    final isInsert = _insertPattern.hasMatch(upper);
+    final isReplace = _replacePattern.hasMatch(upper);
+    final isUpdate = _updatePattern.hasMatch(upper);
+    final isDelete = _deletePattern.hasMatch(upper);
+    if (!isInsert && !isReplace && !isUpdate && !isDelete) {
       return false;
     }
 
+    // Scan for forbidden DDL/utility keywords. REPLACE is intentionally NOT
+    // forbidden here — it is valid DML (either as a leading verb or inside
+    // INSERT OR REPLACE). The single-statement guard already rejects stacked
+    // statements, so REPLACE cannot smuggle a second write.
     const forbidden = <String>{
       'CREATE',
       'DROP',
@@ -258,9 +291,8 @@ abstract final class SqlValidator {
       'ANALYZE',
       'REINDEX',
       'TRUNCATE',
-      'REPLACE',
     };
-    for (final match in RegExp(r'\b\w+\b').allMatches(upper)) {
+    for (final match in _wordBoundary.allMatches(upper)) {
       final word = match.group(0);
       if (word != null && forbidden.contains(word)) {
         return false;

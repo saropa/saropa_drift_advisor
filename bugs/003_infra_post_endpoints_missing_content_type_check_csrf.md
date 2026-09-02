@@ -84,7 +84,7 @@ while the debug server is running:
 `text/plain` is a CORS-safelisted request content type.
 
 The same shape reaches `/api/import` (see
-`002_infra_import_sql_format_executes_arbitrary_sql.md` — arbitrary DDL), `/api/edits/apply`
+`plans/history/2026.09/20260902/002_infra_import_sql_format_executes_arbitrary_sql.md` — arbitrary DDL), `/api/edits/apply`
 (arbitrary `DELETE FROM`), and `/api/cell/update`.
 
 ---

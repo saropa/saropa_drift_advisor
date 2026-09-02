@@ -90,7 +90,7 @@ curl -s http://127.0.0.1:8642/api/dump
 emits `INSERT INTO "say"hi" ("id", "we"ird") VALUES (1, 'x');` — a dump that cannot be replayed.
 
 A `"` in a column name is reachable without any DDL privileges wherever the app itself creates such
-a column; combined with `002_infra_import_sql_format_executes_arbitrary_sql.md` (arbitrary `CREATE TABLE`
+a column; combined with `plans/history/2026.09/20260902/002_infra_import_sql_format_executes_arbitrary_sql.md` (arbitrary `CREATE TABLE`
 over HTTP) it is also remotely plantable, at which point line 542's `INSERT INTO "$table"` is
 attacker-shaped SQL text handed to whoever replays the dump.
 

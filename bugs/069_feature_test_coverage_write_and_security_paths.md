@@ -27,7 +27,7 @@ exercised the scenario, not because the endpoint was untested.
 | Two overlapping write requests | `011_infra_edits_batch_transaction_race.md` |
 | A host wiring *distinct* read and write callbacks | `043_infra_cell_update_rows_affected_unreliable.md` |
 | A table or column name containing `"` reaching a handler | `012_infra_schema_handler_raw_identifier_interpolation.md` |
-| `format: "sql"` import carrying DDL rather than INSERT | `002_infra_import_sql_format_executes_arbitrary_sql.md` |
+| `format: "sql"` import carrying DDL rather than INSERT | `plans/history/2026.09/20260902/002_infra_import_sql_format_executes_arbitrary_sql.md` |
 
 The evidence that each shape is missing:
 

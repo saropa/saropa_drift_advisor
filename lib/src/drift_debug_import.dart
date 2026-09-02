@@ -5,7 +5,7 @@ import 'drift_debug_import_result.dart';
 // the server (batch edits, index creation) gates through this validator;
 // `_importSql` previously executed unvalidated SQL, allowing DROP/ATTACH/
 // PRAGMA against the developer's live database. See
-// bugs/002_infra_import_sql_format_executes_arbitrary_sql.md.
+// plans/history/2026.09/20260902/002_infra_import_sql_format_executes_arbitrary_sql.md.
 import 'server/sql_validator.dart';
 
 export 'drift_debug_import_result.dart';
@@ -31,6 +31,10 @@ final class DriftDebugImportProcessor {
 
   /// BOM (Byte Order Mark) code unit for UTF-8.
   static const int _bomCodeUnit = 0xFEFF;
+
+  /// Cap for SQL text echoed in rejection error messages — long statements
+  /// are truncated to avoid leaking large schema fragments in HTTP responses.
+  static const int _maxErrorSqlLength = 120;
 
   /// Imports [data] in the given [format] into [table].
   ///
@@ -228,6 +232,14 @@ final class DriftDebugImportProcessor {
     );
   }
 
+  /// Imports SQL statements by validating and executing each one individually.
+  ///
+  /// Note: statements are NOT wrapped in a transaction. The [writeQuery]
+  /// callback is an opaque user-supplied function (typically
+  /// `db.customStatement`) that runs inside Drift's executor — sending raw
+  /// `BEGIN`/`COMMIT` through it risks nested-transaction errors or Drift
+  /// internal state corruption. Transaction wrapping requires a dedicated
+  /// `transactionCallback` parameter added to the public API.
   Future<DriftDebugImportResult> _importSql({
     required String data,
     required String table,
@@ -245,7 +257,11 @@ final class DriftDebugImportProcessor {
       // database. Invalid statements are recorded as errors and skipped,
       // never executed.
       if (!SqlValidator.isSingleDataMutationSql(stmt)) {
-        errors.add('Statement rejected (not a valid data mutation): $stmt');
+        // Truncate long SQL to avoid leaking schema in error responses.
+        final preview = stmt.length > _maxErrorSqlLength
+            ? '${stmt.substring(0, _maxErrorSqlLength)}…'
+            : stmt;
+        errors.add('Statement rejected (not a valid data mutation): $preview');
         continue;
       }
 
