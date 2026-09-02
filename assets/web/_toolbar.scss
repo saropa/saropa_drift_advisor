@@ -127,9 +127,28 @@
  * grows to fit its short `data-label` word rendered after the glyph, and every
  * button carries a permanent dim bounding box so the now-wider hit targets
  * read as discrete controls instead of floating text. The default (no class)
- * stays icon-only. A subtle pointer hint on the strip signals it is clickable
+ * stays icon-only.
+ *
+ * Bug 081: the SAME rules are also selected by `.icons-unavailable` on <html>
+ * (set by toolbar.ts when the Material Symbols face never loaded). Rather than
+ * inventing a second text-fallback mechanism, the offline state simply forces
+ * this existing labeled layout on, so each button shows its short `data-label`
+ * word instead of the ligature name the missing font would otherwise paint.
+ *
+ * Bug 081 review finding 2 — that force is a DEFAULT, not an override. The
+ * `:not(.tb-density-user)` guard means it applies only while the user has never
+ * explicitly chosen icon-only density (toolbar.ts sets `tb-density-user` on the
+ * strip exactly when the stored pref is an explicit '0'). Forcing labels
+ * unconditionally made the density toggle a dead control for the whole degraded
+ * session — the same defect bug 083 fixes elsewhere in this changeset. The
+ * trade-off is accepted deliberately: a user who insists on icon-only while the
+ * icon font is missing gets the `.icons-unavailable` bullet marker from
+ * _cards.scss instead of a label, which keeps the buttons visible and clickable
+ * (their `title`/`aria-label` still name them) rather than silently ignoring
+ * their choice. A subtle pointer hint on the strip signals it is clickable
  * whitespace; the buttons override it back to pointer for their own affordance. */
-#toolbar-bar.tb-labeled {
+#toolbar-bar.tb-labeled,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) {
   cursor: pointer;
   /* Stretch children to the strip's content width so every labeled button is
    * the SAME width (the widest label sets it) instead of each shrink-wrapping
@@ -140,7 +159,8 @@
   gap: var(--space-1);
 }
 
-#toolbar-bar.tb-labeled .tb-icon-btn {
+#toolbar-bar.tb-labeled .tb-icon-btn,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) .tb-icon-btn {
   /* Fill the strip width (set by align-items: stretch above) so all buttons
    * share one width and their labels share a single left edge. */
   width: auto;
@@ -161,17 +181,20 @@
 /* The trailing theme button lives inside a flyout wrapper; stretch the wrapper
  * and let its button fill it so it matches the other labeled rows' width and
  * left edge instead of shrink-wrapping. */
-#toolbar-bar.tb-labeled .tb-flyout-wrap {
+#toolbar-bar.tb-labeled .tb-flyout-wrap,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) .tb-flyout-wrap {
   align-self: stretch;
 }
 
-#toolbar-bar.tb-labeled .tb-flyout-wrap .tb-icon-btn {
+#toolbar-bar.tb-labeled .tb-flyout-wrap .tb-icon-btn,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) .tb-flyout-wrap .tb-icon-btn {
   width: 100%;
 }
 
 /* The short word: pulled from data-label so the tooltip `title` can stay a
  * fuller phrase (e.g. "Toggle tables sidebar" -> label "Tables"). */
-#toolbar-bar.tb-labeled .tb-icon-btn[data-label]::after {
+#toolbar-bar.tb-labeled .tb-icon-btn[data-label]::after,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) .tb-icon-btn[data-label]::after {
   content: attr(data-label);
   font-size: var(--text-sm);
   font-family: inherit;

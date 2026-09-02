@@ -664,7 +664,12 @@
    so a column of them stays scannable. */
 .nl-help-panel code {
   padding: 0.05rem 0.3rem;
-  font-family: var(--mono, ui-monospace, monospace);
+  /* BUG 082: this once read `var(--mono, ...)`. No --mono token has ever
+     existed, so the declaration silently fell back to the generic
+     monospace face and the chips did not match the SQL preview. The
+     design-system token is --font-mono (_base.scss) — use it with no
+     fallback so a future rename fails loudly instead of degrading. */
+  font-family: var(--font-mono);
   font-size: 0.8em;
   color: var(--fg);
   background: var(--surface);

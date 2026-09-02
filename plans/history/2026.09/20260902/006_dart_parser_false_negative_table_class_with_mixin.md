@@ -1,6 +1,6 @@
 # BUG: Tables declared with a mixin or `implements` clause are invisible to every diagnostic
 
-**Status: Fix Ready**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Extension

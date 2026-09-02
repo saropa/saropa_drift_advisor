@@ -85,3 +85,24 @@ if has_staged '^extension/.*\.tsx?$'; then
 else
   echo "No staged extension .ts files — skipping TypeScript and build checks"
 fi
+
+# Return to repo root for subsequent gates.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# ── Gate 3: CSRF gate coverage on router.dart ──
+# Only runs when router.dart is staged. Every POST endpoint must either
+# call _rejectNonJsonBody or carry a `// csrf-exempt:` comment explaining
+# why the gate is unnecessary (bug 003).
+if has_staged 'lib/src/server/router\.dart$'; then
+  echo "Checking CSRF gate coverage on router.dart..."
+  python scripts/check_csrf_gate_coverage.py || {
+    echo ""
+    echo "CSRF gate coverage check failed!"
+    echo "Every POST route in router.dart must call _rejectNonJsonBody()"
+    echo "or carry a '// csrf-exempt: <reason>' comment."
+    echo ""
+    exit 1
+  }
+else
+  echo "router.dart not staged — skipping CSRF gate check"
+fi

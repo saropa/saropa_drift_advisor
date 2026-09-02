@@ -1,6 +1,6 @@
 # BUG: New-row insert silently drops the primary key column, producing rows with a NULL PK on TEXT/composite keys
 
-**Status: Fix Ready**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Extension

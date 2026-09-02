@@ -34,13 +34,30 @@
   padding: 0 0.5rem;
 }
 
+/* Tab item: non-interactive wrapper holding the tab button and its close
+ * button as SIBLINGS. Before the plans/history/2026.09/20260902/084 fix the close <button> was a child
+ * of the tab <button>, which the HTML content model forbids and which
+ * corrupted the accessible name and focus order. The wrapper is the flex item
+ * inside #tab-bar now, and it is `position: relative` so the close button can
+ * be positioned over the space the tab button reserves for it — that keeps
+ * the tab's background, border and active accent spanning the full width
+ * exactly as they did when the close button was nested inside. */
+.tab-bar .tab-item {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+}
+
 .tab-bar .tab-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
   min-height: 2.75rem;
-  padding: 0 1.25rem;
+  /* Right padding reserves the close button's slot (it is now an absolutely
+   * positioned sibling, no longer an in-flow child), so tab width and the
+   * label's position are unchanged from before the plans/history/2026.09/20260902/084 fix. */
+  padding: 0 3.1rem 0 1.25rem;
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--muted);
@@ -54,7 +71,12 @@
   position: relative;
 }
 
-.tab-bar .tab-btn:hover {
+/* `.tab-item:hover` mirrors the tab's hover onto the button: the close button
+ * is a sibling now (plans/history/2026.09/20260902/084), so hovering it no longer triggers
+ * `.tab-btn:hover` the way it did when it was a child. `:not(.active)` keeps
+ * the active tab's own background winning, exactly as before. */
+.tab-bar .tab-btn:hover,
+.tab-bar .tab-item:hover .tab-btn:not(.active) {
   color: var(--fg);
   background: var(--surface);
 }
@@ -100,10 +122,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Sibling of .tab-btn (plans/history/2026.09/20260902/084), overlaid on the slot reserved by that
+   * button's right padding so the glyph lands where it always did while the
+   * tab's own chrome still paints underneath it. */
+  position: absolute;
+  right: 1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
   width: 1.25rem;
   height: 1.25rem;
   padding: 0;
-  margin-left: 0.25rem;
   font-size: 1rem;
   line-height: 1;
   color: var(--muted);

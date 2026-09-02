@@ -174,7 +174,7 @@ The build is deterministic and cheap (sub-second), so a gate is trivially afford
 ## Impact
 
 - **Who is affected:** every consumer of a release published from a tree with an unbuilt `bundle.js` — pub.dev users, the jsDelivr CDN fallback path used by Flutter mobile hosts, and the VS Code panel (which reads the same asset).
-- **What is blocked:** any web-viewer fix, including the escaper fix in `bugs/004_web_viewer_xss_esc_missing_quote_escaping.md`, can be authored, reviewed, merged and released without ever reaching users.
+- **What is blocked:** any web-viewer fix, including the escaper fix in `plans/history/2026.09/20260902/004_web_viewer_xss_esc_missing_quote_escaping.md`, can be authored, reviewed, merged and released without ever reaching users.
 - **Data risk:** indirect — a security fix in `assets/web/` that never reaches the shipped bundle leaves the vulnerability live while the changelog claims it is fixed.
 - **Frequency:** every commit that touches `assets/web/*.ts` without a manual rebuild.
 

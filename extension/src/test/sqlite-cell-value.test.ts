@@ -198,4 +198,30 @@ describe('sqlite-cell-value', () => {
       assert.match(r.message, /group_id.*primary key.*must be supplied/i);
     }
   });
+
+  // Bug 009: an empty-string value for a nullable TEXT PK passes the
+  // "must be supplied" check (hasOwnProperty returns true) but coerces to
+  // null — which creates an uneditable, undeletable row. Reject it.
+  it('validateRowInsert rejects empty-string TEXT primary key that coerces to null', () => {
+    const r = validateRowInsert(textPkTables, 'devices', {
+      uuid: '',
+      label: 'Phone',
+    });
+    assert.strictEqual(r.ok, false);
+    if (!r.ok) {
+      assert.match(r.message, /uuid.*primary key.*cannot be empty/i);
+    }
+  });
+
+  // Bug 009: whitespace-only PK also coerces to null — same rejection.
+  it('validateRowInsert rejects whitespace-only TEXT primary key', () => {
+    const r = validateRowInsert(textPkTables, 'devices', {
+      uuid: '   ',
+      label: 'Phone',
+    });
+    assert.strictEqual(r.ok, false);
+    if (!r.ok) {
+      assert.match(r.message, /uuid.*primary key.*cannot be empty/i);
+    }
+  });
 });

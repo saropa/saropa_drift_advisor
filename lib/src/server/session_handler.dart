@@ -152,8 +152,21 @@ final class SessionHandler {
         return;
       }
 
-      final body =
-          ServerUtils.parseJsonMap(utf8.decode(bytes)) ?? <String, dynamic>{};
+      // Bug 003: reject unparseable JSON with 400 instead of silently falling
+      // back to an empty map — a non-JSON body is a client error, not a valid
+      // empty annotation.
+      final body = ServerUtils.parseJsonMap(utf8.decode(bytes));
+      if (body == null) {
+        res.statusCode = HttpStatus.badRequest;
+        _ctx.setJsonHeaders(res);
+        res.write(
+          jsonEncode(<String, String>{
+            ServerConstants.jsonKeyError: ServerConstants.errorInvalidJson,
+          }),
+        );
+        await res.close();
+        return;
+      }
 
       final added = _sessionStore.annotate(
         sessionId,

@@ -189,7 +189,7 @@ node -e "require('esbuild').build({entryPoints:['assets/web/index.js'],outfile:'
 3. **`assets/web/bundle.js` is committed and must stay deterministic** — esbuild minification is deterministic for a fixed version, so the sync gate proposed in `bugs/015_infra_bundle_js_has_no_staleness_gate.md` still works. But minify makes the committed diff unreadable, which argues for gating on a rebuild-and-compare rather than reviewing the diff.
 4. **Offline / CDN fallback path** — when the package root cannot be resolved (Flutter mobile), the HTML loads the bundle from jsDelivr, which already sets long-lived cache headers. Only the inlined path lacks caching. Should pass either way.
 5. **De-inlining changes the failure mode** — the inline path exists specifically because the `onerror` fallback chain was unreliable in Firefox (documented at `lib/src/server/html_content.dart:5-13`). A local `<script src="/assets/web/bundle.js">` is same-origin and served by the same server, so it does not reintroduce the CDN `onerror` problem, but this needs verification before shipping. Needs discussion.
-6. **Interaction with a future CSP** — `bugs/004_web_viewer_xss_esc_missing_quote_escaping.md` proposes a CSP; a linked same-origin script is easier to allow (`script-src 'self'`) than an inline one, so de-inlining and CSP reinforce each other.
+6. **Interaction with a future CSP** — `plans/history/2026.09/20260902/004_web_viewer_xss_esc_missing_quote_escaping.md` proposes a CSP; a linked same-origin script is easier to allow (`script-src 'self'`) than an inline one, so de-inlining and CSP reinforce each other.
 
 ---
 

@@ -80,3 +80,26 @@ export function syncFeatureCardExpanded(collapsible: Element | null): void {
   const card = collapsible && collapsible.closest && collapsible.closest('.feature-card');
   if (card) card.classList.toggle('expanded', !collapsible.classList.contains('collapsed'));
 }
+
+/**
+ * Builds the `/api/table/<name>` data URL with the paging query parameters.
+ *
+ * BUG FIX (plans/history/2026.09/20260902/080): `table-list.ts` used to inline this string and a
+ * mechanical rename of the state variable (`limit` -> `S.limit`) was applied
+ * *inside* the string literal, so the request went out as
+ * `?S.limit=200&S.offset=200`. The Dart server only reads `limit`/`offset`
+ * (`ServerConstants.queryParamLimit`/`queryParamOffset`) and silently ignores
+ * unknown parameters, so it applied its defaults and returned page 1 for every
+ * page while the pagination bar — which derives its text from client state —
+ * claimed otherwise. Centralizing the construction here gives the two call
+ * sites (Tables view and Search tab) one source of truth, so they cannot
+ * drift apart again, and gives the parameter names a single place to be
+ * pinned by a test.
+ *
+ * @param name Table name; encoded because table names may contain `/`, `#`, etc.
+ * @param limit Page size (server parameter `limit`).
+ * @param offset Row offset of the first row on the page (server parameter `offset`).
+ */
+export function buildTableDataUrl(name: string, limit: number | string, offset: number | string): string {
+  return '/api/table/' + encodeURIComponent(name) + '?limit=' + limit + '&offset=' + offset;
+}

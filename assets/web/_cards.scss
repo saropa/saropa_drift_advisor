@@ -78,9 +78,26 @@ body.theme-light .feature-card.expanded {
     0 16px 32px rgba(67, 83, 137, 0.08);
 }
 
-/* Material Symbols (Phase 4.1): icon font from Google Fonts CDN. */
+/* Material Symbols (Phase 4.1): icon font from Google Fonts CDN.
+ * Bug 081: the family used to be declared alone, so when the CDN is
+ * unreachable the browser fell back to the *inherited* family at the
+ * inherited size — the ligature name painted as full-size text that
+ * overflowed the 2.4rem icon buttons. The stack below names explicit
+ * fallbacks (including a locally installed "Material Icons") so the degraded
+ * state is at least predictable, and the fixed font-size/line-height keep a
+ * fallback glyph from changing the button's line box. The readable
+ * degradation itself is the `.icons-unavailable` block further down.
+ *
+ * Bug 081 review finding 3: `display: inline-block`, `vertical-align: middle`
+ * and `white-space: nowrap` were briefly added HERE. They exist only to stop a
+ * fallback STRING from re-flowing its row, which cannot happen once the font
+ * has loaded, so putting them on the base rule changed inline alignment for
+ * every icon in the app to guard a state that app is not in. They now live in
+ * the `.icons-unavailable` block, where the problem actually occurs. Call
+ * sites that want a specific alignment (`.feature-icon`, `.header-icon`, …)
+ * keep setting `vertical-align` themselves, exactly as before this bug. */
 .material-symbols-outlined {
-  font-family: "Material Symbols Outlined";
+  font-family: "Material Symbols Outlined", "Material Icons", ui-sans-serif, system-ui, sans-serif;
   font-weight: 400;
   font-style: normal;
   font-size: 1.25rem;
@@ -88,6 +105,69 @@ body.theme-light .feature-card.expanded {
   letter-spacing: normal;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+/* --- Icon font unavailable (bug 081) ---
+ * `icons-unavailable` is set on <html> by toolbar.ts when
+ * document.fonts.load() reports that no "Material Symbols Outlined" face
+ * exists (offline, corporate proxy blocking Google, or a device-hosted
+ * server reached over `adb forward` with no internet). Under that class the
+ * ligature text must never be painted, because it is the raw glyph NAME
+ * ("table_chart", "smart_toy"), not a word any user asked for. */
+.icons-unavailable .material-symbols-outlined {
+  /* font-size:0 collapses the ligature name to nothing while leaving the
+     element in flow for its ::after marker.
+     !important is deliberate and load-bearing: a dozen feature partials set
+     a more specific size on this same class (e.g.
+     `.sql-runner .sql-toolbar button .material-symbols-outlined`,
+     `#toolbar-bar .tb-icon-btn .material-symbols-outlined`) and every one of
+     them outranks a plain `.icons-unavailable ...` descendant selector. The
+     degraded state has to win in ALL of those surfaces — SQL toolbar, tab
+     icons, pin buttons, history sidebar — or the ligature name leaks through
+     in exactly the places this bug is about. */
+  font-size: 0 !important;
+  /* Own box + no wrapping, degraded state ONLY (review finding 3). While the
+     ligature name is the rendered text it must never be allowed to wrap or to
+     stretch the line box of the row it sits in — it can only be collapsed by
+     the font-size above and replaced by the ::after marker below. Once the
+     icon font is present none of this is needed, which is why it is not on the
+     base rule. `vertical-align: middle` re-centres the shrunken zero-size box
+     (and therefore its marker) against the button's text baseline. */
+  display: inline-block;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Neutral stand-in glyph for icon-only controls that carry no `data-label`
+ * (pin buttons, SQL Run/Format, history refresh/delete, tab icons): they
+ * still get a visible mark so the button does not collapse to an empty box.
+ * Their `title`/`aria-label` remain intact for tooltip and screen reader, so
+ * no new user-facing string is introduced and nothing needs localizing. */
+.icons-unavailable .material-symbols-outlined::after {
+  /* U+25CF BLACK CIRCLE — present in every system UI font, so it needs no
+     webfont to render. Sized in rem, NOT em: the parent's font-size is 0 and
+     an em value would inherit that zero and draw nothing. */
+  content: "\25CF";
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.5rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+/* Where the control already renders its own word, the bullet would be
+ * redundant noise next to the label — drop it. The two selectors mirror
+ * EXACTLY the two conditions under which _toolbar.scss paints
+ * `content: attr(data-label)`: the user's labeled density mode, and the
+ * degraded default that is not overridden by an explicit icon-only choice
+ * (`tb-density-user`, review finding 2). Suppressing on the bare
+ * `[data-label]` attribute instead — as this rule first did — would leave a
+ * user who deliberately stays icon-only while the font is missing with buttons
+ * showing neither a label nor a bullet: an empty box, i.e. the original bug.
+ * `data-label` is only ever emitted on `#toolbar-bar .tb-icon-btn`
+ * (html_content.dart), so scoping to the toolbar loses no other call site. */
+#toolbar-bar.tb-labeled [data-label] .material-symbols-outlined::after,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) [data-label] .material-symbols-outlined::after {
+  content: none;
 }
 
 .feature-icon {

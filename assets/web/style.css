@@ -815,7 +815,14 @@ body.theme-light .header-pill.live {
   opacity: 0.5;
 }
 
-.table-list a:hover {
+/* The second selector mirrors the row hover onto the link when the pointer is
+ * over the pin button. The pin was moved out of the <a> and made a sibling in
+ * the plans/history/2026.09/20260902/084 fix (a <button> may not sit inside a link), so it no longer
+ * triggers `a:hover` by descent — without this the row would go dark the
+ * moment the cursor reached the pin. `:not(.active)` leaves the active row's
+ * highlight alone, which is what the previous source order produced. */
+.table-list a:hover,
+.table-list li:hover > a:not(.active) {
   background: rgba(128, 128, 128, 0.1);
   color: var(--link-hover);
   text-decoration: none;
@@ -832,8 +839,12 @@ body.theme-light .header-pill.live {
   outline-offset: 2px;
 }
 
-/* Pin button: absolutely positioned so it overlays the right side of each
-   table link. Hidden at rest for unpinned rows — users asked for a cleaner
+/* Pin button: absolutely positioned against `.table-list li` (which is
+   `position: relative`) so it overlays the right side of each table link.
+   Since the plans/history/2026.09/20260902/084 fix the button is a SIBLING of the <a>, not a child of
+   it — a <button> inside a link is invalid HTML and broke the accessible
+   name. The positioning is unchanged because it was never anchored to the
+   link in the first place. Hidden at rest for unpinned rows — users asked for a cleaner
    list with the unpin affordance appearing only on row hover. Pinned rows
    keep the icon visible at all times (see .table-pin-btn.pinned below) so
    the pinned state remains readable without hovering. Touch devices and
@@ -967,7 +978,7 @@ body.theme-light .header-pill.live {
   width: 100%;
   box-sizing: border-box;
   font-size: var(--text-xs);
-  font-family: var(--font-mono, "Fira Code", monospace);
+  font-family: var(--font-mono);
   padding: 0.3rem 0.5rem;
   margin-bottom: 0.5rem;
   border-radius: var(--radius-sm);
@@ -1067,7 +1078,7 @@ body.theme-light .header-pill.live {
 
 /* SQL preview text — monospace, truncated. */
 .history-sql {
-  font-family: var(--font-mono, "Fira Code", monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: 1.3;
   color: var(--fg);
@@ -1221,7 +1232,7 @@ body.theme-light .header-pill.live {
 .history-dialog-sql {
   margin: 0;
   padding: 0.6rem 1rem;
-  font-family: var(--font-mono, "Fira Code", monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--fg);
@@ -1373,9 +1384,26 @@ body.theme-light .feature-card.expanded {
   box-shadow: 0 4px 8px rgba(67, 83, 137, 0.08), 0 8px 16px rgba(67, 83, 137, 0.1), 0 16px 32px rgba(67, 83, 137, 0.08);
 }
 
-/* Material Symbols (Phase 4.1): icon font from Google Fonts CDN. */
+/* Material Symbols (Phase 4.1): icon font from Google Fonts CDN.
+ * Bug 081: the family used to be declared alone, so when the CDN is
+ * unreachable the browser fell back to the *inherited* family at the
+ * inherited size — the ligature name painted as full-size text that
+ * overflowed the 2.4rem icon buttons. The stack below names explicit
+ * fallbacks (including a locally installed "Material Icons") so the degraded
+ * state is at least predictable, and the fixed font-size/line-height keep a
+ * fallback glyph from changing the button's line box. The readable
+ * degradation itself is the `.icons-unavailable` block further down.
+ *
+ * Bug 081 review finding 3: `display: inline-block`, `vertical-align: middle`
+ * and `white-space: nowrap` were briefly added HERE. They exist only to stop a
+ * fallback STRING from re-flowing its row, which cannot happen once the font
+ * has loaded, so putting them on the base rule changed inline alignment for
+ * every icon in the app to guard a state that app is not in. They now live in
+ * the `.icons-unavailable` block, where the problem actually occurs. Call
+ * sites that want a specific alignment (`.feature-icon`, `.header-icon`, …)
+ * keep setting `vertical-align` themselves, exactly as before this bug. */
 .material-symbols-outlined {
-  font-family: "Material Symbols Outlined";
+  font-family: "Material Symbols Outlined", "Material Icons", ui-sans-serif, system-ui, sans-serif;
   font-weight: 400;
   font-style: normal;
   font-size: 1.25rem;
@@ -1383,6 +1411,69 @@ body.theme-light .feature-card.expanded {
   letter-spacing: normal;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+/* --- Icon font unavailable (bug 081) ---
+ * `icons-unavailable` is set on <html> by toolbar.ts when
+ * document.fonts.load() reports that no "Material Symbols Outlined" face
+ * exists (offline, corporate proxy blocking Google, or a device-hosted
+ * server reached over `adb forward` with no internet). Under that class the
+ * ligature text must never be painted, because it is the raw glyph NAME
+ * ("table_chart", "smart_toy"), not a word any user asked for. */
+.icons-unavailable .material-symbols-outlined {
+  /* font-size:0 collapses the ligature name to nothing while leaving the
+     element in flow for its ::after marker.
+     !important is deliberate and load-bearing: a dozen feature partials set
+     a more specific size on this same class (e.g.
+     `.sql-runner .sql-toolbar button .material-symbols-outlined`,
+     `#toolbar-bar .tb-icon-btn .material-symbols-outlined`) and every one of
+     them outranks a plain `.icons-unavailable ...` descendant selector. The
+     degraded state has to win in ALL of those surfaces — SQL toolbar, tab
+     icons, pin buttons, history sidebar — or the ligature name leaks through
+     in exactly the places this bug is about. */
+  font-size: 0 !important;
+  /* Own box + no wrapping, degraded state ONLY (review finding 3). While the
+     ligature name is the rendered text it must never be allowed to wrap or to
+     stretch the line box of the row it sits in — it can only be collapsed by
+     the font-size above and replaced by the ::after marker below. Once the
+     icon font is present none of this is needed, which is why it is not on the
+     base rule. `vertical-align: middle` re-centres the shrunken zero-size box
+     (and therefore its marker) against the button's text baseline. */
+  display: inline-block;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Neutral stand-in glyph for icon-only controls that carry no `data-label`
+ * (pin buttons, SQL Run/Format, history refresh/delete, tab icons): they
+ * still get a visible mark so the button does not collapse to an empty box.
+ * Their `title`/`aria-label` remain intact for tooltip and screen reader, so
+ * no new user-facing string is introduced and nothing needs localizing. */
+.icons-unavailable .material-symbols-outlined::after {
+  /* U+25CF BLACK CIRCLE — present in every system UI font, so it needs no
+     webfont to render. Sized in rem, NOT em: the parent's font-size is 0 and
+     an em value would inherit that zero and draw nothing. */
+  content: "●";
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.5rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+/* Where the control already renders its own word, the bullet would be
+ * redundant noise next to the label — drop it. The two selectors mirror
+ * EXACTLY the two conditions under which _toolbar.scss paints
+ * `content: attr(data-label)`: the user's labeled density mode, and the
+ * degraded default that is not overridden by an explicit icon-only choice
+ * (`tb-density-user`, review finding 2). Suppressing on the bare
+ * `[data-label]` attribute instead — as this rule first did — would leave a
+ * user who deliberately stays icon-only while the font is missing with buttons
+ * showing neither a label nor a bullet: an empty box, i.e. the original bug.
+ * `data-label` is only ever emitted on `#toolbar-bar .tb-icon-btn`
+ * (html_content.dart), so scoping to the toolbar loses no other call site. */
+#toolbar-bar.tb-labeled [data-label] .material-symbols-outlined::after,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) [data-label] .material-symbols-outlined::after {
+  content: none;
 }
 
 .feature-icon {
@@ -1686,13 +1777,30 @@ body.theme-showcase .tables-browse-card:hover {
   padding: 0 0.5rem;
 }
 
+/* Tab item: non-interactive wrapper holding the tab button and its close
+ * button as SIBLINGS. Before the plans/history/2026.09/20260902/084 fix the close <button> was a child
+ * of the tab <button>, which the HTML content model forbids and which
+ * corrupted the accessible name and focus order. The wrapper is the flex item
+ * inside #tab-bar now, and it is `position: relative` so the close button can
+ * be positioned over the space the tab button reserves for it — that keeps
+ * the tab's background, border and active accent spanning the full width
+ * exactly as they did when the close button was nested inside. */
+.tab-bar .tab-item {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+}
+
 .tab-bar .tab-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
   min-height: 2.75rem;
-  padding: 0 1.25rem;
+  /* Right padding reserves the close button's slot (it is now an absolutely
+   * positioned sibling, no longer an in-flow child), so tab width and the
+   * label's position are unchanged from before the plans/history/2026.09/20260902/084 fix. */
+  padding: 0 3.1rem 0 1.25rem;
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--muted);
@@ -1706,7 +1814,12 @@ body.theme-showcase .tables-browse-card:hover {
   position: relative;
 }
 
-.tab-bar .tab-btn:hover {
+/* `.tab-item:hover` mirrors the tab's hover onto the button: the close button
+ * is a sibling now (plans/history/2026.09/20260902/084), so hovering it no longer triggers
+ * `.tab-btn:hover` the way it did when it was a child. `:not(.active)` keeps
+ * the active tab's own background winning, exactly as before. */
+.tab-bar .tab-btn:hover,
+.tab-bar .tab-item:hover .tab-btn:not(.active) {
   color: var(--fg);
   background: var(--surface);
 }
@@ -1752,10 +1865,17 @@ body.theme-showcase .tables-browse-card:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Sibling of .tab-btn (plans/history/2026.09/20260902/084), overlaid on the slot reserved by that
+   * button's right padding so the glyph lands where it always did while the
+   * tab's own chrome still paints underneath it. */
+  position: absolute;
+  right: 1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
   width: 1.25rem;
   height: 1.25rem;
   padding: 0;
-  margin-left: 0.25rem;
   font-size: 1rem;
   line-height: 1;
   color: var(--muted);
@@ -3035,7 +3155,12 @@ pre {
    so a column of them stays scannable. */
 .nl-help-panel code {
   padding: 0.05rem 0.3rem;
-  font-family: var(--mono, ui-monospace, monospace);
+  /* BUG 082: this once read `var(--mono, ...)`. No --mono token has ever
+     existed, so the declaration silently fell back to the generic
+     monospace face and the chips did not match the SQL preview. The
+     design-system token is --font-mono (_base.scss) — use it with no
+     fallback so a future rename fails loudly instead of degrading. */
+  font-family: var(--font-mono);
   font-size: 0.8em;
   color: var(--fg);
   background: var(--surface);
@@ -5716,9 +5841,28 @@ body.has-connection-banner {
  * grows to fit its short `data-label` word rendered after the glyph, and every
  * button carries a permanent dim bounding box so the now-wider hit targets
  * read as discrete controls instead of floating text. The default (no class)
- * stays icon-only. A subtle pointer hint on the strip signals it is clickable
+ * stays icon-only.
+ *
+ * Bug 081: the SAME rules are also selected by `.icons-unavailable` on <html>
+ * (set by toolbar.ts when the Material Symbols face never loaded). Rather than
+ * inventing a second text-fallback mechanism, the offline state simply forces
+ * this existing labeled layout on, so each button shows its short `data-label`
+ * word instead of the ligature name the missing font would otherwise paint.
+ *
+ * Bug 081 review finding 2 — that force is a DEFAULT, not an override. The
+ * `:not(.tb-density-user)` guard means it applies only while the user has never
+ * explicitly chosen icon-only density (toolbar.ts sets `tb-density-user` on the
+ * strip exactly when the stored pref is an explicit '0'). Forcing labels
+ * unconditionally made the density toggle a dead control for the whole degraded
+ * session — the same defect bug 083 fixes elsewhere in this changeset. The
+ * trade-off is accepted deliberately: a user who insists on icon-only while the
+ * icon font is missing gets the `.icons-unavailable` bullet marker from
+ * _cards.scss instead of a label, which keeps the buttons visible and clickable
+ * (their `title`/`aria-label` still name them) rather than silently ignoring
+ * their choice. A subtle pointer hint on the strip signals it is clickable
  * whitespace; the buttons override it back to pointer for their own affordance. */
-#toolbar-bar.tb-labeled {
+#toolbar-bar.tb-labeled,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) {
   cursor: pointer;
   /* Stretch children to the strip's content width so every labeled button is
    * the SAME width (the widest label sets it) instead of each shrink-wrapping
@@ -5729,7 +5873,8 @@ body.has-connection-banner {
   gap: var(--space-1);
 }
 
-#toolbar-bar.tb-labeled .tb-icon-btn {
+#toolbar-bar.tb-labeled .tb-icon-btn,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) .tb-icon-btn {
   /* Fill the strip width (set by align-items: stretch above) so all buttons
    * share one width and their labels share a single left edge. */
   width: auto;
@@ -5750,17 +5895,20 @@ body.has-connection-banner {
 /* The trailing theme button lives inside a flyout wrapper; stretch the wrapper
  * and let its button fill it so it matches the other labeled rows' width and
  * left edge instead of shrink-wrapping. */
-#toolbar-bar.tb-labeled .tb-flyout-wrap {
+#toolbar-bar.tb-labeled .tb-flyout-wrap,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) .tb-flyout-wrap {
   align-self: stretch;
 }
 
-#toolbar-bar.tb-labeled .tb-flyout-wrap .tb-icon-btn {
+#toolbar-bar.tb-labeled .tb-flyout-wrap .tb-icon-btn,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) .tb-flyout-wrap .tb-icon-btn {
   width: 100%;
 }
 
 /* The short word: pulled from data-label so the tooltip `title` can stay a
  * fuller phrase (e.g. "Toggle tables sidebar" -> label "Tables"). */
-#toolbar-bar.tb-labeled .tb-icon-btn[data-label]::after {
+#toolbar-bar.tb-labeled .tb-icon-btn[data-label]::after,
+.icons-unavailable #toolbar-bar:not(.tb-density-user) .tb-icon-btn[data-label]::after {
   content: attr(data-label);
   font-size: var(--text-sm);
   font-family: inherit;
@@ -6145,7 +6293,12 @@ body.theme-showcase .tab-bar .tab-btn[data-tab-type=home] {
   --tab-accent: #6366f1;
 } /* indigo */
 /* Hovered tab: subtle frost lift. */
-body.theme-showcase .tab-bar .tab-btn:hover {
+/* The second selector mirrors the hover when the pointer is over the
+ * close button: it became a SIBLING of .tab-btn in the plans/history/2026.09/20260902/084 fix, so it
+ * no longer triggers .tab-btn:hover by descent. `:not(.active)` preserves
+ * the active tab's own background, which used to win by source order. */
+body.theme-showcase .tab-bar .tab-btn:hover,
+body.theme-showcase .tab-bar .tab-item:hover .tab-btn:not(.active) {
   background: rgba(255, 255, 255, 0.45);
 }
 
@@ -6482,7 +6635,12 @@ body.theme-midnight .tab-bar .tab-btn[data-tab-type=home] {
   --tab-accent: #a5b4fc;
 } /* soft indigo */
 /* Hovered tab: periwinkle-tinted frost lift. */
-body.theme-midnight .tab-bar .tab-btn:hover {
+/* The second selector mirrors the hover when the pointer is over the
+ * close button: it became a SIBLING of .tab-btn in the plans/history/2026.09/20260902/084 fix, so it
+ * no longer triggers .tab-btn:hover by descent. `:not(.active)` preserves
+ * the active tab's own background, which used to win by source order. */
+body.theme-midnight .tab-bar .tab-btn:hover,
+body.theme-midnight .tab-bar .tab-item:hover .tab-btn:not(.active) {
   background: rgba(28, 33, 62, 0.62);
 }
 

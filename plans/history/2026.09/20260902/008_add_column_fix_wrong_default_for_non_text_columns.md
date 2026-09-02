@@ -1,6 +1,6 @@
 # BUG: Generated migration adds `NOT NULL DEFAULT ''` to INTEGER/REAL/BLOB columns, corrupting existing rows
 
-**Status: Fix Ready**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Extension

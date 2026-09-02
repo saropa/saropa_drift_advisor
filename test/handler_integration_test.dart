@@ -1184,6 +1184,43 @@ void main() {
       // Contract: {status: "added"} (doc/API.md § Sessions).
       expect(r.body['status'], 'added');
     });
+
+    // Bug 003 hardening: non-JSON content type is rejected before the handler.
+    test('POST /api/session/<id>/annotate rejects text/plain body', () async {
+      final created = await httpPost(
+        port!,
+        '/api/session/share',
+        json: <String, dynamic>{'state': <String, dynamic>{}},
+      );
+      final id = created.body['id'] as String;
+
+      final r = await httpPost(
+        port!,
+        '/api/session/$id/annotate',
+        rawBody: 'text=hello',
+        contentType: ContentType.text,
+      );
+      // _rejectNonJsonBody returns 415 Unsupported Media Type.
+      expect(r.status, HttpStatus.unsupportedMediaType);
+    });
+
+    // Bug 003 hardening: malformed JSON body returns 400, not a silent empty
+    // annotation from the old `?? {}` fallback.
+    test('POST /api/session/<id>/annotate rejects malformed JSON', () async {
+      final created = await httpPost(
+        port!,
+        '/api/session/share',
+        json: <String, dynamic>{'state': <String, dynamic>{}},
+      );
+      final id = created.body['id'] as String;
+
+      final r = await httpPost(
+        port!,
+        '/api/session/$id/annotate',
+        rawBody: '{not valid json',
+      );
+      expect(r.status, HttpStatus.badRequest);
+    });
   });
 
   // =====================================================

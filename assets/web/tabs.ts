@@ -110,6 +110,25 @@ export function findTabBtn(tabId) {
 }
 
 /**
+ * Reports whether a tab button belongs to a closeable tab.
+ *
+ * BUG FIX (plans/history/2026.09/20260902/084): this used to be `btn.querySelector('.tab-btn-close')`,
+ * which only worked while the close control was (invalidly) a CHILD of the
+ * tab <button>. It is now a SIBLING inside the `.tab-item` wrapper, so the
+ * probe runs on that wrapper. The wrapper check must be explicit: falling
+ * back to `btn.parentElement` would land on #tab-bar for permanent tabs
+ * (which have no wrapper) and find some OTHER tab's close button, wrongly
+ * reporting every permanent tab as closeable.
+ * @param {Element} btn - A `.tab-btn` element.
+ * @returns {boolean}
+ */
+function isClosableTab(btn) {
+  var wrap = btn.parentElement;
+  if (!wrap || !wrap.classList.contains('tab-item')) return false;
+  return !!wrap.querySelector('.tab-btn-close');
+}
+
+/**
  * Creates a closeable tab button and appends it to the tab bar.
  * Shared by openTool (tool tabs) and openTableTab (table tabs)
  * to avoid duplicating the tab button DOM construction logic.
@@ -130,6 +149,12 @@ export function createClosableTab(tabId: any, label: any, ariaControls: any, opt
   btn.className = 'tab-btn';
   btn.setAttribute('data-tab', tabId);
   btn.setAttribute('role', 'tab');
+  // A role="tab" with no aria-selected has an undefined selected state, so AT
+  // announces nothing about it. switchTab() sets the real value immediately
+  // after every call site, but seed "false" here so the element is never in
+  // the accessibility tree without it (e.g. if a caller builds a tab without
+  // switching to it).
+  btn.setAttribute('aria-selected', 'false');
   btn.setAttribute('aria-controls', ariaControls);
   // Colons in tabId (e.g. 'tbl:users') would be invalid in HTML id attributes
   btn.id = 'tab-' + tabId.replace(/:/g, '-');
@@ -168,25 +193,93 @@ export function createClosableTab(tabId: any, label: any, ariaControls: any, opt
   closeBtn.title = vt('viewer.nav.tab.close');
   closeBtn.setAttribute('aria-label', vt('viewer.nav.tab.closeNamed', label));
   closeBtn.textContent = '\u00d7';
-  closeBtn.addEventListener('click', function(e) {
-    e.stopPropagation();
-    closeToolTab(tabId);
-  });
-  btn.appendChild(closeBtn);
+  closeBtn.addEventListener('click', function() { closeToolTab(tabId); });
 
-  // Click anywhere on the tab (except close button) switches to it
-  btn.addEventListener('click', function(e) {
-    if (e.target !== closeBtn && !closeBtn.contains(e.target)) switchTab(tabId);
-  });
+  // BUG FIX (plans/history/2026.09/20260902/084): the close button used to be appended INTO `btn`. That
+  // was wrong twice over. (1) The HTML content model forbids interactive
+  // content inside <button>. (2) ARIA gives the `tab` role
+  // `childrenPresentational: true`, so even where a browser tolerated the
+  // markup the inner control was NOT exposed — it was folded into the tab's
+  // accessible name ("users x, button"), dropped, or double-announced
+  // depending on the browser, and focus order differed between Chromium and
+  // Firefox. Nesting can therefore never be made to work; the two controls
+  // must be siblings. `.tab-item` is that sibling wrapper.
+  //
+  // The wrapper deliberately carries NO role.
+  //
+  // An earlier revision set role="presentation" here with the comment that it
+  // "keeps #tab-bar (role=tablist) owning the role=tab buttons through the
+  // wrapper". That reasoning was false and the attribute was a no-op:
+  //   - WAI-ARIA 1.2 defines an owned element as "any DOM descendant of the
+  //     element, any element specified as a child via aria-owns, or any DOM
+  //     descendant of the owned child". Ownership already reaches through any
+  //     intermediate box; no role is needed to make it do so.
+  //   - axe-core's aria-required-children walks INTO a child (rather than
+  //     counting it as an owned role) when the child has no role, no global
+  //     ARIA attribute and is not focusable. axe assigns <div> no implicit
+  //     role (lib/standards/html-elms.js has no implicitRole for `div`), and
+  //     getRole(..., {noPresentational:true}) returns null for
+  //     presentation/none. A bare <div> and a role="presentation" <div> are
+  //     therefore treated IDENTICALLY. The attribute changed nothing.
+  // Removing it deletes a claim that was not true rather than a behavior.
+  //
+  // ACCEPTED DEVIATION — why #tab-bar stays role="tablist".
+  // Because ownership reaches through this wrapper, the close <button> is an
+  // owned child of the tablist whatever the wrapper's role is. axe-core's
+  // aria-required-children flags that ("children which are not allowed"),
+  // since it treats `tablist`'s requiredOwned: ['tab'] as an allowlist. The
+  // ARIA specification itself does not: 5.2.6 Required Owned Elements states
+  // only that "at least one instance of one required owned element is
+  // expected" — a minimum, not an exclusive list. axe is stricter than the
+  // normative text here, so this is a linter finding, not a spec violation.
+  //
+  // The alternatives were weighed and rejected:
+  //   - Wrapper with no role (this code): identical to presentation for axe;
+  //     chosen because the attribute was misleading, not because it silences
+  //     anything.
+  //   - Move the close buttons out of the tablist entirely: each × must
+  //     overlay its own tab in a horizontally scrolling bar, so it would need
+  //     JS-synced absolute positioning, and Tab order would become "all tabs,
+  //     then all close buttons". Not viable.
+  //   - Re-role #tab-bar to `toolbar` (no requiredOwned, so axe-clean): costs
+  //     every user the `tab` role, aria-selected, and the tab/tabpanel
+  //     relationship, so every screen reader would hear "users, button"
+  //     instead of "users, tab, selected, 3 of 7". That is a certain
+  //     regression for AT users traded against a linter rule that is stricter
+  //     than the spec. Rejected.
+  //   - Drop the focusable close button and use the APG Tabs pattern's
+  //     optional Delete key with an aria-hidden × glyph: spec-clean and
+  //     axe-clean, but it removes a control sighted keyboard users can reach
+  //     by Tab and hides the close affordance behind an undiscoverable
+  //     shortcut. Rejected as a UX regression.
+  // The trade-off taken: keep real tab semantics (the better assistive-tech
+  // outcome) and accept the axe finding, rather than degrade every user's
+  // announcement to satisfy it.
+  //
+  // Because the close button is no longer a descendant, the old
+  // `e.stopPropagation()` and the `e.target !== closeBtn` guard below are
+  // unnecessary: a click on the close button never reaches the tab button.
+  var wrap = document.createElement('div');
+  wrap.className = 'tab-item';
+  wrap.appendChild(btn);
+  wrap.appendChild(closeBtn);
+
+  // Click anywhere on the tab switches to it. The close button is a sibling,
+  // so its clicks no longer have to be filtered out here.
+  btn.addEventListener('click', function() { switchTab(tabId); });
 
   // Double-click to close all other closeable tabs
   btn.addEventListener('dblclick', function() { closeOtherTabs(tabId); });
 
+  // Insert the WRAPPER, not the button — the tab and its close control must
+  // be prepended, moved, and removed as one unit.
   if (opts && opts.prepend) {
-    tabBar.insertBefore(btn, tabBar.firstChild);
+    tabBar.insertBefore(wrap, tabBar.firstChild);
   } else {
-    tabBar.appendChild(btn);
+    tabBar.appendChild(wrap);
   }
+  // Callers expect the tab button itself (they read data-tab and toggle
+  // classes on it), so keep returning `btn` rather than the new wrapper.
   return btn;
 }
 
@@ -216,7 +309,9 @@ export function closeOtherTabs(keepTabId) {
   var toClose: string[] = [];
   tabBar.querySelectorAll('.tab-btn').forEach(function(btn) {
     var id = btn.getAttribute('data-tab');
-    if (id && id !== keepTabId && btn.querySelector('.tab-btn-close')) {
+    // Closeability is now decided by isClosableTab() — see plans/history/2026.09/20260902/084; the
+    // close control moved out of the tab <button> into the .tab-item wrapper.
+    if (id && id !== keepTabId && isClosableTab(btn)) {
       toClose.push(id);
     }
   });
@@ -246,7 +341,13 @@ export function closeToolTab(toolId) {
   var btn = findTabBtn(toolId);
   if (!btn) return;
   var wasActive = S.activeTabId === toolId;
-  btn.remove();
+  // BUG FIX (plans/history/2026.09/20260902/084): remove the .tab-item wrapper, not just the button —
+  // the close control is now a sibling inside it and would otherwise be left
+  // behind in the tab bar as a stray x.
+  var host = (btn.parentElement && btn.parentElement.classList.contains('tab-item'))
+    ? btn.parentElement
+    : btn;
+  host.remove();
 
   // Remove from S.openTableTabs if it's a table tab
   if (toolId.indexOf('tbl:') === 0) {
@@ -275,7 +376,11 @@ export function closeToolTab(toolId) {
 export function initTabsAndToolbar() {
   document.querySelectorAll('#tab-bar .tab-btn').forEach(function(btn) {
     var tabId = btn.getAttribute('data-tab');
-    if (tabId && !btn.querySelector('.tab-btn-close')) {
+    // Only permanent (non-closeable) tabs need a click handler wired here;
+    // closeable tabs wire their own inside createClosableTab(). The test goes
+    // through isClosableTab() because the close control is no longer a child
+    // of the tab <button> (plans/history/2026.09/20260902/084).
+    if (tabId && !isClosableTab(btn)) {
       btn.addEventListener('click', function() { switchTab(tabId); });
     }
     // Double-click any tab (including permanent ones) to close all other closeable tabs

@@ -141,6 +141,12 @@ export class EditingBridge implements vscode.Disposable {
         oldValue: msg.oldValue,
         newValue: result.value,
       });
+      // Bug 007: surface the 64-bit integer precision warning the same way
+      // _handleRowInsert does — the edit succeeds (RawIntegerLiteral stores
+      // it exactly) but the user should know the grid may display it oddly.
+      if (result.warning) {
+        void vscode.window.showWarningMessage(result.warning);
+      }
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       void vscode.window.showErrorMessage(

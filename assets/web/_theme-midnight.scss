@@ -269,7 +269,12 @@ body.theme-midnight .tab-bar .tab-btn[data-tab-type="settings"]{ --tab-accent: #
 body.theme-midnight .tab-bar .tab-btn[data-tab-type="home"]    { --tab-accent: #a5b4fc; }  /* soft indigo */
 
 /* Hovered tab: periwinkle-tinted frost lift. */
-body.theme-midnight .tab-bar .tab-btn:hover {
+/* The second selector mirrors the hover when the pointer is over the
+ * close button: it became a SIBLING of .tab-btn in the plans/history/2026.09/20260902/084 fix, so it
+ * no longer triggers .tab-btn:hover by descent. `:not(.active)` preserves
+ * the active tab's own background, which used to win by source order. */
+body.theme-midnight .tab-bar .tab-btn:hover,
+body.theme-midnight .tab-bar .tab-item:hover .tab-btn:not(.active) {
   background: rgba(28, 33, 62, 0.62);
 }
 

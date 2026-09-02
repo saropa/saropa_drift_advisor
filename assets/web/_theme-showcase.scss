@@ -215,7 +215,12 @@ body.theme-showcase .tab-bar .tab-btn[data-tab-type="settings"]{ --tab-accent: #
 body.theme-showcase .tab-bar .tab-btn[data-tab-type="home"]    { --tab-accent: #6366f1; }  /* indigo */
 
 /* Hovered tab: subtle frost lift. */
-body.theme-showcase .tab-bar .tab-btn:hover {
+/* The second selector mirrors the hover when the pointer is over the
+ * close button: it became a SIBLING of .tab-btn in the plans/history/2026.09/20260902/084 fix, so it
+ * no longer triggers .tab-btn:hover by descent. `:not(.active)` preserves
+ * the active tab's own background, which used to win by source order. */
+body.theme-showcase .tab-bar .tab-btn:hover,
+body.theme-showcase .tab-bar .tab-item:hover .tab-btn:not(.active) {
   background: rgba(255, 255, 255, 0.45);
 }
 

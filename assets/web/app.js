@@ -86,9 +86,27 @@
      * Registers a beforeunload handler so the browser shows a confirmation dialog
      * when the user closes the tab, refreshes, or navigates away (e.g. back button).
      * preventDefault() and returnValue are required for cross-browser support.
+     *
+     * SEMANTICS of the "Confirm before leaving page" setting (BUG 083) — the
+     * preference was rendered and persisted but never read here, so the toggle
+     * was a dead control:
+     *   - pref OFF -> never prompt, even with an unsaved inline cell edit. Off
+     *     means off; the user has explicitly opted out of the interruption.
+     *   - pref ON (the default) -> prompt only when there is something to lose.
+     *     The single piece of at-risk client state this app tracks is an open,
+     *     unsaved inline cell edit (cell-edit.ts hasUnsavedWebEdit(); no other
+     *     module holds unsaved work — everything else is server-backed or
+     *     re-fetchable). An unconditional prompt on every refresh would be
+     *     hostile in a debug tool that is reloaded constantly, and browsers
+     *     suppress beforeunload dialogs without prior user interaction anyway,
+     *     so "always prompt" is not even reliably deliverable.
      */
     function setupNavigateAwayConfirmation() {
       window.addEventListener('beforeunload', function (e) {
+        // Read the preference at unload time, not at startup: toggling the
+        // setting must take effect immediately without a page reload (a value
+        // captured in a closure here would stay stale for the whole session).
+        if (!getPref(PREF_CONFIRM_NAVIGATE_AWAY, DEFAULTS[PREF_CONFIRM_NAVIGATE_AWAY])) return;
         // In web inline-edit mode, only prompt when there is an unsaved active edit.
         if (!hasUnsavedWebEdit()) return;
         e.preventDefault();

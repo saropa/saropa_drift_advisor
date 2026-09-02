@@ -1,6 +1,6 @@
 # BUG: Web viewer `esc()` does not escape quotes — database values injected into HTML attributes can break out (XSS)
 
-**Status: Fix Ready**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server (web viewer bundle, `assets/web/`)

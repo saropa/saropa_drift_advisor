@@ -6,7 +6,7 @@
  */
 import * as S from './state.ts';
 import { vt } from './l10n.ts';
-import { esc, formatTableRowCountDisplay } from './utils.ts';
+import { esc, formatTableRowCountDisplay, buildTableDataUrl } from './utils.ts';
 import { getPinnedTables, setPinnedTables, togglePinTable, saveTableState, restoreTableState } from './persistence.ts';
 import { getScope } from './search.ts';
 import { setConnected, setDisconnected, updateLiveIndicatorForConnection, startHeartbeat } from './connection.ts';
@@ -55,7 +55,13 @@ export function loadTable(name) {
   } else if (scope !== 'both') {
     content.innerHTML = '<p class="meta">' + esc(name) + '</p><p class="meta">' + vt('viewer.table.list.loading') + '</p>';
   }
-  fetch('/api/table/' + encodeURIComponent(name) + '?S.limit=' + S.limit + '&S.offset=' + S.offset, S.authOpts())
+  // BUG FIX (plans/history/2026.09/20260902/080): this URL was built inline and read
+  // `?S.limit=…&S.offset=…` — the JavaScript expression text had been pasted
+  // in as the parameter *names*. The server only honors `limit`/`offset`, so
+  // it fell back to its defaults and served the first page forever. The
+  // builder now lives in utils.ts so this call site and search-tab.ts share
+  // one definition of the server's parameter names.
+  fetch(buildTableDataUrl(name, S.limit, S.offset), S.authOpts())
     .then(r => r.json())
     .then(data => {
       if (S.currentTableName !== name) return;
@@ -141,17 +147,23 @@ export function renderTableList(tables) {
     pinIcon.setAttribute('aria-hidden', 'true');
     pinIcon.textContent = 'push_pin';
     pinBtn.appendChild(pinIcon);
-    // Stop click from propagating to the <a> link
-    pinBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      togglePinTable(t);
-    });
-    a.appendChild(pinBtn);
+    // BUG FIX (plans/history/2026.09/20260902/084): the pin used to be appended INTO the row's <a href>.
+    // The HTML content model forbids interactive content inside a link, and
+    // screen readers merged the two into one announcement ("users link,
+    // button") or dropped the pin entirely. It is now a SIBLING of the link
+    // inside the <li>. No SCSS change is needed: `.table-pin-btn` is already
+    // `position: absolute` against `.table-list li` (which is
+    // `position: relative`), so it lands in exactly the same place.
+    //
+    // preventDefault/stopPropagation are gone with the nesting: the pin is no
+    // longer inside the link, so its clicks never reach the link's handler and
+    // there is no navigation to suppress.
+    pinBtn.addEventListener('click', function() { togglePinTable(t); });
 
     // Open the table in its own closeable tab (or switch to it if already open)
     a.addEventListener('click', function(e) { e.preventDefault(); openTableTab(t); });
     li.appendChild(a);
+    li.appendChild(pinBtn);
     ul.appendChild(li);
   });
   const sqlTableSel = document.getElementById('sql-table');

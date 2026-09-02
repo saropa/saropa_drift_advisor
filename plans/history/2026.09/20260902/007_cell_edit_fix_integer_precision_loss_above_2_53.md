@@ -1,6 +1,6 @@
 # BUG: Inline cell edit silently corrupts INTEGER values above 2^53
 
-**Status: Fix Ready**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Extension

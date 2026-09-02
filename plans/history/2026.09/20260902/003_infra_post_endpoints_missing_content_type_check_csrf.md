@@ -1,6 +1,6 @@
 # BUG: Only `/api/sql` enforces `Content-Type: application/json`; every other POST endpoint is cross-site forgeable
 
-**Status: Fix Ready**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server

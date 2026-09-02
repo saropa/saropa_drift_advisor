@@ -156,6 +156,9 @@ export function parseCellEditForColumn(
     };
   }
 
+  // Empty/whitespace input on a nullable column returns { ok: true, value: null }.
+  // INVARIANT: validateRowInsert's post-coercion PK guard depends on this —
+  // it rejects null values for non-rowid PK columns (bug 009).
   if (trimmed === '') {
     if (!notNull) {
       return { ok: true, value: null };
@@ -273,6 +276,16 @@ export function validateRowInsert(
     const r = parseCellEditForColumn(col, raw, col.pk);
     if (!r.ok) {
       return { ok: false, message: r.message };
+    }
+    // Bug 009: an empty-string PK passes the hasOwnProperty "must be supplied"
+    // check above, but parseCellEditForColumn coerces it to null for nullable
+    // columns — reject that, because a NULL primary key creates a row that can
+    // never be edited or deleted afterward.
+    if (col.pk && !isRowidAlias && r.value === null) {
+      return {
+        ok: false,
+        message: `Column "${col.name}" is the primary key and cannot be empty.`,
+      };
     }
     coerced[col.name] = r.value;
     if (r.warning) {

@@ -155,8 +155,15 @@ describe('Toolbar — style.css', () => {
   // centered/auto-width/zero-gap layout. Helper slices each rule's body so a
   // generic property like `justify-content: flex-start` (used elsewhere) is
   // matched only inside the intended selector block.
+  // Finds the { ... } body of a CSS rule whose selector list contains
+  // [selector]. Handles both standalone rules (selector { ... }) and
+  // comma-separated lists (selector,\n.other { ... }).
   function ruleBody(selector: string): string {
-    const start = css.indexOf(selector + ' {');
+    let start = css.indexOf(selector + ' {');
+    if (start === -1) {
+      // Selector may be part of a comma-separated list (e.g. "sel,\n.other {").
+      start = css.indexOf(selector + ',');
+    }
     assert.ok(start !== -1, `Compiled CSS must contain "${selector}" rule`);
     const open = css.indexOf('{', start);
     const close = css.indexOf('}', open);

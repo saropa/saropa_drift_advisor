@@ -1,6 +1,6 @@
 # BUG: Generated `CREATE TABLE` migration silently drops the table's primary key when it comes from a `primaryKey` override
 
-**Status: Fix Ready**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Extension

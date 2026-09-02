@@ -111,7 +111,14 @@
   opacity: 0.5;
 }
 
-.table-list a:hover {
+/* The second selector mirrors the row hover onto the link when the pointer is
+ * over the pin button. The pin was moved out of the <a> and made a sibling in
+ * the plans/history/2026.09/20260902/084 fix (a <button> may not sit inside a link), so it no longer
+ * triggers `a:hover` by descent — without this the row would go dark the
+ * moment the cursor reached the pin. `:not(.active)` leaves the active row's
+ * highlight alone, which is what the previous source order produced. */
+.table-list a:hover,
+.table-list li:hover > a:not(.active) {
   background: rgba(128, 128, 128, 0.1);
   color: var(--link-hover);
   text-decoration: none;
@@ -128,8 +135,12 @@
   outline-offset: 2px;
 }
 
-/* Pin button: absolutely positioned so it overlays the right side of each
-   table link. Hidden at rest for unpinned rows — users asked for a cleaner
+/* Pin button: absolutely positioned against `.table-list li` (which is
+   `position: relative`) so it overlays the right side of each table link.
+   Since the plans/history/2026.09/20260902/084 fix the button is a SIBLING of the <a>, not a child of
+   it — a <button> inside a link is invalid HTML and broke the accessible
+   name. The positioning is unchanged because it was never anchored to the
+   link in the first place. Hidden at rest for unpinned rows — users asked for a cleaner
    list with the unpin affordance appearing only on row hover. Pinned rows
    keep the icon visible at all times (see .table-pin-btn.pinned below) so
    the pinned state remains readable without hovering. Touch devices and

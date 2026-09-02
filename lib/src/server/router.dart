@@ -677,6 +677,7 @@ final class Router {
   ) async {
     // POST /api/sql/explain — explain query plan.
     // Checked before /api/sql so the longer path wins.
+    // csrf-exempt: sql_handler validates Content-Type internally in _parseSqlRequest.
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiSqlExplain ||
             path == ServerConstants.pathApiSqlExplainAlt)) {
@@ -686,6 +687,7 @@ final class Router {
     }
 
     // POST /api/sql — execute read-only SQL.
+    // csrf-exempt: sql_handler validates Content-Type internally in _parseSqlRequest.
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiSql ||
             path == ServerConstants.pathApiSqlAlt)) {
@@ -1123,6 +1125,7 @@ final class Router {
           : path.substring(ServerConstants.pathApiSessionPrefixAlt.length);
 
       // POST /api/session/{id}/extend — extend session expiry.
+      // csrf-exempt: no meaningful body; session ID in URL is unpredictable.
       if (suffix.endsWith(ServerConstants.pathSuffixExtend) &&
           request.method == ServerConstants.methodPost) {
         final sessionId = suffix.replaceFirst(RegExp(r'/extend$'), '');
@@ -1135,6 +1138,9 @@ final class Router {
       // POST /api/session/{id}/annotate — add annotation.
       if (suffix.endsWith(ServerConstants.pathSuffixAnnotate) &&
           request.method == ServerConstants.methodPost) {
+        // Bug 003: reject a non-JSON body before it reaches the handler — see
+        // [_rejectNonJsonBody].
+        if (await _rejectNonJsonBody(request, response)) return true;
         final sessionId = suffix.replaceFirst(RegExp(r'/annotate$'), '');
 
         await _session.handleSessionAnnotate(request, sessionId);
@@ -1201,12 +1207,14 @@ final class Router {
       await _dvr.handleStatus(response);
       return true;
     }
+    // csrf-exempt: no request body; fire-and-forget toggle.
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiDvrStart ||
             path == ServerConstants.pathApiDvrStartAlt)) {
       await _dvr.handleStart(response);
       return true;
     }
+    // csrf-exempt: no request body; fire-and-forget toggle.
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiDvrStop ||
             path == ServerConstants.pathApiDvrStopAlt ||
@@ -1218,6 +1226,9 @@ final class Router {
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiDvrConfig ||
             path == ServerConstants.pathApiDvrConfigAlt)) {
+      // Bug 003: reject a non-JSON body before it reaches the handler — see
+      // [_rejectNonJsonBody].
+      if (await _rejectNonJsonBody(request, response)) return true;
       await _dvr.handleConfig(request, response);
       return true;
     }

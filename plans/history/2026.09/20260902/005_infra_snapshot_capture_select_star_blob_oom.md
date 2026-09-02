@@ -1,6 +1,6 @@
 # BUG: Server-side snapshot capture still issues unbounded `SELECT *` per table (the BLOB OOM fixed in the extension in v4.1.17)
 
-**Status: Fix Ready**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server

@@ -3,7 +3,7 @@
  */
 import * as S from './state.ts';
 import { vt } from './l10n.ts';
-import { esc, setButtonBusy, highlightSqlSafe, formatTableRowCountDisplay, syncFeatureCardExpanded } from './utils.ts';
+import { esc, setButtonBusy, highlightSqlSafe, formatTableRowCountDisplay, syncFeatureCardExpanded, buildTableDataUrl } from './utils.ts';
 import { getDisplayValue, isPiiMaskEnabled, isPiiColumn } from './pii.ts';
 import { applySearch, nextMatch, prevMatch, highlightText, getScope, getSearchTerm, getRowFilter, filterRows, getTableDisplayData, buildTableFilterMetaSuffix, expandSectionContaining } from './search.ts';
 import { openTableTab, switchTab } from './tabs.ts';
@@ -229,7 +229,11 @@ export function initSearchTab(): void {
     stPanel.innerHTML = '<p class="meta">' + vt('viewer.schema.searchTab.loadingTable', esc(tableName)) + '</p>';
 
     // FIX #2: Use search-tab-local limit/offset (not global)
-    var dataFetch = fetch('/api/table/' + encodeURIComponent(tableName) + '?limit=' + stLimit + '&offset=' + stOffset, S.authOpts())
+    // Uses the shared buildTableDataUrl() so the server's `limit`/`offset`
+    // parameter names live in exactly one place (plans/history/2026.09/20260902/080): this call site was
+    // correct while the Tables view's inline copy was not, and nothing could
+    // catch the divergence while both strings were hand-written.
+    var dataFetch = fetch(buildTableDataUrl(tableName, stLimit, stOffset), S.authOpts())
       .then(function(r) { return r.json(); });
     var schemaFetch = (scope === 'both')
       ? (S.cachedSchema !== null ? Promise.resolve(S.cachedSchema) : fetch('/api/schema', S.authOpts()).then(function(r) { return r.text(); }))

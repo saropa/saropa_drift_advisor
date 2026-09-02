@@ -90,6 +90,27 @@ describe('EditingBridge', () => {
     assert.ok(messageMock.warnings[0].includes('row identity'));
   });
 
+  // Bug 007: a cell edit with a value beyond Number.MAX_SAFE_INTEGER should
+  // still succeed (stored as RawIntegerLiteral) but surface a warning to the
+  // user — previously only _handleRowInsert did this.
+  it('should surface int64 precision warning on cell edit', async () => {
+    bridge.handleMessage({
+      command: 'cellEdit',
+      table: 'users',
+      pkColumn: 'id',
+      pkValue: 1,
+      column: 'age',
+      oldValue: 20,
+      newValue: '9007199254740993', // 2^53 + 1, beyond safe integer range
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    // The edit should still be recorded (not rejected).
+    assert.strictEqual(tracker.changeCount, 1);
+    // A warning should have been surfaced about precision loss.
+    assert.strictEqual(messageMock.warnings.length, 1);
+    assert.ok(messageMock.warnings[0].includes('safe integer range'));
+  });
+
   it('should not record invalid cell values when schema is available', async () => {
     const handled = bridge.handleMessage({
       command: 'cellEdit',
