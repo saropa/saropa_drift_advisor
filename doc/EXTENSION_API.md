@@ -87,7 +87,23 @@ Contract version. Bumps only on a breaking shape change; consumers ignore unknow
 | `trouble` | array | Failure-only items: `{ label, detail?, command?, args? }` (anomalies + slow-query offenders, worst first) |
 | `openCommand` | string (optional) | Deep-link to open the full view (`driftViewer.openInPanel`) |
 
+## File-based access (Log Capture sidecar)
+
+When Saropa Log Capture ends a session and Drift Advisor contributes in **full** mode, the extension writes a well-known file so that scripts or other consumers can read the same snapshot without activating the extension.
+
+- **Path:** `<workspaceRoot>/.saropa/drift-advisor-session.json`
+- **Encoding:** UTF-8 JSON
+- **Shape:** Same as `DriftAdvisorSnapshot` (see [snapshot shape](#snapshot-shape-driftadvisorsnapshot)).
+- **When written:** On Log Capture session end, when the integration provider runs with `includeInLogCaptureSession` set to `full` and a sidecar is produced. Overwritten each time.
+- **When not written:** If no workspace folder, if mode is `none` or `header`, or if the provider does not run (e.g. Log Capture not installed or "Drift Advisor" disabled in Log Capture).
+
+Use cases:
+
+- Scripts or external tools that want the latest session snapshot without loading the VS Code extension.
+- Extensions that prefer reading a file instead of calling the extension API.
+
 ## References
 
 - Plan: [Log Capture integration](../plans/log-capture-integration.md)
 - Implementation: `extension/src/log-capture-api.ts`, `extension/src/debug/log-capture-bridge.ts`
+- Snapshot type: `DriftAdvisorSidecar` in `extension/src/debug/log-capture-bridge.ts`

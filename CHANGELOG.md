@@ -1,24 +1,5 @@
 # Changelog
 
-<!-- MAINTENANCE NOTES -- IMPORTANT --
-
-  Format follows Keep a Changelog; versions use SemVer. Omit dates in `## [x.y.z]` headers (pub.dev shows publish dates). Project links and archive location are in the intro below.
-
-  Each release (and [Unreleased]) opens with one plain-language line for humans—user-facing only, casual wording—then end it with:
-  `[log](https://github.com/saropa/saropa_drift_advisor/blob/vX.Y.Z/CHANGELOG.md)` substituting X.Y.Z.
-
-  **Audience separation** — User-facing sections (Added, Fixed, Changed, Improved) describe impact, not implementation. Infrastructure, build tooling, code refactoring, publish pipeline, SDK/linter/formatter changes, and internal test additions go inside a collapsed `<details><summary>Maintenance</summary>` block at the bottom of each release. Users skip it; contributors expand it.
-
-  **Banned inside bullets** (move to commit message, PR, or code comment):
-  - **PR archaeology** — prior attempts, rename history, "after X didn't hold". Describe the landed state only.
-  - **File-by-file inventories** — that is the git diff.
-  - **Test counts** — that is CI output.
-  - **Code-internal names** — AST classes, regex flags, function signatures, field or type names, private identifiers.
-  - **Bug-report, fixture, or test paths** — commit message footer only.
-  - **Decision-making narrative** — one clause of reasoning is fine; a paragraph is not.
-
--->
-
 ## Introduction
 
 This changelog is for **Saropa Drift Advisor**: the Dart package that wires up
@@ -49,9 +30,32 @@ browse source on
 
 ---
 
+<!-- MAINTENANCE NOTES -- IMPORTANT --
+
+  Format follows Keep a Changelog; versions use SemVer. Omit dates in `## [x.y.z]` headers (pub.dev shows publish dates). Project links and archive location are in the intro below.
+
+  Each release (and [Unreleased]) opens with one plain-language line for humans—user-facing only, casual wording—then end it with:
+  `[log](https://github.com/saropa/saropa_drift_advisor/blob/vX.Y.Z/CHANGELOG.md)` substituting X.Y.Z.
+
+  **Audience separation** — User-facing sections (Added, Fixed, Changed, Improved) describe impact, not implementation. Infrastructure, build tooling, code refactoring, publish pipeline, SDK/linter/formatter changes, and internal test additions go inside a collapsed `<details><summary>Maintenance</summary>` block at the bottom of each release. Users skip it; contributors expand it.
+
+  **Banned inside bullets** (move to commit message, PR, or code comment):
+  - **PR archaeology** — prior attempts, rename history, "after X didn't hold". Describe the landed state only.
+  - **File-by-file inventories** — that is the git diff.
+  - **Test counts** — that is CI output.
+  - **Code-internal names** — AST classes, regex flags, function signatures, field or type names, private identifiers.
+  - **Bug-report, fixture, or test paths** — commit message footer only.
+  - **Decision-making narrative** — one clause of reasoning is fine; a paragraph is not.
+
+-->
+
 ## [Unreleased]
 
-The `ignore` directive for n-plus-one warnings now works even when the diagnostic points at the caller, not the table file. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+The `ignore` directive for n-plus-one warnings now works even when the diagnostic points at the caller, not the table file. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.3.0/CHANGELOG.md)
+
+### Changed
+
+- **Consolidated docs into a single `doc/` folder.** Moved `DESIGN_LANGUAGE.md`, `IDE_ONLY_CAPABILITIES.md`, and `LAUNCH_TEST.md` from `plans/guides/` into `doc/`. Merged `LOG_CAPTURE_FILE_CONTRACT.md` into `EXTENSION_API.md` as a "File-based access" section.
 
 ### Fixed
 
@@ -495,40 +499,6 @@ A quick fix to stop the debug server from printing its startup banner twice in y
 - **Dependency upgrades (Dependabot).** TypeScript `5.9.3` → `6.0.3` (root and `extension/`); `sass` `1.99.0` → `1.101.0` (root); `js-yaml` `4.1.1` → `4.2.0` (`extension/`); `mocha` `11.3.0` → `11.7.6` (`extension/`); CI `actions/checkout` `6` → `7`. TypeScript 6 (a major version) was confirmed to type-check both the extension (`tsc -p ./`) and the root web bundle (`tsconfig.web.json`) with zero errors, and the extension `compile` step (`tsc` + NLS verify + NLS coverage) passes on it. Dev/build dependencies only — no change to shipped runtime behavior.
 - **`@types/vscode` kept at `^1.115.0`.** Dependabot's group bump raised it to `^1.125.0`, but `vsce package` rejects `@types/vscode` newer than `engines.vscode` (`^1.115.0`) — the type definitions must not promise APIs beyond the minimum supported VS Code. Pinned back to match the engine so the extension stays installable on VS Code 1.115+.
 - **Publish pipeline now pre-checks `@types/vscode` vs `engines.vscode`.** Added a "VS Code API compatibility" quality step (`scripts/modules/ext_build.py::check_engines_vscode_compat`, wired into Step 7 of the extension pipeline) so a future `@types/vscode` bump that exceeds `engines.vscode` fails fast with an actionable message instead of blowing up at the `vsce package` step deep in the run.
-
-</details>
-
----
-
-## [4.1.4]
-
-Snapshots, branches, hovers, and the lineage/impact tools now work against databases whose tables have no rowid — including PowerSync, which exposes its tables as views and uses WITHOUT ROWID system tables. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.4/CHANGELOG.md)
-
-### Fixed
-
-- **"no such column: rowid" on PowerSync and other rowid-less databases.** Several features ordered or keyed table rows by `rowid`, but views and `WITHOUT ROWID` tables (such as PowerSync's `ps_updated_rows`) have no `rowid` column, so those reads threw `no such column: rowid` and the feature failed. Snapshot, branch, snapshot-diff, and hover previews now order by each table's primary key (or omit ordering when none is declared), and the lineage, impact, global-search, mutation-stream, constraint-validator, and data-narrator tools key rows by the primary key — or an `id` column on a view — instead of `rowid`. ([#32](https://github.com/saropa/saropa_drift_advisor/issues/32))
-- **Far fewer noise warnings from the null-rate / unused-column checks.** Run against a live debug database, these checks flagged hundreds of columns that are NULL on purpose — event timestamps like `blocked_at`, phonetic search helpers, columns with a declared default — and every column on demo-only or partially-loaded tables, where a null rate measured on a handful of rows means nothing. The checks now skip columns that are null-by-design and let you mark unrepresentative tables with the new `driftViewer.diagnostics.userDataTables` setting, while still surfacing genuine content gaps on fully-loaded tables.
-
-### Added
-
-- **`driftViewer.diagnostics.userDataTables` setting.** List the tables whose live debug rows are not representative of production (user/demo data, or static reference tables that load lazily). Null-rate and unused-column analysis is skipped for them.
-
-<details><summary>Maintenance</summary>
-
-- **Null-rate false-positive suppression (`BUG_data_quality_null_checker_false_positives`).** `data-quality-provider.ts` `_checkHighNullRates` now skips (a) whole tables in `config.userDataTables` (FP-1, unrepresentative live data) and (b) null-by-design columns via `_isNullByDesign` (FP-2): columns declared `.withDefault(...)` / `.clientDefault(...)`, `.autoIncrement()`, or nullable with a `*_at` / `*_phonetic` name suffix. The Dart parser now captures defaults — new optional `IDartColumn.hasDefault` set from `HAS_DEFAULT_RE` in `dart-parser.ts`. New config plumbing: optional `IDiagnosticConfig.userDataTables`, read in `diagnostic-config.ts`, contributed as `driftViewer.diagnostics.userDataTables` (array) in `package.json` + `package.nls.json` (regenerated `nls-coverage-data.ts`, 250 keys). Test helper `createDartFile` accepts per-column declaration overrides (`MockColumnSpec`); added parser tests for `hasDefault` and provider tests for both FP classes plus over-suppression guards (non-nullable `*_at` and a plain high-null column on a representative table still report). Full suite 2905 passing.
-- **rowid-free SQL helpers.** Two new helpers under `extension/src/sql/`: `samplingOrderBy(pkColumns, descending?)` returns an `ORDER BY` over the declared PK (always valid, including for `WITHOUT ROWID` tables, which SQLite requires to declare a PK) or an empty clause when no PK exists; `rowKeyColumn(columns)` picks a row-identity column preferring the PK, then a literal `id` column (the PowerSync table-view case), then `rowid` only as a last resort. Applied to the sampling sweeps (`timeline/snapshot-store.ts`, `branching/branch-manager.ts`, `timeline/snapshot-commands.ts`, `hover/drift-hover-provider.ts`) and to the keyed-operation sites (`lineage/*`, `impact/*`, `global-search/global-search-engine.ts`, `mutation-stream/mutation-stream-panel.ts`, `constraint-wizard/constraint-validator.ts`, `narrator/narrator-commands.ts`). The hover preview now fetches schema metadata before its data read so the order clause can use the PK. Added `test/sampling-order.test.ts`, `test/row-key.test.ts`, and a rowid-less-sweep regression test in `test/snapshot-store.test.ts` that asserts no emitted sweep references `rowid`; full suite 2897 passing.
-
-</details>
-
-A fix so the new Rules sidebar can't error out while the extension is reloading. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.3/CHANGELOG.md)
-
-### Fixed
-
-- **"No view is registered with id: driftViewer.rules" on activation.** The Drift Advisor Rules view used an eager registration call that throws if the editor hasn't re-read the extension manifest yet (which happens right after a reload), and that error could interrupt the rest of diagnostics setup. The view now registers with the tolerant API that never throws and simply wires up once the view is available.
-
-<details><summary>Maintenance</summary>
-
-- **Rules view registration hardened.** `extension-diagnostics.ts` now calls `vscode.window.registerTreeDataProvider('driftViewer.rules', …)` instead of `createTreeView`. `createTreeView` resolves the view eagerly and throws "No view is registered with id" when the loaded manifest lacks the contribution (JS reloaded before `package.json` was re-read), which aborted the remaining provider/command registrations in `setupDiagnostics`. `registerTreeDataProvider` does not validate the id at call time and the `TreeView` handle was unused. Added `registerTreeDataProvider` to the `vscode` test mock (`vscode-mock.ts`); full suite 2883 passing.
 
 </details>
 

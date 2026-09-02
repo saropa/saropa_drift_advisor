@@ -12,7 +12,7 @@ All four phases are implemented in saropa_drift_advisor:
 - **Phase 1:** Full provider contract (LogCaptureEndContext, isEnabled(context), onSessionEnd(context)), meta + sidecar contributions, config `driftViewer.integrations.includeInLogCaptureSession` (none/header/full), unit tests.
 - **Phase 2:** DiagnosticManager `_lastIssues` + `getLastCollectedIssues()`, issuesRef wired from extension.ts into bridge, issuesSummary and issues in meta/sidecar, tests.
 - **Phase 3:** Public API via `context.exports` (`getSessionSnapshot()`), `extension/src/log-capture-api.ts`, `doc/EXTENSION_API.md`.
-- **Phase 4:** Well-known file `.saropa/drift-advisor-session.json` written on session end when full mode, `doc/LOG_CAPTURE_FILE_CONTRACT.md`.
+- **Phase 4:** Well-known file `.saropa/drift-advisor-session.json` written on session end when full mode, documented in [doc/EXTENSION_API.md](../../../../doc/EXTENSION_API.md#file-based-access-log-capture-sidecar).
 
 Post-implementation review (2026-03-19): Session-end flow refactored so full mode uses a single parallel fetch (no duplicate `performance()` call); header-only mode fetches only performance. Shared helpers (`severityToString`, `toWorkspaceRelativePath`, `LOG_CAPTURE_SESSION_TIMEOUT_MS`) exported from the bridge and reused by log-capture-api to remove duplication.
 
