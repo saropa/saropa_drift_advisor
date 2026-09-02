@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thank you for reporting a bug! Please fill out the sections below.
-        See [ISSUE_REPORT_GUIDE.md](../../bugs/ISSUE_REPORT_GUIDE.md) for detailed guidance.
+        See [ISSUE_REPORT_GUIDE.md](https://github.com/saropa/saropa_drift_advisor/blob/main/bugs/ISSUE_REPORT_GUIDE.md) for detailed guidance.
 
   - type: textarea
     id: description

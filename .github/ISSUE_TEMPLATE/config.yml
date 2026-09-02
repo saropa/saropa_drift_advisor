@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Issue Report Guide
+    url: https://github.com/saropa/saropa_drift_advisor/blob/main/bugs/ISSUE_REPORT_GUIDE.md
+    about: Read this before filing — naming conventions, attribution evidence, and templates for bugs and feature requests.

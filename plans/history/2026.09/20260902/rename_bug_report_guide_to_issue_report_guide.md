@@ -31,9 +31,15 @@ The new guide adds sections not present in the old bug-only guide:
 - Updated `.github/ISSUE_TEMPLATE/bug_report.yml`: added severity dropdown, emitter attribution field, minimal reproducible example field, "what you already tried" field, and link to the guide.
 - Updated `.github/ISSUE_TEMPLATE/feature_request.yml`: added request type dropdown, detection/behavior field for diagnostic proposals, and link to the guide.
 
+### Second hardening pass
+
+- Removed a duplicate file-naming row (`feature_description.md`) that overlapped with the existing `proposal_*` rows; the guide now states explicitly that every feature request uses the `proposal_*` prefix, with no separate `feature_*` pattern.
+- Replaced the relative link (`../../bugs/ISSUE_REPORT_GUIDE.md`) in both issue templates with an absolute GitHub blob URL — relative markdown links are not guaranteed to resolve inside GitHub's rendered issue-form UI.
+- Added `.github/ISSUE_TEMPLATE/config.yml` with `blank_issues_enabled: false` and a contact link to the guide, so all new issues are routed through the structured templates instead of a blank issue.
+
 ### Not changed
 
-Historical references to `BUG_REPORT_GUIDE` in `plans/history/` files were left as-is — they are archived records referencing the guide as it existed at the time of writing. The "formerly known as" comment in the new guide ensures searchability.
+Historical references to `BUG_REPORT_GUIDE` in `plans/history/` files were left as-is — they are archived records referencing the guide as it existed at the time of writing. The "formerly known as" comment in the new guide ensures searchability. The Common Pitfalls table remains a curated subset (cspell and system-resource-state pitfalls from the old guide were not carried forward) — low value relative to effort, not addressed in this pass.
 
 ### Risk
 

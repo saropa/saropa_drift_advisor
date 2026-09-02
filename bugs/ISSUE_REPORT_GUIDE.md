@@ -23,7 +23,8 @@ How to file, investigate, and close bugs and feature requests in `saropa_drift_a
 | Quick fix request | `proposal_fix_diagnostic_name_description.md` | `proposal_fix_schema_divergence_add_migration.md` |
 | Tooling / infra request | `proposal_infra_description.md` | `proposal_infra_cli_export_json.md` |
 | UX / extension request | `proposal_ux_description.md` | `proposal_ux_inline_diff_view.md` |
-| Feature request | `feature_description.md` | `feature_snapshot_debounce_on_write.md` |
+
+Every feature request — new diagnostic, quick fix, tooling, or UX — uses a `proposal_*` prefix. There is no separate `feature_*` pattern; pick the row above that matches the request's kind.
 
 Use lowercase with underscores. Check existing files before creating.
 

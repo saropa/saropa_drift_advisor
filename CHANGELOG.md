@@ -47,11 +47,11 @@ The `ignore` directive for n-plus-one warnings now works even when the diagnosti
 
 ### Fixed
 
-- **`drift-advisor:ignore n-plus-one` now works when the diagnostic is pinned to a caller site.** Previously, the ignore directive in a table definition file was only consulted when the diagnostic was anchored to that same file; when a caller location was available (the common case), the suppression was silently skipped. Both file-level (`ignore-file`) and field-level (`ignore`) directives in the table file are now honoured regardless of where the diagnostic is pinned.
+- **`drift-advisor:ignore` directives now work when diagnostics are pinned to caller sites.** Previously, `n-plus-one` and `slow-query-pattern` ignore directives in a table definition file were only consulted when the diagnostic was anchored to that same file; when a caller location was available (the common case), the suppression was silently skipped. Both file-level (`ignore-file`) and field-level (`ignore`) directives in the table file are now honoured regardless of where the diagnostic is pinned.
 
 <details><summary>Maintenance</summary>
 
-- **Issue reporting guide.** Replaced `bugs/BUG_REPORT_GUIDE.md` with a broader `ISSUE_REPORT_GUIDE.md` covering bugs, feature requests, and proposals — aligned with `saropa_lints`' structure. Added file naming conventions, attribution evidence requirements, investigation checklist, common pitfalls, fix requirements, lifecycle diagrams, and severity guide. Updated GitHub issue templates (`bug_report.yml`, `feature_request.yml`) with severity dropdown, emitter attribution field, and detection/behavior section.
+- **Issue reporting guide.** Replaced `bugs/BUG_REPORT_GUIDE.md` with a broader `ISSUE_REPORT_GUIDE.md` covering bugs, feature requests, and proposals — aligned with `saropa_lints`' structure. Added file naming conventions, attribution evidence requirements, investigation checklist, common pitfalls, fix requirements, lifecycle diagrams, and severity guide. Updated GitHub issue templates (`bug_report.yml`, `feature_request.yml`) with severity dropdown, emitter attribution field, and detection/behavior section, and added `.github/ISSUE_TEMPLATE/config.yml` to route all new issues through the structured templates (`blank_issues_enabled: false`).
 
 </details>
 
@@ -502,4 +502,4 @@ A fix so the new Rules sidebar can't error out while the extension is reloading.
 
 ---
 
-For versions 4.1.1 and prior, see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
+For older versions see [CHANGELOG_ARCHIVE.md](./CHANGELOG_ARCHIVE.md).
