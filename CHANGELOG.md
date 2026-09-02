@@ -56,6 +56,7 @@ The `ignore` directive for n-plus-one warnings now works even when the diagnosti
 ### Changed
 
 - **Consolidated docs into a single `doc/` folder.** Moved `DESIGN_LANGUAGE.md`, `IDE_ONLY_CAPABILITIES.md`, and `LAUNCH_TEST.md` from `plans/guides/` into `doc/`. Merged `LOG_CAPTURE_FILE_CONTRACT.md` into `EXTENSION_API.md` as a "File-based access" section.
+- **All `doc/*.md` files now listed in the README Documentation table.** Added `EXTENSION_API.md`, `DESIGN_LANGUAGE.md`, `IDE_ONLY_CAPABILITIES.md`, and `LAUNCH_TEST.md`. A parity check script (`scripts/check_doc_readme_parity.py`) catches future drift.
 
 ### Fixed
 

@@ -22,6 +22,16 @@ with no meaningful distinction. One file (`LOG_CAPTURE_FILE_CONTRACT.md`) was a
 
 - **Updated CHANGELOG** with a Changed entry under [Unreleased].
 
+- **Added `scripts/check_doc_readme_parity.py`** — verifies every `doc/*.md`
+  file appears in the README Documentation table, and flags README links to
+  non-existent doc files. Exits 1 on mismatch.
+
+- **Updated README.md** Documentation table with all 4 previously unlisted
+  doc files.
+
+- **Fixed stale link** in archived log-capture integration plan to point at
+  the merged EXTENSION_API.md section instead of the deleted file.
+
 ### Impact
 
 No code changes. One stale reference exists in
