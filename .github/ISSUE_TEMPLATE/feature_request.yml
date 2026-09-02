@@ -6,12 +6,30 @@ body:
     attributes:
       value: |
         Thank you for suggesting a feature! Please describe what you'd like.
+        See [ISSUE_REPORT_GUIDE.md](../../bugs/ISSUE_REPORT_GUIDE.md) for detailed guidance.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Request Type
+      description: What kind of feature is this?
+      options:
+        - New diagnostic
+        - Quick fix (automated code transformation)
+        - UX / extension improvement
+        - Tooling / infrastructure
+        - Other
+    validations:
+      required: true
 
   - type: textarea
     id: problem
     attributes:
       label: Problem or Use Case
-      description: What problem does this feature solve? What use case does it enable?
+      description: |
+        What problem does this feature solve? Include concrete examples from
+        real usage where this would have caught a bug, improved code quality,
+        or saved developer time.
     validations:
       required: true
 
@@ -22,6 +40,26 @@ body:
       description: Describe how you'd like this to work.
     validations:
       required: true
+
+  - type: textarea
+    id: detection
+    attributes:
+      label: Detection / Behavior (diagnostic proposals only)
+      description: |
+        For new diagnostics: show code/SQL that SHOULD be flagged (bad) and
+        code that should NOT be flagged (good).
+      placeholder: |
+        ### Should flag (problematic)
+        ```sql
+        SELECT * FROM large_table;
+        ```
+
+        ### Should pass (correct)
+        ```sql
+        SELECT id, name FROM large_table;
+        ```
+    validations:
+      required: false
 
   - type: textarea
     id: alternatives

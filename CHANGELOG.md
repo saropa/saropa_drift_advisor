@@ -41,6 +41,22 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+The `ignore` directive for n-plus-one warnings now works even when the diagnostic points at the caller, not the table file. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Fixed
+
+- **`drift-advisor:ignore n-plus-one` now works when the diagnostic is pinned to a caller site.** Previously, the ignore directive in a table definition file was only consulted when the diagnostic was anchored to that same file; when a caller location was available (the common case), the suppression was silently skipped. Both file-level (`ignore-file`) and field-level (`ignore`) directives in the table file are now honoured regardless of where the diagnostic is pinned.
+
+<details><summary>Maintenance</summary>
+
+- **Issue reporting guide.** Replaced `bugs/BUG_REPORT_GUIDE.md` with a broader `ISSUE_REPORT_GUIDE.md` covering bugs, feature requests, and proposals — aligned with `saropa_lints`' structure. Added file naming conventions, attribution evidence requirements, investigation checklist, common pitfalls, fix requirements, lifecycle diagrams, and severity guide. Updated GitHub issue templates (`bug_report.yml`, `feature_request.yml`) with severity dropdown, emitter attribution field, and detection/behavior section.
+
+</details>
+
+---
+
 ## [4.2.5]
 
 Error messages now tell you whether the problem was your SQL or a bug in the server itself. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.2.5/CHANGELOG.md)
@@ -481,30 +497,6 @@ A fix so the new Rules sidebar can't error out while the extension is reloading.
 <details><summary>Maintenance</summary>
 
 - **Rules view registration hardened.** `extension-diagnostics.ts` now calls `vscode.window.registerTreeDataProvider('driftViewer.rules', …)` instead of `createTreeView`. `createTreeView` resolves the view eagerly and throws "No view is registered with id" when the loaded manifest lacks the contribution (JS reloaded before `package.json` was re-read), which aborted the remaining provider/command registrations in `setupDiagnostics`. `registerTreeDataProvider` does not validate the id at call time and the `TreeView` handle was unused. Added `registerTreeDataProvider` to the `vscode` test mock (`vscode-mock.ts`); full suite 2883 passing.
-
-</details>
-
----
-
-## [4.1.2]
-
-Silence advisor findings right in your Dart source — one column or a whole file — and manage every rule from a new sidebar that shows how noisy each one is and lets you mute it in one click. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.2/CHANGELOG.md)
-
-### Added
-
-- **In-code suppression.** Silence a finding from the Dart source, the way Dart's own `// ignore:` works, with a dedicated marker:
-  - Field level: `// drift-advisor:ignore high-null-rate` on the line above a column getter (or as a trailing comment) silences that code for that column.
-  - File level: `// drift-advisor:ignore-file high-null-rate` anywhere silences that code for the whole file.
-  - The code list is optional — a bare `// drift-advisor:ignore` / `ignore-file` silences every advisor code — and accepts several comma- or space-separated codes.
-- **One-click "Ignore" quick fixes.** Every advisor finding's lightbulb now offers "Ignore … for this column" and "Ignore … in this file", which insert the right directive for you — no typing, and the finding clears immediately.
-- **A "Drift Advisor Rules" sidebar.** A new view lists every rule grouped by category with its live finding count and on/off state, noisiest first. Click a rule to mute or un-mute it everywhere — the fast way to tame a workspace with hundreds of findings without hand-editing settings.
-
-<details><summary>Maintenance</summary>
-
-- **Inline suppression engine.** New `diagnostics/suppression.ts` parses `// drift-advisor:ignore[-file]` directives (CRLF-safe, case-insensitive marker, codes lowercased; full-line directive targets the next non-blank line, trailing directive targets its own line). `IDartFileInfo` gains a `suppressions` field populated in `dart-file-parser.ts`; `DiagnosticManager._applyDiagnostics` indexes suppressions by file URI and skips file-level and field-level (line-matched) hits centrally — no per-provider changes, so it covers every column-/table-scoped diagnostic automatically.
-- **Suppression-insert commands.** `diagnostics/suppression-commands.ts` adds `driftViewer.suppressDiagnosticInColumn` / `…InFile`, registered in `extension-diagnostics.ts` with a refresh callback so the parser (which reads in-memory document text) honors the new directive before save. The two quick-fix actions are appended to every advisor diagnostic in `DiagnosticManager.provideCodeActions`.
-- **Rules tree view.** `diagnostics/rules-tree-provider.ts` renders `DIAGNOSTIC_CODES` grouped by category with live counts from a new `DiagnosticManager.getCollectedCountsByCode()`; a new `onDidRefresh` event re-renders it after each cycle. `driftViewer.rules.toggleRule` writes `disabledRules`; `driftViewer.rules.refresh` is a view title button. Registered the `driftViewer.rules` view + four commands in `package.json` with NLS titles; regenerated `nls-coverage-data.ts`.
-- **Tests.** `suppression.test.ts` (field/file/trailing/bare/multi-code/CRLF/case parsing); updated four `IDartFileInfo` construction sites and two code-action tests for the new actions; activation disposable count 232 → 238. Full suite 2883 passing.
 
 </details>
 

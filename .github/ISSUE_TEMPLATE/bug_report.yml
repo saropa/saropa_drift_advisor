@@ -6,6 +6,7 @@ body:
     attributes:
       value: |
         Thank you for reporting a bug! Please fill out the sections below.
+        See [ISSUE_REPORT_GUIDE.md](../../bugs/ISSUE_REPORT_GUIDE.md) for detailed guidance.
 
   - type: textarea
     id: description
@@ -19,12 +20,17 @@ body:
     id: reproduction
     attributes:
       label: Steps to Reproduce
-      description: Steps to reproduce the behavior.
+      description: |
+        Numbered steps starting from a clean state. Specify exact input values,
+        which UI element was clicked, and whether you used keyboard shortcut,
+        context menu, command palette, or mouse click.
       placeholder: |
-        1. Start the debug server with ...
-        2. Open browser to ...
-        3. Click on ...
-        4. See error
+        1. Open VS Code with an empty workspace.
+        2. Connect to a SQLite database at ...
+        3. Open the SQL editor panel.
+        4. Type: SELECT * FROM users;
+        5. Click the "Run" button.
+        6. See error.
     validations:
       required: true
 
@@ -32,7 +38,7 @@ body:
     id: expected
     attributes:
       label: Expected Behavior
-      description: What you expected to happen.
+      description: What you expected to happen. Be specific.
     validations:
       required: true
 
@@ -40,7 +46,7 @@ body:
     id: actual
     attributes:
       label: Actual Behavior
-      description: What actually happened.
+      description: What actually happened. Be specific.
     validations:
       required: true
 
@@ -58,24 +64,76 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - "Critical — crashes, blocks all analysis"
+        - "High — false positive on common pattern, forces workaround"
+        - "Medium — false negative, misses important condition"
+        - "Low — cosmetic or edge case"
+    validations:
+      required: true
+
   - type: textarea
     id: environment
     attributes:
       label: Environment
       description: Please provide version information.
       placeholder: |
-        - Saropa Drift Advisor version: 1.5.0
-        - Dart SDK version: 3.x.x
-        - Flutter version: 3.x.x
-        - VS Code version (if extension): 1.x.x
-        - OS: Windows 11 / macOS / Linux
+        - Saropa Drift Advisor version:
+        - Dart SDK version:
+        - Flutter version:
+        - VS Code version (if extension):
+        - OS:
+        - Database type and version:
+        - Connection method:
     validations:
       required: true
 
   - type: textarea
+    id: attribution
+    attributes:
+      label: Emitter Attribution (diagnostic bugs only)
+      description: |
+        For diagnostic/analyzer bugs, grep both lib/src/ and extension/src/ for
+        the diagnostic code name. Paste the grep commands and results. See
+        ISSUE_REPORT_GUIDE.md "Confirm Attribution Before Filing" for details.
+      placeholder: |
+        grep -rn "'code_name'" lib/src/
+        grep -rn "'code_name'" extension/src/
+        # Results: ...
+    validations:
+      required: false
+
+  - type: textarea
     id: logs
     attributes:
-      label: Logs / Screenshots
-      description: Paste any relevant log output or screenshots.
+      label: Error Output / Logs / Screenshots
+      description: |
+        Paste console errors, extension output channel content, stack traces
+        (full text, not truncated), and annotated screenshots.
+    validations:
+      required: false
+
+  - type: textarea
+    id: minimal_example
+    attributes:
+      label: Minimal Reproducible Example
+      description: The shortest possible input/config that triggers the bug.
+    validations:
+      required: false
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What You Already Tried
+      description: List every workaround or diagnostic step you already took.
+      placeholder: |
+        - Restarted VS Code: YES/NO effect
+        - Disabled other extensions: YES/NO effect
+        - Tested on a previous extension version: YES/NO effect
     validations:
       required: false
