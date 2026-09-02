@@ -1,6 +1,6 @@
 /**
  * Single authority for "are we connected and working" — Phase 1 of the connection
- * reliability plan (see `plans/connection-reliability-ongoing.md`, gap 1).
+ * reliability plan (see `plans/history/2026.09/20260902/connection-reliability-ongoing.md`, gap 1 — historical).
  *
  * **Problem this fixes.** `driftViewer.serverConnected`, `driftViewer.databaseTreeEmpty`,
  * `isDriftUiConnected`, the tree provider's own state, and the Schema Search state were

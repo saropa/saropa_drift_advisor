@@ -10,8 +10,8 @@
 
 | Priority | Feature                                                  |  Wow  | Effort | Why                                         |
 | -------- | -------------------------------------------------------- | :---: | :----: | ------------------------------------------- |
-| **1**    | [28: PII Anonymizer](plans/28-pii-anonymizer.md)        |  5→6  | Medium | Extension-only, uses existing endpoints     |
-| **2**    | [60: Time-Travel Slider](plans/60-time-travel-data-slider.md) | 5→6 | Medium | Builds on timeline + DVR infrastructure |
+| **1**    | [28: PII Anonymizer](plans/deferred/28-pii-anonymizer.md)        |  5→6  | Medium | Extension-only, uses existing endpoints     |
+| **2**    | [60: Time-Travel Slider](plans/history/2026.09/20260902/60-time-travel-data-slider.md) | 5→6 | Medium | Builds on timeline + DVR infrastructure |
 
 ---
 
@@ -43,9 +43,9 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 
 | #   | Feature                                                             |  Wow  | Effort | Integration                         |
 | --- | ------------------------------------------------------------------- | :---: | :----: | ----------------------------------- |
-| 28  | [PII Anonymizer](plans/28-pii-anonymizer.md)                        |  5→6  | Medium | Extension-only (existing endpoints) |
-| 60  | [Time-Travel Slider](plans/60-time-travel-data-slider.md)           |  5→6  | Medium | ↔ DVR, Timeline                     |
-| 59  | [AI Schema Reviewer](plans/59-ai-schema-reviewer.md)                |  5→6  | Medium | Requires LLM integration            |
+| 28  | [PII Anonymizer](plans/deferred/28-pii-anonymizer.md)                        |  5→6  | Medium | Extension-only (existing endpoints) |
+| 60  | [Time-Travel Slider](plans/history/2026.09/20260902/60-time-travel-data-slider.md)           |  5→6  | Medium | ↔ DVR, Timeline                     |
+| 59  | [AI Schema Reviewer](plans/deferred/59-ai-schema-reviewer.md)                |  5→6  | Medium | Requires LLM integration            |
 | 18  | [Natural Language SQL](plans/history/2026.04/2026.04.30/18-natural-language-sql.md) |  5→6  | Medium | Requires LLM integration            |
 | 66  | [Drift Refactoring Engine](plans/66-drift-refactoring-engine.md)    |  5→7  |  High  | ← AI Review, Profiler               |
 | 21  | [Visual Query Builder](plans/history/2026.06/2026.06.11/21-visual-query-builder.md) |  4→5  |  High  | ← QueryIntelligence                 |
@@ -55,9 +55,9 @@ All features integrate through **4 shared hubs** in `extension/src/engines/`:
 | #   | Feature                                                        |  Wow  | Effort | Server Change           |
 | --- | -------------------------------------------------------------- | :---: | :----: | ----------------------- |
 | 22  | [Mutation Stream](plans/22-realtime-mutation-stream.md)        |  4→5  | Medium | `mutation_tracker.dart` |
-| 26  | [Query Replay DVR](plans/26-query-replay-dvr.md)               |  5→7  |  High  | `query_recorder.dart`   |
-| 35  | [Multi-Server Federation](plans/35-multi-server-federation.md) |  5→6  |  High  | Multiple clients        |
-| 37  | [Data Branching](plans/37-data-branching.md)                   |  5→7  |  High  | Fork/restore endpoints  |
+| 26  | [Query Replay DVR](plans/history/2026.09/20260902/26-query-replay-dvr.md)               |  5→7  |  High  | `query_recorder.dart`   |
+| 35  | [Multi-Server Federation](plans/deferred/35-multi-server-federation.md) |  5→6  |  High  | Multiple clients        |
+| 37  | [Data Branching](plans/history/2026.09/20260902/37-data-branching.md)                   |  5→7  |  High  | Fork/restore endpoints  |
 | 47  | [Bulk Edit Grid](plans/history/2026.04/2026.04.30/47-bulk-edit-grid.md) |  5→7  |  High  | `writeQuery` callback   |
 
 ### Low Priority Integrations (P3)

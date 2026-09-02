@@ -1,6 +1,6 @@
 /**
  * Connection-state telemetry — candidate D of the connection-reliability
- * campaign (`plans/connection-reliability-ongoing.md`).
+ * campaign (`plans/history/2026.09/20260902/connection-reliability-ongoing.md` — historical).
  *
  * **Problem this fixes.** Every reconnect debate in the connection history was
  * argued from anecdotes ("it feels flaky on Wi-Fi"). There was no measured

@@ -18,7 +18,7 @@
  *        vscode.postMessage({ command: 'ready' });
  *
  * Phase 4 of the connection reliability plan
- * (see `plans/connection-reliability-ongoing.md`, gap 4).
+ * (see `plans/history/2026.09/20260902/connection-reliability-ongoing.md`, gap 4 — historical).
  */
 
 import type * as vscode from 'vscode';

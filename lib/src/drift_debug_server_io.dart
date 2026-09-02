@@ -492,7 +492,7 @@ class _DriftDebugServerImpl {
       // again in v1.7.0, and regressed a third time in 086152f when a
       // lint tool replaced print() to satisfy avoid_print. The banner
       // is the user's only confirmation that the server started.
-      // See plans/connection-reliability-ongoing.md for full history.
+      // See plans/history/2026.09/20260902/connection-reliability-ongoing.md for full history (historical).
       final title = _bannerCentered(
         'DRIFT DEBUG SERVER   v${ServerConstants.packageVersion}',
       );
@@ -584,7 +584,7 @@ class _DriftDebugServerImpl {
       // the extension can target it directly. Try/catch because postEvent
       // is a best-effort signal — it must never block startup or fail on
       // embedders that do not support the VM service.
-      // Phase 5 of plans/connection-reliability-ongoing.md (gap 5).
+      // Phase 5 of plans/history/2026.09/20260902/connection-reliability-ongoing.md (gap 5 — historical).
       try {
         developer.postEvent('ext.saropa.drift.ServerStarted', {
           'port': boundPort,

@@ -1,6 +1,6 @@
 /**
  * adb-forward supervision — candidate E of the connection-reliability
- * campaign (`plans/connection-reliability-ongoing.md`).
+ * campaign (`plans/history/2026.09/20260902/connection-reliability-ongoing.md` — historical).
  *
  * **Problem this fixes.** When the host reaches a device-hosted Drift server
  * through `adb forward tcp:<port> tcp:<port>`, that forward can silently die:

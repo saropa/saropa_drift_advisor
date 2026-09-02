@@ -24,7 +24,7 @@
  * can still run as the recovery mechanism.
  *
  * Phase 3 of the connection reliability plan
- * (see `plans/connection-reliability-ongoing.md`, gap 3).
+ * (see `plans/history/2026.09/20260902/connection-reliability-ongoing.md`, gap 3 — historical).
  */
 
 import type { Event } from 'vscode';
