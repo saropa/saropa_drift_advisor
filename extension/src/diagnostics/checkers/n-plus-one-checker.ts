@@ -7,7 +7,7 @@
 
 import * as vscode from 'vscode';
 import type { PerformanceData, QueryEntry } from '../../api-types';
-import type { IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
+import type { ICallerPinnedData, IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
 import { areSimilarQueries, extractTableFromSql, isReadQuery } from '../utils/sql-utils';
 import { resolveCallerLocation } from '../utils/caller-location-utils';
@@ -62,10 +62,26 @@ export function checkNPlusOnePatterns(
 
       let fileUri: vscode.Uri;
       let line: number;
+      // When pinned to a caller site, the suppression layer needs the table
+      // file's URI and class line to check ignore directives there.
+      let callerPinned: ICallerPinnedData | undefined;
 
       if (callerLoc) {
         fileUri = callerLoc.uri;
         line = callerLoc.line;
+
+        // Resolve the table definition file so inline suppressions placed
+        // there still take effect even though the diagnostic pins elsewhere.
+        const dartFile = findDartFileForTable(dartFiles, tableName);
+        if (dartFile) {
+          const dartTable = dartFile.tables.find(
+            (t) => t.sqlTableName === tableName,
+          );
+          callerPinned = {
+            tableFileUri: dartFile.uri.toString(),
+            tableFileLine: dartTable?.line ?? 0,
+          };
+        }
       } else {
         // Fall back to table definition file.
         const dartFile = findDartFileForTable(dartFiles, tableName);
@@ -96,6 +112,12 @@ export function checkNPlusOnePatterns(
         fileUri,
         range: new vscode.Range(line, 0, line, 999),
         severity,
+        // Carry the table definition URI so the suppression layer can check
+        // ignore directives there when the diagnostic is pinned to a caller.
+        data: {
+          tableName,
+          ...callerPinned,
+        },
       });
     }
   });

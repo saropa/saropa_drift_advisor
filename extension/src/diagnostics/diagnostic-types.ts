@@ -31,6 +31,30 @@ export interface IDiagnosticCode {
   hasFix?: boolean;
 }
 
+/**
+ * Extra data attached when a diagnostic pins to a caller site instead of the
+ * table definition file. Carries the table file's URI and class line so the
+ * suppression layer can check ignore directives there (the caller file is
+ * not in dartFiles and would otherwise be missed).
+ */
+export interface ICallerPinnedData extends Record<string, unknown> {
+  /** Stringified URI of the Drift table definition file. */
+  tableFileUri: string;
+  /** 0-based line of the table class declaration in the table file. */
+  tableFileLine: number;
+}
+
+/** Type guard: true when issue.data carries caller-pinned table file info. */
+export function hasCallerPinnedData(
+  data: Record<string, unknown> | undefined,
+): data is ICallerPinnedData {
+  return (
+    data !== undefined &&
+    typeof data.tableFileUri === 'string' &&
+    typeof data.tableFileLine === 'number'
+  );
+}
+
 /** A single diagnostic issue reported by a provider. */
 export interface IDiagnosticIssue {
   /** References a registered diagnostic code. */

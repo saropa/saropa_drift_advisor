@@ -3,6 +3,7 @@ import { DIAGNOSTIC_CODES } from './diagnostic-codes';
 import {
   DIAGNOSTIC_PREFIX,
   DIAGNOSTIC_SOURCE,
+  hasCallerPinnedData,
   type IDartFileInfo,
   type IDiagnosticConfig,
   type IDiagnosticIssue,
@@ -45,6 +46,21 @@ export function buildDiagnosticsByFile(
       isInlineSuppressed(supps, issue.code, issue.range.start.line)
     ) {
       continue;
+    }
+
+    // When a diagnostic is pinned to a caller site (e.g. n-plus-one,
+    // slow-query-pattern), the caller file is not in dartFiles so the check
+    // above misses ignore directives in the table definition file. Fall back
+    // to the table file's suppressions, using the table class line for
+    // field-level matching (the caller's line is meaningless in the table file).
+    if (hasCallerPinnedData(issue.data) && issue.data.tableFileUri !== issue.fileUri.toString()) {
+      const tableSupps = suppressionsByUri.get(issue.data.tableFileUri);
+      if (
+        tableSupps &&
+        isInlineSuppressed(tableSupps, issue.code, issue.data.tableFileLine)
+      ) {
+        continue;
+      }
     }
 
     // Skip per-table exclusions. Most providers set data.tableName, but the

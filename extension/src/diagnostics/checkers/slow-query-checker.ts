@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import type { PerformanceData } from '../../api-types';
-import type { IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
+import type { ICallerPinnedData, IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
 import { extractTableFromSql, truncateSql } from '../utils/sql-utils';
 import { resolveCallerLocation } from '../utils/caller-location-utils';
@@ -43,12 +43,31 @@ export function checkSlowQueries(
     // Fall back to table definition when no caller location is present.
     let fileUri: vscode.Uri;
     let line: number;
+    // When pinned to a caller site, the suppression layer needs the table
+    // file's URI and class line to check ignore directives there.
+    let callerPinned: ICallerPinnedData | undefined;
+
+    const tableMatch = extractTableFromSql(query.sql);
 
     if (callerLoc) {
       fileUri = callerLoc.uri;
       line = callerLoc.line;
+
+      // Resolve the table definition file so inline suppressions placed
+      // there still take effect even though the diagnostic pins elsewhere.
+      if (tableMatch) {
+        const dartFile = findDartFileForTable(dartFiles, tableMatch);
+        if (dartFile) {
+          const dartTable = dartFile.tables.find(
+            (t) => t.sqlTableName === tableMatch,
+          );
+          callerPinned = {
+            tableFileUri: dartFile.uri.toString(),
+            tableFileLine: dartTable?.line ?? 0,
+          };
+        }
+      }
     } else {
-      const tableMatch = extractTableFromSql(query.sql);
       if (!tableMatch) continue;
 
       const dartFile = findDartFileForTable(dartFiles, tableMatch);
@@ -80,7 +99,7 @@ export function checkSlowQueries(
       fileUri,
       range: new vscode.Range(line, 0, line, 999),
       severity,
-      data: { sql: query.sql, durationMs: query.durationMs },
+      data: { sql: query.sql, durationMs: query.durationMs, ...callerPinned },
     });
 
     count++;

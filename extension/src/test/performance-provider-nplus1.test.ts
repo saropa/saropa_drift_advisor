@@ -87,6 +87,24 @@ describe('PerformanceProvider', () => {
       // N+1 is an advisory heuristic, reported at Information regardless of
       // pin location (callerLoc still decides where it pins, not the severity).
       assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
+
+      // The issue must carry the table definition URI and line so the
+      // suppression layer can check ignore directives in the table file
+      // even when the diagnostic pins to a caller.
+      assert.ok(issue.data, 'Issue should carry data for suppression fallback');
+      assert.ok(
+        typeof issue.data!.tableFileUri === 'string',
+        'data.tableFileUri should be a string URI',
+      );
+      assert.ok(
+        (issue.data!.tableFileUri as string).includes('users.dart'),
+        `tableFileUri should reference the table file but got ${issue.data!.tableFileUri}`,
+      );
+      assert.strictEqual(
+        typeof issue.data!.tableFileLine,
+        'number',
+        'data.tableFileLine should be a number',
+      );
     });
 
     it('should report n-plus-one pattern for repeated similar queries', async () => {
