@@ -62,7 +62,16 @@ export async function httpIndexPreview(
     const detail = await _readErrorDetail(resp);
     throw new Error(`Index preview failed: ${resp.status}${detail}`);
   }
-  return resp.json() as Promise<IIndexPreviewResult>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const body: any = await resp.json();
+  // Runtime guard: the server's response envelope may change shape across
+  // versions. Validate the two required fields so a malformed response throws
+  // with a clear message rather than producing undefined-access errors deep
+  // in createAllIndexesCommand.
+  if (!Array.isArray(body?.valid) || !Array.isArray(body?.rejected)) {
+    throw new Error('Index preview: unexpected response shape (missing valid/rejected arrays)');
+  }
+  return body as IIndexPreviewResult;
 }
 
 /**
@@ -88,7 +97,15 @@ export async function httpIndexApply(
     const detail = await _readErrorDetail(resp);
     throw new Error(`Index apply failed: ${resp.status}${detail}`);
   }
-  return resp.json() as Promise<IIndexApplyResult>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const applyBody: any = await resp.json();
+  // Runtime guard: validate the required fields so a version mismatch between
+  // the extension and the Dart server surfaces a clear error rather than
+  // silently producing wrong counts in the output channel report.
+  if (!Array.isArray(applyBody?.results) || typeof applyBody?.applied !== 'number') {
+    throw new Error('Index apply: unexpected response shape (missing results/applied)');
+  }
+  return applyBody as IIndexApplyResult;
 }
 
 /** Best-effort extraction of the `{"error": "..."}` body VS Code errors carry. */

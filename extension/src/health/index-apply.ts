@@ -134,11 +134,17 @@ export async function createAllIndexesCommand(
   if (confirm !== 'Create Indexes') return;
 
   // 2. Baseline EXPLAIN QUERY PLAN, best-effort, before any index exists.
-  const before = new Map<string, string | undefined>();
-  for (const sql of valid) {
-    const idx = bySql.get(sql);
-    before.set(sql, idx ? await planLine(client, idx) : undefined);
-  }
+  // Run in parallel — each probe hits a different table/column and planLine
+  // already swallows its own errors, so concurrent requests are safe and cut
+  // N-1 round-trip latencies from the command's total wall-clock time.
+  const baselineEntries = await Promise.all(
+    valid.map(async (sql) => {
+      const idx = bySql.get(sql);
+      const plan = idx ? await planLine(client, idx) : undefined;
+      return [sql, plan] as const;
+    }),
+  );
+  const before = new Map(baselineEntries);
 
   // 3. Apply. `handleApply` is best-effort per statement (not one
   // transaction), so a single bad statement cannot hide the ones that
@@ -167,6 +173,17 @@ export async function createAllIndexesCommand(
   // 4. Verify: re-run EXPLAIN QUERY PLAN for every index that actually
   // applied, so the report shows whether the plan really changed (SCAN ->
   // SEARCH) rather than assuming success implies a better plan.
+  // Fetch all post-apply plans in parallel — same rationale as baseline above.
+  const successSqls = valid.filter((sql) => outcomes.get(sql)?.ok);
+  const afterEntries = await Promise.all(
+    successSqls.map(async (sql) => {
+      const idx = bySql.get(sql);
+      const plan = idx ? await planLine(client, idx) : undefined;
+      return [sql, plan] as const;
+    }),
+  );
+  const afterPlans = new Map(afterEntries);
+
   let created = 0;
   let failed = 0;
   const lines: string[] = [];
@@ -175,8 +192,7 @@ export async function createAllIndexesCommand(
     if (!outcome) continue; // Should not happen; apply reports every requested sql.
     if (outcome.ok) {
       created++;
-      const idx = bySql.get(sql);
-      const after = idx ? await planLine(client, idx) : undefined;
+      const after = afterPlans.get(sql);
       const beforeText = outcome.before ?? '(plan unavailable)';
       const afterText = after ?? '(plan unavailable)';
       const changed = outcome.before !== undefined && after !== undefined && outcome.before !== after;

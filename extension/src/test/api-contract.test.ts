@@ -21,6 +21,10 @@ import type {
   ISizeAnalytics,
   ITableSizeInfo,
 } from '../api-types';
+import type {
+  IIndexPreviewResult,
+  IIndexApplyResult,
+} from '../api-client-http-indexes';
 import { assertHasKeys } from './api-contract-helpers';
 
 describe('API type contracts (doc/API.md)', () => {
@@ -251,5 +255,46 @@ describe('API type contracts (doc/API.md)', () => {
     );
     assert.ok(Array.isArray(perf.slowQueries));
     assert.ok(Array.isArray(perf.recentQueries));
+  });
+
+  // -------------------------------------------------------
+  // Index Preview / Apply (bug 001)
+  // -------------------------------------------------------
+
+  // Validates the type shapes for the index preview/apply HTTP response
+  // interfaces added by bug 001. These mirror the JSON envelopes returned by
+  // IndexBatchHandler.handlePreview and .handleApply on the Dart server.
+  it('IIndexPreviewResult matches documented shape', () => {
+    const preview: IIndexPreviewResult = {
+      valid: ['CREATE INDEX idx_orders_user_id ON orders(user_id)'],
+      rejected: [{ index: 0, sql: 'INVALID SQL', reason: 'not a CREATE INDEX' }],
+    };
+    assertHasKeys(
+      preview as unknown as Record<string, unknown>,
+      ['valid', 'rejected'],
+      'IIndexPreviewResult',
+    );
+    assert.ok(Array.isArray(preview.valid));
+    assert.ok(Array.isArray(preview.rejected));
+    // Each rejection carries the index, original sql, and a reason string.
+    const r = preview.rejected[0];
+    assertHasKeys(r as unknown as Record<string, unknown>, ['index', 'sql', 'reason'], 'IIndexRejection');
+  });
+
+  it('IIndexApplyResult matches documented shape', () => {
+    const apply: IIndexApplyResult = {
+      results: [{ index: 0, sql: 'CREATE INDEX ...', ok: true }],
+      applied: 1,
+    };
+    assertHasKeys(
+      apply as unknown as Record<string, unknown>,
+      ['results', 'applied'],
+      'IIndexApplyResult',
+    );
+    assert.ok(Array.isArray(apply.results));
+    // Each entry has index, sql, ok, and an optional error string.
+    const entry = apply.results[0];
+    assertHasKeys(entry as unknown as Record<string, unknown>, ['index', 'sql', 'ok'], 'IIndexApplyEntry');
+    assert.strictEqual(typeof entry.ok, 'boolean');
   });
 });
