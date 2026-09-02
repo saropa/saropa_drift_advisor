@@ -106,3 +106,22 @@ if has_staged 'lib/src/server/router\.dart$'; then
 else
   echo "router.dart not staged — skipping CSRF gate check"
 fi
+
+# ── Gate 4: Query-param sync between Dart constants and TypeScript utils ──
+# Only runs when server_constants.dart or utils.ts is staged. The two files
+# must agree on query-parameter names; a mismatch causes silent server-side
+# paging failures because the server ignores unknown param names (bug 080).
+if has_staged 'lib/src/server/server_constants\.dart$' || has_staged 'assets/web/utils\.ts$'; then
+  echo "Checking query-param sync between server_constants.dart and utils.ts..."
+  python scripts/check_query_param_sync.py || {
+    echo ""
+    echo "Query-param sync check failed!"
+    echo "server_constants.dart and assets/web/utils.ts must use the same"
+    echo "query-parameter names. Run the script manually for details:"
+    echo "   python scripts/check_query_param_sync.py"
+    echo ""
+    exit 1
+  }
+else
+  echo "server_constants.dart and utils.ts not staged — skipping query-param sync check"
+fi
