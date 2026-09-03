@@ -21,6 +21,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 
 TS_PATH = REPO / "assets" / "web" / "toolbar.ts"
+BUNDLE_PATH = REPO / "assets" / "web" / "bundle.js"
 DART_PATH = REPO / "lib" / "src" / "server" / "html_content.dart"
 
 # Pattern for the TS constant: export var ICON_STATE_KEY = 'some-key';
@@ -81,7 +82,36 @@ def main() -> int:
         )
         return 1
 
-    print(f"OK: ICON_STATE_KEY = '{ts_key}' (both files match)")
+    # Verify the write side exists in toolbar.ts (not just the constant).
+    if "localStorage.setItem(ICON_STATE_KEY" not in ts_source:
+        errors.append(
+            "toolbar.ts declares ICON_STATE_KEY but never calls "
+            "localStorage.setItem(ICON_STATE_KEY, ...) — the verdict is "
+            "computed but never persisted, so the <head> seed is dead code"
+        )
+
+    # Verify the built bundle also contains the write call — a stale build
+    # after removing the setItem would silently revert the persistence.
+    if BUNDLE_PATH.exists():
+        bundle = BUNDLE_PATH.read_text(encoding="utf-8")
+        if ts_key not in bundle:
+            errors.append(
+                f"bundle.js does not contain '{ts_key}' — run `npm run build` "
+                f"to regenerate from toolbar.ts"
+            )
+        elif "localStorage.setItem(ICON_STATE_KEY" not in bundle and \
+             f'localStorage.setItem("{ts_key}"' not in bundle:
+            errors.append(
+                "bundle.js contains the key constant but not the setItem call — "
+                "the build may be stale or the write was removed from toolbar.ts"
+            )
+
+    if errors:
+        for e in errors:
+            print(f"FAIL: {e}", file=sys.stderr)
+        return 1
+
+    print(f"OK: ICON_STATE_KEY = '{ts_key}' (both files match, write side verified)")
     return 0
 
 

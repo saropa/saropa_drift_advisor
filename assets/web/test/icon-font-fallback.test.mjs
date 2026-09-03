@@ -496,7 +496,9 @@ describe('bug 081 — localStorage verdict persistence', () => {
     });
     const throwingStorage = {
       getItem: () => null,
-      setItem: () => { throw new DOMException('quota exceeded', 'QuotaExceededError'); },
+      // Plain Error instead of DOMException — DOMException constructor args
+      // differ across engines (Node < 17 doesn't support the two-arg form).
+      setItem: () => { throw new Error('QuotaExceededError'); },
     };
     await runFallback(doc, throwingStorage);
     // Icons should still be reported as available — the class toggle works
