@@ -17,9 +17,9 @@
   },
   "devDependencies": {
     "axe-core": "^4.13.0",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "husky": "^9.1.7",
-    "sass": "^1.101",
+    "sass": "^1.103",
     "typescript": "^7.0"
   },
   "dependencies": {
