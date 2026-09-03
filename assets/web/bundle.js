@@ -34899,6 +34899,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   var ICON_PROBE_FAMILY = '"Material Symbols Outlined", "Material Icons", monospace';
   var ICON_PROBE_BASELINE = "monospace";
   var ICON_PROBE_MIN_DELTA_PX = 1;
+  var ICON_STATE_KEY = "drift-viewer-icons-available";
   function measureTextOnCanvas(text, family) {
     try {
       if (typeof document.createElement !== "function") return null;
@@ -34957,6 +34958,10 @@ ${JSON.stringify(results, void 0, 2)}`);
     var settled = false;
     function apply(available) {
       root.classList.toggle("icons-unavailable", !available);
+      try {
+        localStorage.setItem(ICON_STATE_KEY, available ? "1" : "0");
+      } catch (e) {
+      }
     }
     var fallbackTimer = setTimeout(function() {
       if (settled) return;

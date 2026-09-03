@@ -160,12 +160,12 @@ abstract final class HtmlContent {
        Deliberately seeded ONLY on the explicit '0' (icons proven missing last
        time): an absent key is a first-ever visit and must NOT paint labels,
        and a '1' is the fast/cached path, which must stay flash-free. The
-       verdict is re-probed on every load and rewritten, so a machine that
-       comes back online un-degrades on its next visit. The key literal is
-       duplicated from ICON_STATE_KEY in assets/web/toolbar.ts (no shared
-       module spans Dart and TS); the web regression suite asserts the two
-       spellings match. localStorage throws in restricted webviews, hence the
-       try/catch. -->
+       verdict is re-probed on every load and rewritten by the apply()
+       function in initIconFontFallback(), so a machine that comes back online
+       un-degrades on its next visit. The key literal is duplicated from
+       ICON_STATE_KEY in assets/web/toolbar.ts (no shared module spans Dart
+       and TS); the web regression suite asserts the two spellings match.
+       localStorage throws in restricted webviews, hence the try/catch. -->
   <script>try{if(localStorage.getItem('drift-viewer-icons-available')==='0'){document.documentElement.classList.add('icons-unavailable');}}catch(e){}</script>
   <!-- Favicon: inline SVG database cylinder matching extension store icon (purple-pink to cyan gradient). -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='cyl' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23cd87cd'/%3E%3Cstop offset='50%25' stop-color='%239e8eda'/%3E%3Cstop offset='100%25' stop-color='%235ac6e4'/%3E%3C/linearGradient%3E%3CradialGradient id='cap' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23e8c6e8'/%3E%3Cstop offset='100%25' stop-color='%23cd87cd'/%3E%3C/radialGradient%3E%3ClinearGradient id='bot' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%235ac6e4'/%3E%3Cstop offset='100%25' stop-color='%234dbdd8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='7' y='6' width='18' height='16' fill='url(%23cyl)'/%3E%3Cellipse cx='16' cy='6' rx='9' ry='2' fill='url(%23cap)' stroke='%235f3773' stroke-width='0.6'/%3E%3Cpath d='M7 6v16' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cpath d='M25 6v16' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cellipse cx='16' cy='14' rx='9' ry='1.2' fill='none' stroke='%235f3773' stroke-width='0.6'/%3E%3Cellipse cx='16' cy='22' rx='9' ry='2' fill='url(%23bot)' stroke='%235f3773' stroke-width='0.6'/%3E%3C/svg%3E">

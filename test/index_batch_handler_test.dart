@@ -47,7 +47,7 @@ void main() {
       );
     });
 
-    test('is case-insensitive', () {
+    test('should match CREATE INDEX case-insensitively', () {
       expect(
         SqlValidator.isSingleCreateIndexSql('create index idx ON t(a)'),
         isTrue,

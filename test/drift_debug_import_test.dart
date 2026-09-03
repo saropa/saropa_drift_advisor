@@ -517,7 +517,7 @@ void main() {
   });
 
   group('parseCsvLines', () {
-    test('parses simple CSV', () {
+    test('should parse simple CSV into rows and columns', () {
       final rows = DriftDebugImportProcessor.parseCsvLines('a,b,c\n1,2,3');
       expect(rows, hasLength(2));
       expect(rows[0], ['a', 'b', 'c']);
@@ -541,7 +541,7 @@ void main() {
       expect(rows[1][0], 'he said "hi"');
     });
 
-    test('strips UTF-8 BOM', () {
+    test('should strip UTF-8 BOM from first field', () {
       final bom = String.fromCharCode(0xFEFF);
       final rows = DriftDebugImportProcessor.parseCsvLines(
         '${bom}id,name\n1,test',
@@ -560,14 +560,14 @@ void main() {
       expect(rows, hasLength(3));
     });
 
-    test('skips empty lines', () {
+    test('should skip empty lines between data rows', () {
       final rows = DriftDebugImportProcessor.parseCsvLines(
         'a,b\n\n1,2\n\n3,4\n\n',
       );
       expect(rows, hasLength(3));
     });
 
-    test('trims field values', () {
+    test('should trim whitespace from field values', () {
       final rows = DriftDebugImportProcessor.parseCsvLines('a , b \n 1 , 2 ');
       expect(rows[0], ['a', 'b']);
       expect(rows[1], ['1', '2']);

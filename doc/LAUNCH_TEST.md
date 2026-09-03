@@ -98,3 +98,51 @@ window against a running Drift debug server.
       numeric count, never "NaN". Point it at an empty table — it shows 0.
 - [ ] Add a **Table Preview** widget for a populated table. It shows column headers and cell values
       (not blank cells).
+
+## Icon font offline / degraded-mode verification (bugs 081, 084)
+
+Three claims the automated test suite cannot prove — they require a real browser
+rendering the real page. Budget: ~10 minutes.
+
+### 1. Icons degrade gracefully when the font is blocked (~3 min)
+
+This confirms the `icons-unavailable` CSS path fires and that every toolbar
+button remains usable without the icon font.
+
+1. Open the viewer in Chrome (any page with a Drift debug server).
+2. Open DevTools → Network tab → click the **Block request URL** filter.
+3. Add a pattern: `*fonts.g*` (blocks both `fonts.googleapis.com` and
+   `fonts.gstatic.com`).
+4. Hard-refresh (Ctrl+Shift+R).
+5. **Expected:** every toolbar button shows a text label (Home, Tables,
+   Search, SQL, …) or a small bullet marker (●) instead of the icon glyph.
+   No button is invisible or an empty box. The `<html>` element has class
+   `icons-unavailable` (check in Elements panel).
+6. Click at least three toolbar buttons. Each must respond normally — the
+   degraded state never disables a control.
+7. Remove the request block, hard-refresh, and confirm icons return.
+
+### 2. Close buttons identify their tab to a screen reader (~3 min)
+
+This confirms the bug 084 restructure did not break accessible names.
+
+1. With the viewer open, open at least two table tabs (click two different
+   tables in the sidebar).
+2. Open the **Accessibility** panel in DevTools (Elements → Accessibility tab
+   in the sidebar, or the dedicated panel).
+3. Click each tab's close button (the × beside the tab name).
+4. **Expected:** each close button shows an accessible name that includes the
+   table name — e.g. "Close users", "Close orders" — not a bare "Close tab"
+   repeated for every button.
+5. Each tab button shows `role: tab` and `aria-selected: true/false`.
+
+### 3. Pin buttons are distinguishable and reflect state (~3 min)
+
+1. In the Tables sidebar, pin one table (click the pin icon).
+2. Inspect the pin button in the Accessibility panel.
+3. **Expected (pinned):** `role: button`, `aria-pressed: true`, accessible
+   name includes "Unpin".
+4. **Expected (unpinned):** `aria-pressed: false`, name includes "Pin".
+5. The pin button is a SIBLING of the table link (not nested inside it).
+   In the Elements panel, both `<a>` and `<button class="table-pin-btn">`
+   are direct children of the same `<li>`.

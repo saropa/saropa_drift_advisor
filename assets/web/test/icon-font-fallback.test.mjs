@@ -43,13 +43,18 @@ before(async () => {
   ICON_STACK = mod.ICON_PROBE_FAMILY;
   BASE = mod.ICON_PROBE_BASELINE;
   LIG = mod.ICON_PROBE_LIGATURE;
+  ICON_STATE_KEY = mod.ICON_STATE_KEY;
 });
 
-// The probe reads the bare global `document`, so tests install a stub there.
+// The probe reads the bare global `document` and `localStorage`, so tests
+// install stubs there.
 const realDocument = globalThis.document;
+const realLocalStorage = globalThis.localStorage;
 afterEach(() => {
   if (realDocument === undefined) delete globalThis.document;
   else globalThis.document = realDocument;
+  if (realLocalStorage === undefined) delete globalThis.localStorage;
+  else globalThis.localStorage = realLocalStorage;
 });
 
 /** Minimal classList that records what the probe toggled on <html>. */
@@ -120,13 +125,21 @@ function makeDocument({ canvas, span, fonts }) {
       el.parentNode = { removeChild() {} };
     };
   }
-  return { doc, classList };
+  // localStorage stub: a simple Map-backed store that initIconFontFallback
+  // writes the verdict to. Tests can inspect store.get(ICON_STATE_KEY) to
+  // verify the persistence path.
+  const store = new Map();
+  const storage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+  };
+  return { doc, classList, storage, store };
 }
 
 // Probe constants imported from the real module — if toolbar.ts renames them
 // the test breaks immediately instead of silently passing with wrong stub data.
 // Assigned in before() after esbuild produces the module.
-let ICON_STACK, BASE, LIG;
+let ICON_STACK, BASE, LIG, ICON_STATE_KEY;
 
 // A `fonts.load()` that never answers — a proxy that black-holes the request
 // rather than failing it, which is what the 3s deadline exists for.
@@ -200,10 +213,13 @@ describe('bug 081 — icon ligature rendering probe', () => {
  * fires the 3s deadline with node:test's fake timers, so the timeout branch is
  * exercised without the suite actually waiting three seconds.
  */
-async function runTimeout(doc) {
+async function runTimeout(doc, storage) {
   mock.timers.enable({ apis: ['setTimeout'] });
   try {
     globalThis.document = doc;
+    // Install the localStorage stub so initIconFontFallback can persist verdicts.
+    if (storage) globalThis.localStorage = storage;
+    else delete globalThis.localStorage;
     mod.initIconFontFallback();
     mock.timers.tick(3000);
   } finally {
@@ -212,8 +228,11 @@ async function runTimeout(doc) {
 }
 
 /** Runs initIconFontFallback and resolves once its promise chain has settled. */
-async function runFallback(doc) {
+async function runFallback(doc, storage) {
   globalThis.document = doc;
+  // Install the localStorage stub so initIconFontFallback can persist verdicts.
+  if (storage) globalThis.localStorage = storage;
+  else delete globalThis.localStorage;
   mod.initIconFontFallback();
   // Two microtask turns: one for fonts.load(), one for the .then() handler.
   await Promise.resolve();
@@ -396,5 +415,92 @@ describe('bug 081 — degraded-mode stylesheet contract', () => {
     for (const prop of ['display:', 'vertical-align:', 'white-space:']) {
       assert.ok(degradedBody.includes(prop), `degraded rule must set ${prop}`);
     }
+  });
+});
+
+describe('bug 081 — ICON_STATE_KEY parity with html_content.dart', () => {
+  it('ICON_STATE_KEY matches the literal in the Dart inline <head> script', async () => {
+    // The inline script in lib/src/server/html_content.dart reads this exact
+    // key from localStorage before bundle.js runs. If either side renames the
+    // key without updating the other, the seed silently breaks. This test
+    // reads the Dart source and asserts the string appears byte-for-byte.
+    const { readFileSync } = await import('node:fs');
+    const { execSync } = await import('node:child_process');
+    // Resolve from git root so the path survives test file moves.
+    const root = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+    const dartPath = join(root, 'lib', 'src', 'server', 'html_content.dart');
+    const dart = readFileSync(dartPath, 'utf-8');
+    assert.ok(
+      dart.includes(`localStorage.getItem('${ICON_STATE_KEY}')`),
+      `html_content.dart must read localStorage key '${ICON_STATE_KEY}' — ` +
+        'the Dart literal and ICON_STATE_KEY in toolbar.ts have diverged',
+    );
+  });
+
+  it('toolbar.ts actually writes the key (setItem call exists in source)', async () => {
+    // Guard against the write side being removed while the read side stays —
+    // the parity test above only checks that the KEY STRING matches, not that
+    // toolbar.ts actually calls setItem with it.
+    const { readFileSync } = await import('node:fs');
+    const tsPath = join(here, '..', 'toolbar.ts');
+    const ts = readFileSync(tsPath, 'utf-8');
+    assert.ok(
+      ts.includes('localStorage.setItem(ICON_STATE_KEY'),
+      'toolbar.ts must call localStorage.setItem(ICON_STATE_KEY, ...) — ' +
+        'the write side of the verdict persistence has been removed',
+    );
+  });
+});
+
+describe('bug 081 — localStorage verdict persistence', () => {
+  it('persists "1" when icons are available (CDN loaded)', async () => {
+    const { doc, storage, store } = makeDocument({
+      canvas: iconActive(),
+      span: null,
+      fonts: { load: () => Promise.resolve([{}]) },
+    });
+    await runFallback(doc, storage);
+    assert.equal(store.get(ICON_STATE_KEY), '1');
+  });
+
+  it('persists "0" when icons are provably missing', async () => {
+    const { doc, storage, store } = makeDocument({
+      canvas: iconInactive(),
+      span: iconInactive(),
+      fonts: { load: () => Promise.resolve([]) },
+    });
+    await runFallback(doc, storage);
+    assert.equal(store.get(ICON_STATE_KEY), '0');
+  });
+
+  it('does not throw when localStorage is unavailable', async () => {
+    // Private-mode webviews and restricted contexts: setItem throws.
+    const { doc } = makeDocument({
+      canvas: iconActive(),
+      span: null,
+      fonts: { load: () => Promise.resolve([{}]) },
+    });
+    // No storage stub installed — globalThis.localStorage is deleted by
+    // runFallback when storage is undefined.
+    await runFallback(doc);
+    // The test passes if initIconFontFallback didn't throw.
+  });
+
+  it('does not throw when localStorage.setItem throws (QuotaExceededError)', async () => {
+    // Full storage or a restricted webview that throws on setItem rather
+    // than being entirely absent.
+    const { doc, classList } = makeDocument({
+      canvas: iconActive(),
+      span: null,
+      fonts: { load: () => Promise.resolve([{}]) },
+    });
+    const throwingStorage = {
+      getItem: () => null,
+      setItem: () => { throw new DOMException('quota exceeded', 'QuotaExceededError'); },
+    };
+    await runFallback(doc, throwingStorage);
+    // Icons should still be reported as available — the class toggle works
+    // even when persistence fails.
+    assert.equal(classList.has('icons-unavailable'), false);
   });
 });

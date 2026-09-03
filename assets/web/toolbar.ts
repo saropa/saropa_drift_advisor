@@ -67,6 +67,19 @@ export var ICON_PROBE_BASELINE = 'monospace';
 var ICON_PROBE_MIN_DELTA_PX = 1;
 
 /**
+ * localStorage key recording the LAST probe verdict, so a repeat visit in an
+ * environment already proven iconless can paint text labels on the first frame
+ * instead of waiting out the `font-display: block` period (bug 081 concern 5).
+ * Value: '1' (icons rendered) or '0' (icons did not).
+ *
+ * SINGLE SOURCE OF TRUTH WARNING: an inline script in the page <head>
+ * (lib/src/server/html_content.dart) reads this key before bundle.js runs to
+ * seed `icons-unavailable` on first paint. That script must use this exact
+ * literal — the regression suite asserts both spellings match.
+ */
+export var ICON_STATE_KEY = 'drift-viewer-icons-available';
+
+/**
  * Measures `text` at ICON_PROBE_PX in `family` using a canvas 2D context.
  * Returns null when canvas is unavailable or the context/measure API throws,
  * so the caller can fall back rather than treat a failure as a verdict.
@@ -210,6 +223,17 @@ export function initIconFontFallback(): void {
   var settled = false;
   function apply(available: boolean): void {
     root.classList.toggle('icons-unavailable', !available);
+    // Persist the verdict so the inline <head> script in html_content.dart can
+    // seed `icons-unavailable` on the NEXT page load's first frame, skipping
+    // the ~3s blank-glyph period on a known-iconless machine. Writing on every
+    // verdict (including 'available') makes the seed self-correcting when the
+    // machine comes back online. localStorage throws in private-mode /
+    // restricted webview contexts — not fatal, the seed simply never fires.
+    try {
+      localStorage.setItem(ICON_STATE_KEY, available ? '1' : '0');
+    } catch (e) {
+      /* No persistence available — seed will not fire on next visit. */
+    }
   }
 
   // Safety net for a request that hangs instead of failing fast (a black-hole

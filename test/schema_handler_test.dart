@@ -354,7 +354,7 @@ void main() {
         expect(views.first['sql'], '');
       });
 
-      test('drops nameless rows', () async {
+      test('should drop rows with empty name', () async {
         final ctx = createTestContext();
         final handler = SchemaHandler(ctx);
         final query = viewsQuery([

@@ -531,7 +531,7 @@ void main() {
         );
       });
 
-      test('UPDATE OR ROLLBACK', () {
+      test('should accept UPDATE OR ROLLBACK as valid DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql(
             'UPDATE OR ROLLBACK t SET x = 1',

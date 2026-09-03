@@ -166,7 +166,7 @@ void main() {
         );
       });
 
-      test('maxSessions is 50', () {
+      test('should limit maxSessions to 50', () {
         expect(DriftDebugSessionStore.maxSessions, 50);
       });
 

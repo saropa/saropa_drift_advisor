@@ -125,3 +125,60 @@ if has_staged 'lib/src/server/server_constants\.dart$' || has_staged 'assets/web
 else
   echo "server_constants.dart and utils.ts not staged — skipping query-param sync check"
 fi
+
+# ── Gate 5: Web build freshness ──
+# Only runs when web sources or generated artifacts are staged. The manifest
+# records content hashes of sources AND artifacts; a mismatch means the build
+# was skipped after a source edit or a generated file was hand-edited (bugs 081/082).
+if has_staged '^assets/web/.*\.(ts|js|scss)$' || has_staged '^esbuild\.config\.mjs$'; then
+  echo "Checking web build freshness..."
+  python scripts/check_web_build_freshness.py || {
+    echo ""
+    echo "Web build freshness check failed!"
+    echo "Run 'npm run build' then:"
+    echo "   python scripts/check_web_build_freshness.py --update"
+    echo "and stage the updated manifest."
+    echo ""
+    exit 1
+  }
+else
+  echo "No web source changes staged — skipping build freshness check"
+fi
+
+# ── Gate 6: Reference parity (design tokens + l10n placeholders) ──
+# Only runs when SCSS sources or l10n catalogs are staged. Catches dangling
+# var(--token) references (bug 082) and placeholder-set drift in translations
+# (bug 085). Both are invisible to every other gate because both are
+# syntactically valid and degrade silently at render time.
+if has_staged '^assets/web/.*\.scss$' || has_staged '^assets/web/l10n/'; then
+  echo "Checking design-token and l10n placeholder parity..."
+  python scripts/check_reference_parity.py || {
+    echo ""
+    echo "Reference parity check failed!"
+    echo "Run the script manually for details:"
+    echo "   python scripts/check_reference_parity.py --verbose"
+    echo ""
+    exit 1
+  }
+else
+  echo "No SCSS/l10n changes staged — skipping reference parity check"
+fi
+
+# ── Gate 7: ICON_STATE_KEY parity (toolbar.ts ↔ html_content.dart) ──
+# Only runs when either side of the localStorage key is staged. The inline
+# <head> script reads the key that toolbar.ts writes; a mismatch means the
+# first-paint seed silently breaks (bug 081 concern 5).
+if has_staged 'assets/web/toolbar\.ts$' || has_staged 'lib/src/server/html_content\.dart$'; then
+  echo "Checking ICON_STATE_KEY parity..."
+  python scripts/check_icon_state_key_parity.py || {
+    echo ""
+    echo "ICON_STATE_KEY parity check failed!"
+    echo "toolbar.ts and html_content.dart must use the same localStorage key."
+    echo "Run the script manually for details:"
+    echo "   python scripts/check_icon_state_key_parity.py"
+    echo ""
+    exit 1
+  }
+else
+  echo "toolbar.ts and html_content.dart not staged — skipping ICON_STATE_KEY parity check"
+fi

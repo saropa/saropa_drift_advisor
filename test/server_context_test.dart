@@ -75,7 +75,7 @@ void main() {
         );
       });
 
-      test('converts num to int', () {
+      test('should convert num to int when extracting count', () {
         expect(
           ServerUtils.extractCountFromRows([
             <String, dynamic>{'c': 3.14},
@@ -125,7 +125,7 @@ void main() {
     });
 
     group('parseOffset', () {
-      test('returns 0 for null', () {
+      test('should return 0 for null offset', () {
         expect(ServerUtils.parseOffset(null), 0);
       });
 
@@ -137,7 +137,7 @@ void main() {
         expect(ServerUtils.parseOffset('-1'), 0);
       });
 
-      test('returns parsed value', () {
+      test('should return parsed value for valid offset string', () {
         expect(ServerUtils.parseOffset('100'), 100);
       });
 
@@ -145,7 +145,7 @@ void main() {
         expect(ServerUtils.parseOffset('999999999'), 2000000);
       });
 
-      test('returns 0 for zero', () {
+      test('should return 0 when offset is zero string', () {
         expect(ServerUtils.parseOffset('0'), 0);
       });
     });
@@ -163,11 +163,11 @@ void main() {
         expect(ServerUtils.sqlLiteral(3.14), '3.14');
       });
 
-      test('returns 1 for true', () {
+      test('should return 1 for true boolean', () {
         expect(ServerUtils.sqlLiteral(true), '1');
       });
 
-      test('returns 0 for false', () {
+      test('should return 0 for false boolean', () {
         expect(ServerUtils.sqlLiteral(false), '0');
       });
 
@@ -277,7 +277,7 @@ void main() {
         expect(sig1, '{"a":1,"b":2}');
       });
 
-      test('handles empty map', () {
+      test('should return empty JSON object for empty map', () {
         expect(ServerUtils.rowSignature(<String, dynamic>{}), '{}');
       });
     });
@@ -327,7 +327,7 @@ void main() {
     });
 
     group('isTextType', () {
-      test('matches TEXT types', () {
+      test('should match TEXT and TEXT-family type names', () {
         expect(ServerUtils.isTextType('TEXT'), isTrue);
         expect(ServerUtils.isTextType('VARCHAR(255)'), isTrue);
         expect(ServerUtils.isTextType('CHAR(10)'), isTrue);
@@ -335,7 +335,7 @@ void main() {
         expect(ServerUtils.isTextType('STRING'), isTrue);
       });
 
-      test('case insensitive', () {
+      test('should match text types case-insensitively', () {
         expect(ServerUtils.isTextType('text'), isTrue);
         expect(ServerUtils.isTextType('Text'), isTrue);
       });
@@ -356,7 +356,7 @@ void main() {
         expect(ServerUtils.isNumericType('NUMERIC'), isTrue);
       });
 
-      test('case insensitive', () {
+      test('should match numeric types case-insensitively', () {
         expect(ServerUtils.isNumericType('integer'), isTrue);
         expect(ServerUtils.isNumericType('Real'), isTrue);
       });
@@ -420,7 +420,7 @@ void main() {
         expect(anomalies[1]['severity'], 'unknown');
       });
 
-      test('handles empty list', () {
+      test('should handle empty anomaly list without error', () {
         final anomalies = <Map<String, dynamic>>[];
         ServerUtils.sortAnomaliesBySeverity(anomalies);
         expect(anomalies, isEmpty);
