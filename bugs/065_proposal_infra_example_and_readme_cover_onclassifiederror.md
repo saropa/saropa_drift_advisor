@@ -164,7 +164,7 @@ await db.startDriftViewer(
 3. `README.md:467` — add an `onClassifiedError` row to the callback table, noting it supersedes `onError` when both are supplied.
 4. Add a short README subsection next to the `startDriftViewer` guidance showing the two-kind routing, since the `DriftDebugErrorKind` enum values (`userQuery`, `server`) appear nowhere outside `lib/`.
 5. Add an `example/test/` case asserting a `userQuery` kind does not reach the severe branch.
-6. Note that `CHANGELOG.md` must be updated for the doc/example change per the repo's change-control rules, and that `README.md` has no automated version/content sync — see `bugs/063_infra_readme_documents_nonexistent_app_js_route.md`, which proposes adding one.
+6. Note that `CHANGELOG.md` must be updated for the doc/example change per the repo's change-control rules, and that `README.md` has no automated version/content sync — see `plans/history/2026.09/20260903/063_infra_readme_documents_nonexistent_app_js_route.md`, which proposes adding one.
 
 ---
 

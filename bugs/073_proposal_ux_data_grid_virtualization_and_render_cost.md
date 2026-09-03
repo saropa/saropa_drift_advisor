@@ -192,7 +192,7 @@ Suggested order, cheapest and least risky first:
 
 3. **`content-visibility: auto`** on `#data-table tbody tr` in `assets/web/_data-table.scss` — cheap, reversible, and may be sufficient below 1000 rows. Remember that `style.css` is generated; edit the SCSS.
 4. **Windowing**, gated behind a row-count threshold, and only after the search-index rework in edge case 2.
-5. Land `bugs/036_web_viewer_row_filter_double_render_per_keystroke.md` first — it removes a 2x multiplier on all of the above for one deleted line.
+5. Land `plans/history/2026.09/20260903/036_web_viewer_row_filter_double_render_per_keystroke.md` first — it removes a 2x multiplier on all of the above for one deleted line.
 
 Every step needs `npm run build:js` to reach users, and there is currently no gate enforcing that (`bugs/015_infra_bundle_js_has_no_staleness_gate.md`), nor any gate running the viewer tests (`bugs/016_infra_web_typecheck_and_tests_never_gated.md`).
 
