@@ -73,7 +73,7 @@ void main() {
         );
       });
 
-      test('SELECT with subquery', () {
+      test('should accept SELECT with subquery as read-only', () {
         expect(
           SqlValidator.isReadOnlySql(
             'SELECT * FROM (SELECT id FROM users) AS sub',
@@ -82,7 +82,7 @@ void main() {
         );
       });
 
-      test('SELECT with JOIN', () {
+      test('should accept SELECT with JOIN as read-only', () {
         expect(
           SqlValidator.isReadOnlySql(
             'SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id',
@@ -145,14 +145,14 @@ void main() {
     });
 
     group('rejected queries', () {
-      test('INSERT statement', () {
+      test('should reject INSERT statement as non-read-only', () {
         expect(
           SqlValidator.isReadOnlySql('INSERT INTO users (name) VALUES ("x")'),
           isFalse,
         );
       });
 
-      test('UPDATE statement', () {
+      test('should reject UPDATE statement as non-read-only', () {
         expect(
           SqlValidator.isReadOnlySql(
             'UPDATE users SET name = "y" WHERE id = 1',
@@ -161,7 +161,7 @@ void main() {
         );
       });
 
-      test('DELETE statement', () {
+      test('should reject DELETE statement as non-read-only', () {
         expect(
           SqlValidator.isReadOnlySql('DELETE FROM users WHERE id = 1'),
           isFalse,
@@ -198,14 +198,14 @@ void main() {
         );
       });
 
-      test('ATTACH DATABASE', () {
+      test('should reject ATTACH DATABASE as non-read-only', () {
         expect(
           SqlValidator.isReadOnlySql("ATTACH DATABASE 'test.db' AS test"),
           isFalse,
         );
       });
 
-      test('DETACH DATABASE', () {
+      test('should reject DETACH DATABASE as non-read-only', () {
         expect(SqlValidator.isReadOnlySql('DETACH DATABASE test'), isFalse);
       });
 
@@ -474,28 +474,28 @@ void main() {
 
   group('SqlValidator.isSingleDataMutationSql', () {
     group('accepts valid DML', () {
-      test('INSERT INTO', () {
+      test('should accept INSERT INTO as valid DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql('INSERT INTO t (id) VALUES (1)'),
           isTrue,
         );
       });
 
-      test('UPDATE', () {
+      test('should accept UPDATE as valid DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql('UPDATE t SET x = 1 WHERE id=2'),
           isTrue,
         );
       });
 
-      test('DELETE FROM', () {
+      test('should accept DELETE FROM as valid DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql('DELETE FROM t WHERE id = 1'),
           isTrue,
         );
       });
 
-      test('REPLACE INTO (SQLite alias)', () {
+      test('should accept REPLACE INTO as valid DML (SQLite alias)', () {
         expect(
           SqlValidator.isSingleDataMutationSql(
             "REPLACE INTO t (id, name) VALUES (1, 'a')",
@@ -504,7 +504,7 @@ void main() {
         );
       });
 
-      test('INSERT OR REPLACE INTO', () {
+      test('should accept INSERT OR REPLACE INTO as valid DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql(
             "INSERT OR REPLACE INTO t (id) VALUES (1)",
@@ -513,7 +513,7 @@ void main() {
         );
       });
 
-      test('INSERT OR IGNORE INTO', () {
+      test('should accept INSERT OR IGNORE INTO as valid DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql(
             'INSERT OR IGNORE INTO t (id) VALUES (1)',
@@ -522,7 +522,7 @@ void main() {
         );
       });
 
-      test('INSERT OR ABORT INTO', () {
+      test('should accept INSERT OR ABORT INTO as valid DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql(
             'INSERT OR ABORT INTO t (id) VALUES (1)',
@@ -540,7 +540,7 @@ void main() {
         );
       });
 
-      test('case-insensitive', () {
+      test('should accept DML keywords when case-insensitive', () {
         expect(
           SqlValidator.isSingleDataMutationSql(
             'insert or ignore into t (id) values (1)',
@@ -635,39 +635,39 @@ void main() {
     });
 
     group('rejects non-DML', () {
-      test('DROP TABLE', () {
+      test('should reject DROP TABLE as non-DML', () {
         expect(SqlValidator.isSingleDataMutationSql('DROP TABLE t'), isFalse);
       });
 
-      test('CREATE TABLE', () {
+      test('should reject CREATE TABLE as non-DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql('CREATE TABLE t (id INT)'),
           isFalse,
         );
       });
 
-      test('PRAGMA', () {
+      test('should reject PRAGMA as non-DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql('PRAGMA journal_mode=DELETE'),
           isFalse,
         );
       });
 
-      test('ATTACH DATABASE', () {
+      test('should reject ATTACH DATABASE as non-DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql('ATTACH DATABASE "x" AS ext'),
           isFalse,
         );
       });
 
-      test('SELECT', () {
+      test('should reject SELECT as non-DML', () {
         expect(
           SqlValidator.isSingleDataMutationSql('SELECT * FROM t'),
           isFalse,
         );
       });
 
-      test('VACUUM', () {
+      test('should reject VACUUM as non-DML', () {
         expect(SqlValidator.isSingleDataMutationSql('VACUUM'), isFalse);
       });
 
@@ -680,11 +680,11 @@ void main() {
         );
       });
 
-      test('empty string', () {
+      test('should reject empty string as non-DML', () {
         expect(SqlValidator.isSingleDataMutationSql(''), isFalse);
       });
 
-      test('whitespace only', () {
+      test('should reject whitespace-only string as non-DML', () {
         expect(SqlValidator.isSingleDataMutationSql('   '), isFalse);
       });
     });

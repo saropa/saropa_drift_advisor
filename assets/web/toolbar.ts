@@ -29,7 +29,9 @@ var ICON_FONT_PROBE = '24px "Material Symbols Outlined"';
  * width difference between "one collapsed glyph" and "four separate letters"
  * far bigger than any sub-pixel rounding noise.
  */
-var ICON_PROBE_PX = 24;
+// Exported for the regression suite (icon-font-fallback.test.mjs) so the test
+// stubs key on the SAME strings the probe uses, instead of duplicating them.
+export var ICON_PROBE_PX = 24;
 
 /**
  * The ligature the rendering probe measures. "home" is a real Material Symbols
@@ -38,7 +40,7 @@ var ICON_PROBE_PX = 24;
  * It must be a word made of several letters: the whole test is that the icon
  * face fuses those letters into ONE glyph while any text font does not.
  */
-var ICON_PROBE_LIGATURE = 'home';
+export var ICON_PROBE_LIGATURE = 'home';
 
 /**
  * Family stack for the probe. Ends in `monospace` so that when NEITHER icon
@@ -48,13 +50,13 @@ var ICON_PROBE_LIGATURE = 'home';
  * from the CDN @font-face ("Material Symbols Outlined") *or* from a locally
  * installed system font, including the older "Material Icons" release.
  */
-var ICON_PROBE_FAMILY = '"Material Symbols Outlined", "Material Icons", monospace';
+export var ICON_PROBE_FAMILY = '"Material Symbols Outlined", "Material Icons", monospace';
 
 /**
  * Baseline family for the probe: a generic that is guaranteed to exist, can
  * never be an icon font, and is the last entry of ICON_PROBE_FAMILY.
  */
-var ICON_PROBE_BASELINE = 'monospace';
+export var ICON_PROBE_BASELINE = 'monospace';
 
 /**
  * Width difference (in px) above which the two measurements are considered

@@ -1414,12 +1414,25 @@ body.theme-light .feature-card.expanded {
 }
 
 /* --- Icon font unavailable (bug 081) ---
- * `icons-unavailable` is set on <html> by toolbar.ts when
- * document.fonts.load() reports that no "Material Symbols Outlined" face
- * exists (offline, corporate proxy blocking Google, or a device-hosted
- * server reached over `adb forward` with no internet). Under that class the
- * ligature text must never be painted, because it is the raw glyph NAME
- * ("table_chart", "smart_toy"), not a word any user asked for. */
+ * `icons-unavailable` is set on <html> by toolbar.ts when a RENDERING probe
+ * proves no icon face is painting: it measures the ligature "home" against
+ * the uppercase control "HOME" in the same font stack and compares the two
+ * widths as a ratio (one collapsed glyph is well under 60% of four separate
+ * ones). document.fonts alone is never the verdict — it reports an empty face
+ * list for a perfectly working system-installed icon font. Causes: offline, a
+ * corporate proxy blocking Google, or a device-hosted server reached over
+ * `adb forward` with no internet.
+ *
+ * The class can also be present BEFORE any script runs: an inline seed in the
+ * page <head> (html_content.dart) re-applies the previous visit's negative
+ * verdict so a known-iconless machine paints labels on the first frame instead
+ * of ~3s of blank glyph slots under `font-display: block`. toolbar.ts clears it
+ * as soon as the probe says otherwise, so every rule here must be safe to add
+ * and remove at any moment — none of them may be a one-way transformation.
+ *
+ * Under this class the ligature text must never be painted, because it is the
+ * raw glyph NAME ("table_chart", "smart_toy"), not a word any user asked
+ * for. */
 .icons-unavailable .material-symbols-outlined {
   /* font-size:0 collapses the ligature name to nothing while leaving the
      element in flow for its ::after marker.

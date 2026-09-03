@@ -72,8 +72,20 @@ Both now read at the moment of use.
 | `npm run build` | `bundle.js` + `style.css` regenerated, clean |
 | `npm run typecheck:web` | exit 0 |
 | `npm run test:web` | 338 tests, 338 pass, 0 fail |
-| Extension mocha, 14 dependent specs | 3151 passing, 0 failing |
+| Extension mocha, full suite | 3151 passing, 0 failing |
+| Extension mocha, 15 web-dependent specs (genuinely scoped) | 303 passing, 0 failing |
 | `dart test` on the two dependent Dart suites | 41 passing |
+
+**Correction — the extension run was never scoped.** This table previously read
+"Extension mocha, 14 dependent specs — 3151 passing". That run was invoked as
+`npx mocha out/test/a.test.js ...` with the spec files named on the command line, which does
+not scope anything: `extension/.mocharc.yml` sets `spec: out/test/**/*.test.js`, and mocha
+*merges* positional file arguments — and `--spec` — with the config's `spec` key instead of
+overriding it. Proof: a run naming a single 20-test file reports the same 3151 passing as a
+run with no arguments at all. The result stands and is in fact stronger than claimed — the
+entire extension suite passed — but the description was wrong. A genuinely scoped run needs
+`--no-config` (which also discards `require`, `timeout` and `reporter`, so they must be
+restated); with that, the 15 specs referencing the changed web sources report 303 passing.
 
 Tests were re-run after bug references in source comments were repointed to this archive path.
 
@@ -126,3 +138,38 @@ During this batch, four files unrelated to it (`lib/src/server/router.dart`,
 two authored edits to that file. None of it originates from this batch, and none of it was
 reverted or tidied. It is recorded here only so a future reader does not attribute those changes
 to bugs 080-084.
+
+## Finish Report (2026-09-03)
+
+### Build and test verification
+
+After the five bug fixes were applied by sub-agents in the prior session, the
+generated files (`bundle.js`, `style.css`) were rebuilt from the edited sources
+(`npm run build:js`, `npm run build:style`) — both succeeded. `npm run typecheck:web`
+passed clean. `npm run test:web` initially reported 3 failures in
+`icon-font-fallback.test.mjs`.
+
+### Test stub fix
+
+The three failures shared a single root cause: the test stubs for
+`document.createElement('canvas').getContext('2d').measureText()` and
+`span.getBoundingClientRect()` keyed their width lookups on font-family alone.
+The bug 081 rendering probe (introduced by a code-review finding) now measures
+two different text strings — the ligature `"home"` and the uppercase control
+`"HOME"` — in the same font family and compares their widths as a ratio. With
+a family-only key, both strings returned the same width, producing a ratio of
+1.0 (inconclusive) instead of the expected collapsed-ligature signal.
+
+Fix: stubs now key on `"text|family"`. Two helpers (`iconActive()`,
+`iconInactive()`) produce width maps that model the real behavior: "home"
+collapses to ~24px while "HOME" stays at ~58px in the icon stack when the font
+is active; both measure ~58px when inactive. All 352 tests pass after the fix.
+
+### Scope of this session
+
+Only the test file was edited in this session. All source-code changes
+(`toolbar.ts`, `_cards.scss`, `_toolbar.scss`, `html_content.dart`, `app.js`,
+`table-list.ts`, `search-tab.ts`, `utils.ts`, `tabs.ts`, `_tab-bar.scss`,
+`_sidebar.scss`, `_sql-editor.scss`, `_history-sidebar.scss`,
+`_theme-midnight.scss`, `_theme-showcase.scss`) were made by sub-agents in the
+prior session and are documented in the individual bug reports (080–084).

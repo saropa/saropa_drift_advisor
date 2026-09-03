@@ -255,7 +255,15 @@ cross-cutting verification and the code-review round that followed the first pas
   hand-edited at any point.
 - `npm run typecheck:web` — exit 0.
 - `npm run test:web` — 338 tests, 338 pass, 0 fail.
-- Extension suite, scoped to the 14 specs that assert on the changed sources — 3151 passing, 0 failing.
+- Extension mocha, full suite — 3151 passing, 0 failing. An earlier revision of this report
+  described this run as "scoped to the 14 specs that assert on the changed sources". It was not
+  scoped. `extension/.mocharc.yml` sets `spec: out/test/**/*.test.js`, and mocha *merges* CLI file
+  arguments (and `--spec`) with that key rather than overriding it, so naming files on the command
+  line ran the whole suite. The full suite passing is a stronger result than a scoped run, only a
+  differently-described one.
+- Extension mocha, genuinely scoped to the 15 specs that reference the changed web sources
+  (`--no-config --no-package --require test/register-mock.js --timeout 5000`) — 303 passing,
+  0 failing.
 - `dart test test/html_content_test.dart test/web_viewer_nl_modal_contract_test.dart` — 41 passing.
 
 ### Defect and resolution

@@ -37,6 +37,12 @@ before(async () => {
     logLevel: 'silent',
   });
   mod = await import('data:text/javascript,' + encodeURIComponent(out.outputFiles[0].text));
+  // Pull probe constants from the real module so the test stubs key on the
+  // exact same strings the probe uses. A rename in toolbar.ts will break
+  // these assignments immediately rather than silently passing with stale data.
+  ICON_STACK = mod.ICON_PROBE_FAMILY;
+  BASE = mod.ICON_PROBE_BASELINE;
+  LIG = mod.ICON_PROBE_LIGATURE;
 });
 
 // The probe reads the bare global `document`, so tests install a stub there.
@@ -62,11 +68,12 @@ function makeClassList() {
 /**
  * Builds a stub `document`.
  *
- * `canvas` / `span` map a font-family string to the width that engine would
- * report for the probe ligature; pass `null` for either to simulate that
- * measurement path being unavailable (no canvas support, no document.body).
- * Widths are keyed by family so a test can say "canvas measures both families
- * the same but real layout does not" — the system-installed-font case.
+ * `canvas` / `span` map a `"text|family"` key to the width that engine would
+ * report; pass `null` for either to simulate that measurement path being
+ * unavailable (no canvas support, no document.body). The text+family key lets
+ * tests model the icon font's ligature collapse: "home" (the ligature)
+ * measures ~24px while "HOME" (the uppercase control) measures ~58px in the
+ * same family.
  */
 function makeDocument({ canvas, span, fonts }) {
   const classList = makeClassList();
@@ -82,10 +89,11 @@ function makeDocument({ canvas, span, fonts }) {
             if (kind !== '2d') return null;
             const ctx = {
               font: '',
-              measureText() {
-                // ctx.font is "<px>px <family list>" — key on the family part.
+              measureText(text) {
+                // ctx.font is "<px>px <family list>" — key on text + family.
                 const family = ctx.font.slice(ctx.font.indexOf(' ') + 1);
-                const w = canvas[family];
+                const key = text + '|' + family;
+                const w = canvas[key];
                 return { width: typeof w === 'number' ? w : 0 };
               },
             };
@@ -93,13 +101,14 @@ function makeDocument({ canvas, span, fonts }) {
           },
         };
       }
-      // <span>: width comes from the family assigned to style.fontFamily.
+      // <span>: width comes from text + family assigned to el.
       const el = {
         style: { cssText: '', fontFamily: '' },
         textContent: '',
         parentNode: null,
         getBoundingClientRect() {
-          const w = span[el.style.fontFamily];
+          const key = el.textContent + '|' + el.style.fontFamily;
+          const w = span[key];
           return { width: typeof w === 'number' ? w : 0 };
         },
       };
@@ -114,23 +123,42 @@ function makeDocument({ canvas, span, fonts }) {
   return { doc, classList };
 }
 
-// The exact family strings the probe uses (kept in sync with toolbar.ts).
+// Probe constants imported from the real module — if toolbar.ts renames them
+// the test breaks immediately instead of silently passing with wrong stub data.
+// Assigned in before() after esbuild produces the module.
+let ICON_STACK, BASE, LIG;
+
 // A `fonts.load()` that never answers — a proxy that black-holes the request
 // rather than failing it, which is what the 3s deadline exists for.
 const NEVER_SETTLES = { load: () => new Promise(() => {}) };
-
-const ICON_STACK = '"Material Symbols Outlined", "Material Icons", monospace';
-const BASE = 'monospace';
 
 // Widths as a real engine reports them: a collapsed ligature is ONE glyph
 // (~24px at 24px em), four monospace letters are ~58px.
 const COLLAPSED = 24;
 const FOUR_LETTERS = 57.6;
 
+// Helper: build a canvas/span width map keyed by "text|family".
+// When the icon font is active, the ligature collapses to ~24px while the
+// same string in the baseline family stays at ~58px.
+function iconActive() {
+  return {
+    [`${LIG}|${ICON_STACK}`]: COLLAPSED,
+    [`${LIG}|${BASE}`]: FOUR_LETTERS,
+  };
+}
+
+// When the icon font is NOT active, both families measure the same width.
+function iconInactive() {
+  return {
+    [`${LIG}|${ICON_STACK}`]: FOUR_LETTERS,
+    [`${LIG}|${BASE}`]: FOUR_LETTERS,
+  };
+}
+
 describe('bug 081 — icon ligature rendering probe', () => {
   it('reports collapsed when the canvas widths diverge (icon font active)', () => {
     const { doc } = makeDocument({
-      canvas: { [ICON_STACK]: COLLAPSED, [BASE]: FOUR_LETTERS },
+      canvas: iconActive(),
       span: null,
       fonts: null,
     });
@@ -142,8 +170,8 @@ describe('bug 081 — icon ligature rendering probe', () => {
     // Some engines do not apply the `liga` feature to canvas text: canvas sees
     // four letters in BOTH families, but the live span shows the collapse.
     const { doc } = makeDocument({
-      canvas: { [ICON_STACK]: FOUR_LETTERS, [BASE]: FOUR_LETTERS },
-      span: { [ICON_STACK]: COLLAPSED, [BASE]: FOUR_LETTERS },
+      canvas: iconInactive(),
+      span: iconActive(),
       fonts: null,
     });
     globalThis.document = doc;
@@ -152,8 +180,8 @@ describe('bug 081 — icon ligature rendering probe', () => {
 
   it('reports NOT collapsed when both engines measure the same width', () => {
     const { doc } = makeDocument({
-      canvas: { [ICON_STACK]: FOUR_LETTERS, [BASE]: FOUR_LETTERS },
-      span: { [ICON_STACK]: FOUR_LETTERS, [BASE]: FOUR_LETTERS },
+      canvas: iconInactive(),
+      span: iconInactive(),
       fonts: null,
     });
     globalThis.document = doc;
@@ -195,7 +223,7 @@ async function runFallback(doc) {
 describe('bug 081 — initIconFontFallback verdicts', () => {
   it('does NOT degrade when load() returns a face (CDN reached)', async () => {
     const { doc, classList } = makeDocument({
-      canvas: { [ICON_STACK]: COLLAPSED, [BASE]: FOUR_LETTERS },
+      canvas: iconActive(),
       span: null,
       fonts: { load: () => Promise.resolve([{}]) },
     });
@@ -208,7 +236,7 @@ describe('bug 081 — initIconFontFallback verdicts', () => {
     // resolves EMPTY, yet the glyphs render because the family is installed
     // locally. The old code degraded here and erased working icons.
     const { doc, classList } = makeDocument({
-      canvas: { [ICON_STACK]: COLLAPSED, [BASE]: FOUR_LETTERS },
+      canvas: iconActive(),
       span: null,
       fonts: { load: () => Promise.resolve([]) },
     });
@@ -218,8 +246,8 @@ describe('bug 081 — initIconFontFallback verdicts', () => {
 
   it('degrades when load() is empty AND the ligature does not collapse', async () => {
     const { doc, classList } = makeDocument({
-      canvas: { [ICON_STACK]: FOUR_LETTERS, [BASE]: FOUR_LETTERS },
-      span: { [ICON_STACK]: FOUR_LETTERS, [BASE]: FOUR_LETTERS },
+      canvas: iconInactive(),
+      span: iconInactive(),
       fonts: { load: () => Promise.resolve([]) },
     });
     await runFallback(doc);
@@ -247,7 +275,7 @@ describe('bug 081 — initIconFontFallback verdicts', () => {
   // positive evidence of failure (inconclusive -> pessimistic).
   it('does NOT degrade on rejection when the ligature still collapses', async () => {
     const { doc, classList } = makeDocument({
-      canvas: { [ICON_STACK]: COLLAPSED, [BASE]: FOUR_LETTERS },
+      canvas: iconActive(),
       span: null,
       fonts: { load: () => Promise.reject(new Error('network')) },
     });
@@ -257,8 +285,8 @@ describe('bug 081 — initIconFontFallback verdicts', () => {
 
   it('degrades on rejection when the ligature does not collapse', async () => {
     const { doc, classList } = makeDocument({
-      canvas: { [ICON_STACK]: FOUR_LETTERS, [BASE]: FOUR_LETTERS },
-      span: { [ICON_STACK]: FOUR_LETTERS, [BASE]: FOUR_LETTERS },
+      canvas: iconInactive(),
+      span: iconInactive(),
       fonts: { load: () => Promise.reject(new Error('network')) },
     });
     await runFallback(doc);
@@ -284,7 +312,7 @@ describe('bug 081 — initIconFontFallback verdicts', () => {
   // invalidated. The probe is synchronous, so it costs nothing at the deadline.
   it('does NOT degrade at the deadline when the ligature still collapses', async () => {
     const { doc, classList } = makeDocument({
-      canvas: { [ICON_STACK]: COLLAPSED, [BASE]: FOUR_LETTERS },
+      canvas: iconActive(),
       span: null,
       fonts: NEVER_SETTLES,
     });
@@ -294,8 +322,8 @@ describe('bug 081 — initIconFontFallback verdicts', () => {
 
   it('degrades at the deadline when the ligature does not collapse', async () => {
     const { doc, classList } = makeDocument({
-      canvas: { [ICON_STACK]: FOUR_LETTERS, [BASE]: FOUR_LETTERS },
-      span: { [ICON_STACK]: FOUR_LETTERS, [BASE]: FOUR_LETTERS },
+      canvas: iconInactive(),
+      span: iconInactive(),
       fonts: NEVER_SETTLES,
     });
     await runTimeout(doc);

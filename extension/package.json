@@ -1767,16 +1767,6 @@
             "type": "string"
           }
         },
-        "driftViewer.logVerbosity": {
-          "type": "string",
-          "enum": [
-            "quiet",
-            "normal",
-            "verbose"
-          ],
-          "default": "verbose",
-          "description": "%config.logVerbosity.description%"
-        },
         "driftViewer.diagnostics.disabledRules": {
           "type": "array",
           "default": [],

@@ -1,0 +1,14 @@
+import { loadTabs, loadTableList, withDocument, makeHost, accessibleName, roleOf, runRule } from './a11y-harness.mjs';
+const tabs = await loadTabs();
+const bar = makeHost('div');
+withDocument({ 'tab-bar': bar }, () => tabs.createClosableTab('tbl:users', 'users', 'panel-tables', { truncateLabel: true }));
+const wrap = bar.childNodes[0];
+console.log('wrap tag/class:', wrap.tagName, JSON.stringify(wrap.className), 'attrs', [...wrap.attrs]);
+for (const c of wrap.childNodes) console.log('  child', c.tagName, JSON.stringify(c.className), JSON.stringify(accessibleName(c)), 'role=', roleOf(c));
+console.log('button-name close:', JSON.stringify(runRule('button-name', wrap.childNodes[1])));
+const tl = await loadTableList();
+const ul = makeHost('ul');
+withDocument({ tables: ul }, () => tl.renderTableList(['users','orders']));
+console.log('rows', ul.childNodes.length);
+const li = ul.childNodes[0];
+for (const c of li.childNodes) console.log('  li child', c.tagName, JSON.stringify(c.className), JSON.stringify(accessibleName(c)), 'role=', roleOf(c), 'pressed=', c.getAttribute('aria-pressed'));
