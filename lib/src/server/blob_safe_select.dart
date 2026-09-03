@@ -9,7 +9,7 @@
 /// fixed in v4.1.17 (`blobSafeSelectList`, see that file's doc comment for the
 /// full incident) — a capture sweep meant to inspect the DB OOM-killed the
 /// connected app instead. See
-/// bugs/005_infra_snapshot_capture_select_star_blob_oom.md.
+/// plans/history/2026.09/20260902/005_infra_snapshot_capture_select_star_blob_oom.md.
 ///
 /// Change detection never needed the bytes themselves. Projecting
 /// `length("col") AS "col"` makes SQLite compute a single integer instead of

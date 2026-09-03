@@ -1,7 +1,7 @@
 /**
  * Tests for checkAnomalies — covers the column-line lookup that
  * replaces the former class-header placement. The bug report
- * (bugs/anomaly_false_positive_tight_timestamp_range.md, Bug 2)
+ * (bugs/anomaly_false_positive_tight_timestamp_range.md, Bug 2) ref-exempt: deleted
  * called for diagnostics to land on the column getter rather
  * than the `class Foo extends Table` header, so these cases
  * verify both the happy path (column resolved → column line)

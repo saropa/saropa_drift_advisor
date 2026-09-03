@@ -40,7 +40,7 @@ final class SnapshotHandler {
         // BLOB-safe + row-capped: an unbounded `SELECT *` here materialized
         // every BLOB byte and every row of every table into this isolate,
         // the same OOM defect fixed for the extension's TS capture sweeps in
-        // v4.1.17 (see bugs/005_infra_snapshot_capture_select_star_blob_oom.md).
+        // v4.1.17 (see plans/history/2026.09/20260902/005_infra_snapshot_capture_select_star_blob_oom.md).
         // BlobSafeSelect.buildQuery replaces BLOB columns with their byte
         // length and caps rows at ServerConstants.maxSqlResultRows.
         final sql = await BlobSafeSelect.buildQuery(query, table);

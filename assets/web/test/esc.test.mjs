@@ -1,5 +1,5 @@
 /**
- * Regression test for bugs/004_web_viewer_xss_esc_missing_quote_escaping.md.
+ * Regression test for plans/history/2026.09/20260902/004_web_viewer_xss_esc_missing_quote_escaping.md.
  *
  * `esc()` (utils.ts) is the web viewer's only general-purpose HTML escaper and
  * is used in ~325 places, most of them inside quoted HTML attributes carrying

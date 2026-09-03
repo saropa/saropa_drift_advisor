@@ -100,7 +100,7 @@ abstract final class AnomalyDetector {
           //    Columns whose declared default is '' are also
           //    skipped — empty strings are the designed "no
           //    value" sentinel and flagging them is a false
-          //    positive (see bugs/empty_string_default_false_positive.md).
+          //    positive (see plans/history/2026.04/2026.04.13/empty_string_default_false_positive.md).
           if (ServerUtils.isTextType(colType) && !isNullable) {
             // SQLite PRAGMA table_info returns the default
             // expression as-is, so an empty-string default
@@ -336,7 +336,7 @@ abstract final class AnomalyDetector {
   /// outlier detection is meaningless because IDs are not
   /// drawn from a normal distribution and the local dataset
   /// is a sparse, non-random sample of the external ID space.
-  /// See bugs/outlier_on_external_id_false_positive.md.
+  /// See plans/history/2026.04/2026.04.13/outlier_on_external_id_false_positive.md.
   static final _identifierPattern = RegExp(
     r'(^id$|_id$|Id$|_key$|Key$|_code$|Code$)',
     caseSensitive: true,
@@ -392,7 +392,7 @@ abstract final class AnomalyDetector {
   /// without widening to generic `^last_.*`, which would
   /// catch `last_name` / `last_ip` and suppress real
   /// signals. See
-  /// bugs/anomaly_false_positive_tight_timestamp_range.md.
+  /// bugs/anomaly_false_positive_tight_timestamp_range.md. ref-exempt: deleted
   static final _timestampPattern = RegExp(
     r'(^created|^updated|^deleted|^modified|^last_?(modified|seen|accessed|updated|used|sync|synced|refresh|refreshed|login|logout|active|activity|read|written|online|opened|played|viewed|fetch|fetched|heartbeat|ping|visit|visited|check|checked|poll|polled|scan|scanned)|_at$|_date$|_time$|_timestamp$|^timestamp$)',
     caseSensitive: false,
@@ -425,7 +425,7 @@ abstract final class AnomalyDetector {
   /// Anchored to start/end like all other skip patterns in
   /// this class — matches `rating`, `user_rating`,
   /// `avg_score`, `percent_complete`, `win_pct`, etc.
-  /// See bugs/anomaly_false_positive_valid_range.md.
+  /// See plans/history/2026.04/2026.04.14/anomaly_false_positive_valid_range.md.
   static final _ratingPattern = RegExp(
     r'(^rating|rating$|^score|score$|^percent|percent$|^pct|pct$)',
     caseSensitive: false,
@@ -465,7 +465,7 @@ abstract final class AnomalyDetector {
   ///
   /// Each entry is (lowerBound, upperBound). Order does not
   /// matter; the first matching scale short-circuits.
-  /// See bugs/anomaly_false_positive_valid_range.md.
+  /// See plans/history/2026.04/2026.04.14/anomaly_false_positive_valid_range.md.
   static const _boundedScales = <(double, double)>[
     (0, 1), // probability, normalized score
     (0, 5), // star rating (e.g., Amazon, Yelp)
@@ -516,7 +516,7 @@ abstract final class AnomalyDetector {
     // system keys) are opaque — not drawn from a normal
     // distribution — so sigma-based outlier detection
     // produces false positives.
-    // See bugs/outlier_on_external_id_false_positive.md.
+    // See plans/history/2026.04/2026.04.13/outlier_on_external_id_false_positive.md.
     if (_identifierPattern.hasMatch(colName)) {
       return;
     }
@@ -524,7 +524,7 @@ abstract final class AnomalyDetector {
     // Skip columns whose names indicate a domain where
     // wide numeric ranges are expected and correct.
     // Each pattern targets a specific false-positive
-    // category documented in bugs/false_positive_anomaly_detections.md.
+    // category documented in plans/history/2026.04/2026.04.06/false_positive_anomaly_detections.md.
     if (_coordinatePattern.hasMatch(colName) ||
         _versionPattern.hasMatch(colName) ||
         _timestampPattern.hasMatch(colName) ||
@@ -591,7 +591,7 @@ abstract final class AnomalyDetector {
     // legitimate, not anomalies. A TV rating of 1.0 on a
     // 1–10 scale is rare but valid; sigma-based detection
     // flags it incorrectly because the data is non-Gaussian.
-    // See bugs/anomaly_false_positive_valid_range.md.
+    // See plans/history/2026.04/2026.04.14/anomaly_false_positive_valid_range.md.
     for (final (lower, upper) in _boundedScales) {
       if (min >= lower && max <= upper) {
         return;

@@ -231,7 +231,7 @@ void main() {
         () async {
           // Columns with withDefault(const Constant('')) produce
           // empty strings by design — flagging them is a false
-          // positive (bugs/empty_string_default_false_positive.md).
+          // positive (plans/history/2026.04/2026.04.13/empty_string_default_false_positive.md).
           final result = await AnomalyDetector.getAnomaliesResult(
             _anomalyQuery(
               tableColumns: {
@@ -765,7 +765,7 @@ void main() {
         //
         // The `last_*` / `lastModified` names are the
         // recency-skewed / tight-window case from
-        // bugs/anomaly_false_positive_tight_timestamp_range.md
+        // bugs/anomaly_false_positive_tight_timestamp_range.md ref-exempt: deleted
         // — a column rewritten on every edit where σ is
         // tiny and the newest write is always many σ
         // above the mean. Both snake_case (Drift's
@@ -906,61 +906,58 @@ void main() {
         }
       });
 
-      test(
-        'no outlier for rating/score/percent columns (rating skip)',
-        () async {
-          // Rating and score columns are bounded by definition.
-          // Skewed distributions are expected (e.g., TV ratings
-          // cluster high), so values at the low end of the scale
-          // are legitimate, not anomalies.
-          // See bugs/anomaly_false_positive_valid_range.md.
-          for (final colName in [
-            'rating',
-            'user_rating',
-            'avg_score',
-            'score',
-            'percent_complete',
-            'pct',
-            'win_pct',
-          ]) {
-            final result = await AnomalyDetector.getAnomaliesResult(
-              _anomalyQuery(
-                tableColumns: {
-                  'episodes': [
-                    _col('id', 'INTEGER', pk: 1),
-                    _col(colName, 'REAL'),
-                  ],
+      test('no outlier for rating/score/percent columns (rating skip)', () async {
+        // Rating and score columns are bounded by definition.
+        // Skewed distributions are expected (e.g., TV ratings
+        // cluster high), so values at the low end of the scale
+        // are legitimate, not anomalies.
+        // See plans/history/2026.04/2026.04.14/anomaly_false_positive_valid_range.md.
+        for (final colName in [
+          'rating',
+          'user_rating',
+          'avg_score',
+          'score',
+          'percent_complete',
+          'pct',
+          'win_pct',
+        ]) {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'episodes': [
+                  _col('id', 'INTEGER', pk: 1),
+                  _col(colName, 'REAL'),
+                ],
+              },
+              counts: {'episodes': 200},
+              // Simulates the bug report scenario: TV ratings on
+              // a 1–10 scale with mean ~7.91, min 1.0. The 1.0
+              // value is 6.4σ from the mean but is a valid rating.
+              numericStats: {
+                'episodes.$colName': {
+                  'avg_val': 7.91,
+                  'min_val': 1.0,
+                  'max_val': 10.0,
+                  'variance': 1.51,
+                  'cnt': 200,
                 },
-                counts: {'episodes': 200},
-                // Simulates the bug report scenario: TV ratings on
-                // a 1–10 scale with mean ~7.91, min 1.0. The 1.0
-                // value is 6.4σ from the mean but is a valid rating.
-                numericStats: {
-                  'episodes.$colName': {
-                    'avg_val': 7.91,
-                    'min_val': 1.0,
-                    'max_val': 10.0,
-                    'variance': 1.51,
-                    'cnt': 200,
-                  },
-                },
-              ),
-            );
+              },
+            ),
+          );
 
-            final anomalies = result['anomalies'] as List;
-            final outliers = anomalies
-                .where((a) => (a as Map)['type'] == 'potential_outlier')
-                .toList();
-            expect(
-              outliers,
-              isEmpty,
-              reason:
-                  'Rating/score column "$colName" should be skipped '
-                  'from outlier detection',
-            );
-          }
-        },
-      );
+          final anomalies = result['anomalies'] as List;
+          final outliers = anomalies
+              .where((a) => (a as Map)['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            outliers,
+            isEmpty,
+            reason:
+                'Rating/score column "$colName" should be skipped '
+                'from outlier detection',
+          );
+        }
+      });
 
       test(
         'no outlier for dimension columns (byte_size, width, height skip)',
@@ -1084,7 +1081,7 @@ void main() {
         // fits within a known bounded scale (e.g., 0–10, 0–100)
         // should not trigger outlier detection. The bounded-
         // scale guard catches this regardless of column name.
-        // See bugs/anomaly_false_positive_valid_range.md.
+        // See plans/history/2026.04/2026.04.14/anomaly_false_positive_valid_range.md.
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
@@ -1308,7 +1305,7 @@ void main() {
         // External IDs (API identifiers, foreign system keys)
         // are opaque — not drawn from a normal distribution.
         // Sigma-based outlier detection is meaningless for them.
-        // See bugs/outlier_on_external_id_false_positive.md.
+        // See plans/history/2026.04/2026.04.13/outlier_on_external_id_false_positive.md.
         for (final colName in [
           'tvmaze_id',
           'externalApiId',

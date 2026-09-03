@@ -35,7 +35,33 @@ Two other bug files referenced the moved paths:
   returns zero hits outside `plans/history/` — no dangling references remain.
 - No test files reference any of the moved bug filenames.
 
+### Dangling-reference gate (Gate 8)
+
+New `scripts/check_bug_ref_dangling.py` added to pre-commit as Gate 8. Scans
+staged text files for `bugs/<file>.md` paths where the target no longer exists.
+Features:
+
+- `--all` flag scans every tracked file (repo-wide sweeps, not just staged)
+- Suggests the archived path when found in `plans/history/`
+- `ref-exempt:` line marker exempts template examples and deleted-file refs
+- Excludes `CHANGELOG*.md`, `plans/history/`, `docs/handover/` (historical)
+- Broad text-extension coverage (`.md`, `.py`, `.dart`, `.ts`, `.html`, etc.)
+
+### Repo-wide dangling-reference cleanup
+
+Initial `--all` scan found 31 dangling refs. Resolved all:
+
+- 11 code-comment paths repointed to their archived locations in
+  `anomaly_detector.dart`, `blob_safe_select.dart`, `mutation_tracker.dart`,
+  `snapshot_handler.dart`, `esc.test.mjs`, `anomaly_detector_test.dart`
+- 6 template examples in `ISSUE_REPORT_GUIDE.md` marked `ref-exempt:`
+- 5 deleted-file refs (no archive target) marked `ref-exempt: deleted`
+- 1 test fixture string marked `ref-exempt: test fixture`
+- Remaining excluded by CHANGELOG/history prefix filters
+
+Final scan: 1307 tracked files, 0 dangling references.
+
 ### Risk
 
-None. Pure file-move operation. No production code, no test code, no build
-artifacts touched.
+Low. Comment-only changes to production code (path updates). No behavioral
+changes. `anomaly_detector_test.dart` passes 815/815.

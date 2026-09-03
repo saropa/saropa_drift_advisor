@@ -46,7 +46,7 @@ export function checkAnomalies(
     // this path emitted them at the class line under
     // `drift-advisor`, producing the two-owners / two-lines
     // duplicate reported in
-    // bugs/anomaly_false_positive_tight_timestamp_range.md. The
+    // bugs/anomaly_false_positive_tight_timestamp_range.md. ref-exempt: deleted. The
     // legacy path has since stopped emitting anomalies, so the
     // single remaining diagnostic lives here and at the
     // column-getter span the user expects.

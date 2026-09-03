@@ -504,7 +504,7 @@ class TestCheckNoTrackedGitignored(unittest.TestCase):
         from modules.checks_git import check_no_tracked_gitignored
 
         mock_run.return_value = _run_result(
-            stdout="bugs/PROBABLE_marketplace_failure_blocks_open_vsx_publish.md\n"
+            stdout="bugs/PROBABLE_marketplace_failure_blocks_open_vsx_publish.md\n"  # ref-exempt: test fixture
         )
         self.assertFalse(check_no_tracked_gitignored())
         # The fix hint must mention git rm --cached.

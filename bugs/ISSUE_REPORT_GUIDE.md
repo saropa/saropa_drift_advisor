@@ -1,6 +1,6 @@
 # Issue Report Guide
 
-<!-- Formerly bugs/BUG_REPORT_GUIDE.md — renamed 2026-09-02 -->
+<!-- Formerly bugs/BUG_REPORT_GUIDE.md — renamed 2026-09-02 ref-exempt: historical -->
 
 How to file, investigate, and close bugs and feature requests in `saropa_drift_advisor`.
 
@@ -393,7 +393,7 @@ A diagnostic or operation causes the extension to hang or consume excessive reso
 
 A diagnostic that does not exist yet.
 
-**How to report:** Create `bugs/proposal_diagnostic_name.md`, copy the [Feature Request Template](#feature-request-template), and complete **Detection / Behavior** with examples.
+**How to report:** Create `bugs/proposal_diagnostic_name.md`, copy the [Feature Request Template](#feature-request-template), and complete **Detection / Behavior** with examples. <!-- ref-exempt: template example -->
 
 **Evaluation criteria:**
 - Does the diagnostic catch real drift issues or enforce a meaningful quality bar?
@@ -412,13 +412,13 @@ A new automated fix for an existing diagnostic, or an improvement to an existing
 
 Improvements to the VS Code extension UI, interactions, or developer experience.
 
-**How to report:** Create `bugs/proposal_ux_description.md` and describe the current behavior, desired behavior, and motivation.
+**How to report:** Create `bugs/proposal_ux_description.md` and describe the current behavior, desired behavior, and motivation. <!-- ref-exempt: template example -->
 
 ### Tooling / Infrastructure Request
 
 Improvements to the server, CLI, build pipeline, test harness, or other infrastructure.
 
-**How to report:** Create `bugs/proposal_infra_description.md` and describe the current behavior, desired behavior, and motivation.
+**How to report:** Create `bugs/proposal_infra_description.md` and describe the current behavior, desired behavior, and motivation. <!-- ref-exempt: template example -->
 
 ---
 
@@ -520,10 +520,10 @@ Closed              ← merged, verified, file moved to history
 When an issue is closed (or a proposal is declined), `git mv` its file into the shared history root — the same `plans/history/` tree the `/finish` workflow archives closed plans into, not a separate `bugs/history/`:
 
 ```
-bugs/diagnostic_name_false_positive_description.md
+bugs/diagnostic_name_false_positive_description.md                    ref-exempt: template
   → plans/history/YYYY.MM/YYYYMMDD/diagnostic_name_false_positive_description.md
 
-bugs/proposal_diagnostic_name.md
+bugs/proposal_diagnostic_name.md                                      ref-exempt: template
   → plans/history/YYYY.MM/YYYYMMDD/proposal_diagnostic_name.md
 ```
 
@@ -546,7 +546,7 @@ Use the date the issue was closed. Create the `YYYY.MM/YYYYMMDD` folders if they
 
 - Reference bugs from commits: `fix: description (diagnostic_name false positive)`
 - Reference proposals from commits: `feat: description (proposal_name)`
-- Reference issues from docs: `[issue file](bugs/diagnostic_name_false_positive_description.md)` or `[proposal](bugs/proposal_diagnostic_name.md)`
+- Reference issues from docs: `[issue file](bugs/diagnostic_name_false_positive_description.md)` or `[proposal](bugs/proposal_diagnostic_name.md)` <!-- ref-exempt: template example -->
 - Reference related history: `Related: plans/history/YYYY.MM/YYYYMMDD/filename.md`
 
 ---

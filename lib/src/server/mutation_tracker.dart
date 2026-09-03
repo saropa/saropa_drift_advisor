@@ -243,7 +243,7 @@ class MutationTracker {
       // guaranteed single-row. Without a BLOB-safe projection, capturing an
       // arbitrary WHERE match on a table with BLOB columns hits the same
       // OOM defect fixed in snapshot_handler.dart (see
-      // bugs/005_infra_snapshot_capture_select_star_blob_oom.md). The row
+      // plans/history/2026.09/20260902/005_infra_snapshot_capture_select_star_blob_oom.md). The row
       // cap mirrors ServerConstants.maxSqlResultRows used elsewhere.
       final selectList = await BlobSafeSelect.selectListForTable(
         readQuery,
