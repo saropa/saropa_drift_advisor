@@ -83,11 +83,17 @@ def main() -> int:
         return 1
 
     # Verify the write side exists in toolbar.ts (not just the constant).
-    if "localStorage.setItem(ICON_STATE_KEY" not in ts_source:
+    # Accept both direct localStorage.setItem and the safeSetItem wrapper.
+    has_ts_write = (
+        "localStorage.setItem(ICON_STATE_KEY" in ts_source
+        or "safeSetItem(ICON_STATE_KEY" in ts_source
+    )
+    if not has_ts_write:
         errors.append(
-            "toolbar.ts declares ICON_STATE_KEY but never calls "
-            "localStorage.setItem(ICON_STATE_KEY, ...) — the verdict is "
-            "computed but never persisted, so the <head> seed is dead code"
+            "toolbar.ts declares ICON_STATE_KEY but never persists it "
+            "(expected localStorage.setItem or safeSetItem call) — the "
+            "verdict is computed but never stored, so the <head> seed is "
+            "dead code"
         )
 
     # Verify the built bundle also contains the write call — a stale build
@@ -99,11 +105,17 @@ def main() -> int:
                 f"bundle.js does not contain '{ts_key}' — run `npm run build` "
                 f"to regenerate from toolbar.ts"
             )
-        elif "localStorage.setItem(ICON_STATE_KEY" not in bundle and \
-             f'localStorage.setItem("{ts_key}"' not in bundle:
+        elif not any(needle in bundle for needle in (
+            "localStorage.setItem(ICON_STATE_KEY",
+            f'localStorage.setItem("{ts_key}"',
+            "safeSetItem(ICON_STATE_KEY",
+            f'safeSetItem("{ts_key}"',
+        )):
+            # Neither direct nor wrapped write found in the bundle.
             errors.append(
-                "bundle.js contains the key constant but not the setItem call — "
-                "the build may be stale or the write was removed from toolbar.ts"
+                "bundle.js contains the key constant but not the setItem/"
+                "safeSetItem call — the build may be stale or the write was "
+                "removed from toolbar.ts"
             )
 
     if errors:

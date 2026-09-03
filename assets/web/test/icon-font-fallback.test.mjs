@@ -437,16 +437,17 @@ describe('bug 081 — ICON_STATE_KEY parity with html_content.dart', () => {
     );
   });
 
-  it('toolbar.ts actually writes the key (setItem call exists in source)', async () => {
+  it('toolbar.ts actually writes the key (safeSetItem call exists in source)', async () => {
     // Guard against the write side being removed while the read side stays —
     // the parity test above only checks that the KEY STRING matches, not that
-    // toolbar.ts actually calls setItem with it.
+    // toolbar.ts actually calls setItem with it.  After the safeStorage
+    // migration, the call goes through safeSetItem instead of raw localStorage.
     const { readFileSync } = await import('node:fs');
     const tsPath = join(here, '..', 'toolbar.ts');
     const ts = readFileSync(tsPath, 'utf-8');
     assert.ok(
-      ts.includes('localStorage.setItem(ICON_STATE_KEY'),
-      'toolbar.ts must call localStorage.setItem(ICON_STATE_KEY, ...) — ' +
+      ts.includes('safeSetItem(ICON_STATE_KEY'),
+      'toolbar.ts must call safeSetItem(ICON_STATE_KEY, ...) — ' +
         'the write side of the verdict persistence has been removed',
     );
   });

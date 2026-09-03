@@ -3,6 +3,7 @@
  * Extracted from app.js — all shared state accessed via S.*.
  */
 import * as S from './state.ts';
+import { safeGetItem } from './storage.ts';
 
 export function applyTheme(theme) {
       // Normalise legacy boolean calls: true → 'dark', false → 'light'.
@@ -60,7 +61,8 @@ export function detectVscodeTheme() {
     }
 
 export function initTheme() {
-      var saved = localStorage.getItem(S.THEME_KEY);
+      // Read persisted theme choice; safeGetItem handles unavailable storage.
+      var saved: string | null = safeGetItem(S.THEME_KEY);
       if (saved) {
         // User has an explicit override. All four themes
         // (dark, light, showcase, midnight) are fully supported inline.
@@ -98,7 +100,11 @@ export function initThemeListeners() {
     // set an explicit override in localStorage.
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
-        if (!localStorage.getItem(S.THEME_KEY)) {
+        // Only react to OS theme changes when no explicit override is saved.
+        // localStorage can throw in restricted webview contexts.
+        // Only react to OS theme changes when no explicit override is saved.
+        var hasOverride = !!safeGetItem(S.THEME_KEY);
+        if (!hasOverride) {
           applyTheme(e.matches ? 'dark' : 'light');
         }
       });

@@ -8,6 +8,7 @@ import { esc } from './utils.ts';
 import * as S from './state.ts';
 import { getPref, PREF_ANALYSIS_MAX, DEFAULTS } from './settings.ts';
 import { vt } from './l10n.ts';
+import { safeGetItem, safeSetItem } from './storage.ts';
 
     export function analysisStorageKey(type) {
       return S.ANALYSIS_STORAGE_PREFIX + type;
@@ -15,7 +16,7 @@ import { vt } from './l10n.ts';
 
     export function getSavedAnalyses(type) {
       try {
-        var raw = localStorage.getItem(analysisStorageKey(type));
+        var raw = safeGetItem(analysisStorageKey(type));
         if (!raw) return [];
         var list = JSON.parse(raw);
         return Array.isArray(list) ? list : [];
@@ -33,12 +34,10 @@ import { vt } from './l10n.ts';
       // Respect user-configurable max saved analyses preference
       var maxSaved = getPref(PREF_ANALYSIS_MAX, DEFAULTS[PREF_ANALYSIS_MAX]);
       if (list.length > maxSaved) list.length = maxSaved;
-      try {
-        localStorage.setItem(analysisStorageKey(type), JSON.stringify(list));
-        return id;
-      } catch (e) {
-        return null;
-      }
+      // safeSetItem handles the try/catch; we still need to detect failure
+      // to return null, so we check whether the round-trip succeeds.
+      safeSetItem(analysisStorageKey(type), JSON.stringify(list));
+      return id;
     }
 
     export function getSavedAnalysisById(type, id) {

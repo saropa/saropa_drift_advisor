@@ -49,7 +49,7 @@ browse source on
 
 -->
 
-## [Unreleased]
+## [4.3.0]
 
 The `ignore` directive for n-plus-one warnings now works even when the diagnostic points at the caller, not the table file. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.3.0/CHANGELOG.md)
 
@@ -114,7 +114,13 @@ The `ignore` directive for n-plus-one warnings now works even when the diagnosti
 
 - **Accessibility regression tests for tab close and table pin buttons.** New `assets/web/test/a11y-tab-close-pin.test.mjs` (15 tests) covers tab close button `role`/`aria-label`, tab button `aria-selected`, pin button `role`/`aria-pressed`/accessible name, pin icon `aria-hidden`, sibling structure (pin not nested inside table link), and the accepted `aria-required-children` violation in the tablist (documented as explicit test suppression).
 
+- **Bug 085 repair roadmap.** Full parity analysis revised the damage count from 108 sentinel-grep hits to 330 broken strings across all ten locales (not seven). Categorized into three repair phases: 86 sentinel-residue strings (regex-fixable), 232 placeholder-dropped strings (human review), and 12 hallucinated strings (re-translation). Per-locale breakdown and regex pattern documented in the bug report.
+
 - **L10n parity gate hardened.** The English-catalog parser now accepts both single- and double-quoted TypeScript string literals. MT-residue regex anchored with word boundaries to eliminate false positives on ordinary words. `--strict` flag added to fail the gate on baseline entries too (for CI enforcement of baseline shrinkage). Runtime-set token scan extended to `.js` files.
+
+- **Guarded all remaining unprotected `localStorage` access.** Seven call sites across `theme.ts`, `session.ts`, `persistence.ts`, `settings.ts`, and `toolbar.ts` read or wrote `localStorage` without a try/catch, which throws in private-mode or restricted webview contexts. All sites now catch and degrade silently — the UI still functions, it just loses persistence for that session.
+
+- **`--budget N` flag for the l10n parity gate.** `check_reference_parity.py --budget N` fails the gate only when baseline entries exceed N, enabling "fix N entries per sprint" CI enforcement without the all-or-nothing of `--strict`. Guarded against conflicting flag combos (`--budget` + `--strict`, `--budget` + `--no-baseline`).
 
 - **Annotate endpoint now rejects invalid JSON with 400.** `POST /api/session/{id}/annotate` previously fell back to an empty map when the request body could not be parsed as JSON, silently creating an annotation with no text or author. It now returns 400 with a structured error using `ServerConstants.jsonKeyError`.
 
@@ -492,44 +498,6 @@ The debug server now tells you how to reach it when you debug on a physical devi
 <details><summary>Maintenance</summary>
 
 - **Publish pipeline runs only the affected tests, selected by import graph.** `scripts/modules/dart_build.py` `run_tests` diffs the working tree against the last release tag, builds the package's transitive import graph, and runs every `*_test.dart` whose dependency closure includes a changed file (resolving relative and `package:` imports, including multi-line conditional exports). This is the "outdated tests" set the editor's Test Explorer shows, computed without the editor — so a change to a core file with no same-named test still runs every test that imports it through any chain. A changed library file that no test reaches is logged as a genuine coverage gap. The only full-suite paths are unreadable git history and an explicit `PUBLISH_FULL_TESTS=1`; `PUBLISH_TEST_BASELINE=<rev>` overrides the diff baseline.
-
-</details>
-
----
-
-## [4.1.6]
-
-Internal code cleanup only — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.6/CHANGELOG.md)
-
-<details><summary>Maintenance</summary>
-
-- **Modularized six extension source files that exceeded the line-count gate** (production cap 300 lines, test cap 500). Each original file stays the public entry point — importers and tests are unchanged — and the extracted logic moved to a sibling file following the existing `-helpers` / `-checks` split convention:
-  - `saropa-lints-diagnostics.ts` (303) → pure report parsing/mapping (severity map, JSON parse, per-file diagnostic mapping, interfaces) moved to new `saropa-lints-report.ts`; the original re-exports them so the test imports still resolve.
-  - `dashboard/dashboard-css.ts` (302) → widget-content and modal styles moved to new `dashboard/dashboard-css-widgets.ts`, appended by `getDashboardCss`.
-  - `diagnostics/diagnostic-manager.ts` (376) → diagnostic-building/suppression filtering and the inline-suppression quick-fix builder moved to new `diagnostics/diagnostic-apply.ts` (`buildDiagnosticsByFile`, `buildSuppressionQuickFixes`).
-  - `diagnostics/providers/data-quality-provider.ts` (316) → data-skew and null-rate check logic plus the null-by-design / SQL-probe helpers moved to new `diagnostics/providers/data-quality-checks.ts`; the provider now only holds the VS Code wiring.
-  - `er-diagram/er-diagram-script.ts` (320) → the webview event-handler block (drag/pan/zoom, context menu, toolbar, filters, message/resize listeners) moved to new `er-diagram/er-diagram-script-events.ts`, concatenated into the same IIFE alongside the existing helpers.
-  - `test/data-quality-provider.test.ts` (512) → the shared `createContext` fixture moved to new `test/data-quality-test-helpers.ts`, and the `provideCodeActions` suite moved to new `test/data-quality-provider-actions.test.ts`.
-  - Verified: `tsc --noEmit` clean and the full test suite (2905 tests) passes.
-
-</details>
-
----
-
-## [4.1.5]
-
-A quick fix to stop the debug server from printing its startup banner twice in your logs, plus a few behind-the-scenes dependency updates. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.5/CHANGELOG.md)
-
-### Fixed
-
-- **Duplicate "DRIFT DEBUG SERVER" startup banner.** When `DriftDebugServer.start()` was called twice in quick succession (or concurrently), both calls bound the same port and printed the startup banner, so the banner appeared twice in the logs. The "already running" check now also covers a start that is still in flight, so only one banner is ever printed.
-
-<details><summary>Maintenance</summary>
-
-- **Re-entrancy guard in `_DriftDebugServerImpl.start`.** The running-state guard tested `_server`, which is assigned only after the awaits in `start` (`loadPersistedSnapshots`, `HttpServer.bind`). A second concurrent/rapid `start()` passed the guard while the first was still binding; with `shared: true` (SO_REUSEPORT) both binds succeeded and both printed the banner. Added a synchronous `bool _starting` flag set before the first await and cleared in a `finally`; the start body moved to a private `_startInternal` so the flag is cleared on every exit path (return, throw, or successful bind). File: `lib/src/drift_debug_server_io.dart`.
-- **Dependency upgrades (Dependabot).** TypeScript `5.9.3` → `6.0.3` (root and `extension/`); `sass` `1.99.0` → `1.101.0` (root); `js-yaml` `4.1.1` → `4.2.0` (`extension/`); `mocha` `11.3.0` → `11.7.6` (`extension/`); CI `actions/checkout` `6` → `7`. TypeScript 6 (a major version) was confirmed to type-check both the extension (`tsc -p ./`) and the root web bundle (`tsconfig.web.json`) with zero errors, and the extension `compile` step (`tsc` + NLS verify + NLS coverage) passes on it. Dev/build dependencies only — no change to shipped runtime behavior.
-- **`@types/vscode` kept at `^1.115.0`.** Dependabot's group bump raised it to `^1.125.0`, but `vsce package` rejects `@types/vscode` newer than `engines.vscode` (`^1.115.0`) — the type definitions must not promise APIs beyond the minimum supported VS Code. Pinned back to match the engine so the extension stays installable on VS Code 1.115+.
-- **Publish pipeline now pre-checks `@types/vscode` vs `engines.vscode`.** Added a "VS Code API compatibility" quality step (`scripts/modules/ext_build.py::check_engines_vscode_compat`, wired into Step 7 of the extension pipeline) so a future `@types/vscode` bump that exceeds `engines.vscode` fails fast with an actionable message instead of blowing up at the `vsce package` step deep in the run.
 
 </details>
 

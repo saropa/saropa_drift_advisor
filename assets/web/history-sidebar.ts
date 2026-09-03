@@ -13,6 +13,7 @@ import { esc } from './utils.ts';
 import { vt } from './l10n.ts';
 import * as S from './state.ts';
 import { openTool } from './tabs.ts';
+import { safeSetItem } from './storage.ts';
 import { showCopyToast } from './table-view.ts';
 import { entryMatchesHistoryFilter } from './history-filter.ts';
 
@@ -383,8 +384,7 @@ export function togglePanelCollapsed(): void {
   if (!layout) return;
   const panelCollapsed = !layout.classList.contains('history-sidebar-collapsed');
   applyPanelCollapsed(panelCollapsed);
-  try { localStorage.setItem(S.HISTORY_SIDEBAR_KEY, panelCollapsed ? '1' : '0'); }
-  catch (e) { /* localStorage unavailable */ }
+  safeSetItem(S.HISTORY_SIDEBAR_KEY, panelCollapsed ? '1' : '0');
 }
 
 // -------------------------------------------------------

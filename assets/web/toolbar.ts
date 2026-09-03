@@ -16,6 +16,7 @@
 import { openTool } from './tabs.ts';
 import { applyTheme } from './theme.ts';
 import * as S from './state.ts';
+import { safeGetItem, safeSetItem } from './storage.ts';
 
 /**
  * Font probe string for the icon face. 24px matches the `opsz@24` axis the
@@ -229,11 +230,9 @@ export function initIconFontFallback(): void {
     // verdict (including 'available') makes the seed self-correcting when the
     // machine comes back online. localStorage throws in private-mode /
     // restricted webview contexts — not fatal, the seed simply never fires.
-    try {
-      localStorage.setItem(ICON_STATE_KEY, available ? '1' : '0');
-    } catch (e) {
-      /* No persistence available — seed will not fire on next visit. */
-    }
+    // Persist the icon-font availability verdict so the inline <head> script
+    // can seed the class on the next page load's first frame.
+    safeSetItem(ICON_STATE_KEY, available ? '1' : '0');
   }
 
   // Safety net for a request that hangs instead of failing fast (a black-hole
@@ -332,22 +331,16 @@ export function initToolbar(): void {
     // Restore the persisted density before wiring the toggle so the initial
     // paint matches the user's last choice. localStorage reads can throw in
     // private-mode / restricted webview contexts, so guard like sidebar.ts.
-    try {
-      var pref = localStorage.getItem(S.TOOLBAR_LABELS_KEY);
-      if (pref === '1') {
-        toolbar.classList.add('tb-labeled');
-      } else if (pref === '0') {
-        // Bug 081 review finding 2: the stored pref has THREE states, not two —
-        // '1' (labeled), '0' (the user deliberately switched labels OFF), and
-        // absent (never touched the control). Only the explicit '0' gets
-        // `tb-density-user`, which _toolbar.scss uses to stop the
-        // `.icons-unavailable` degraded mode from force-enabling labels. Without
-        // it the density toggle became a dead control while degraded — the same
-        // defect class as bug 083.
-        toolbar.classList.add('tb-density-user');
-      }
-    } catch (e) {
-      /* localStorage unavailable — fall back to default icon-only mode */
+    // Restore persisted density preference. Three states: '1' (labeled),
+    // '0' (user deliberately switched labels OFF), absent (never touched).
+    var pref = safeGetItem(S.TOOLBAR_LABELS_KEY);
+    if (pref === '1') {
+      toolbar.classList.add('tb-labeled');
+    } else if (pref === '0') {
+      // Bug 081 review finding 2: only the explicit '0' gets
+      // `tb-density-user`, which _toolbar.scss uses to stop the
+      // `.icons-unavailable` degraded mode from force-enabling labels.
+      toolbar.classList.add('tb-density-user');
     }
     toolbar.addEventListener('click', function (e: Event) {
       var hitButton = (e.target as HTMLElement).closest('.tb-icon-btn, .tb-flyout');
@@ -358,11 +351,7 @@ export function initToolbar(): void {
       // it would be meaningless). This is what makes the toggle keep working
       // while the icon font is missing.
       toolbar!.classList.toggle('tb-density-user', !labeled);
-      try {
-        localStorage.setItem(S.TOOLBAR_LABELS_KEY, labeled ? '1' : '0');
-      } catch (e) {
-        /* localStorage unavailable — density still toggles for this session */
-      }
+      safeSetItem(S.TOOLBAR_LABELS_KEY, labeled ? '1' : '0');
     });
   }
 
@@ -450,7 +439,8 @@ export function initToolbar(): void {
       btn.addEventListener('click', function () {
         var chosen = (btn as HTMLElement).getAttribute('data-theme');
         if (chosen) {
-          localStorage.setItem(S.THEME_KEY, chosen);
+          // Persist the theme choice to survive page reloads.
+          safeSetItem(S.THEME_KEY, chosen);
           applyTheme(chosen);
           // Close the flyout after selection.
           themeTrigger!.setAttribute('aria-expanded', 'false');

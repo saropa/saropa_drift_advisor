@@ -17,6 +17,7 @@ import {
   collectProjectStorageKeys,
 } from './persistence.ts';
 import { vt, getActiveLocale } from './l10n.ts';
+import { safeGetItem, safeSetItem, safeRemoveItem, safeStorageLength, safeStorageKey } from './storage.ts';
 
 // ---------------------------------------------------------------------------
 // Locale-aware number formatting
@@ -71,7 +72,7 @@ export function getPref<T extends number | string | boolean>(
   defaultValue: T,
 ): T {
   try {
-    const raw = localStorage.getItem(PREF_PREFIX + key);
+    const raw = safeGetItem(PREF_PREFIX + key);
     if (raw === null) return defaultValue;
 
     // Coerce to the same type as defaultValue
@@ -90,11 +91,7 @@ export function getPref<T extends number | string | boolean>(
 
 /** Writes a preference value to localStorage. */
 export function setPref(key: string, value: number | string | boolean): void {
-  try {
-    localStorage.setItem(PREF_PREFIX + key, String(value));
-  } catch {
-    // localStorage full or disabled — degrade silently
-  }
+  safeSetItem(PREF_PREFIX + key, String(value));
 }
 
 // ---------------------------------------------------------------------------
@@ -498,8 +495,8 @@ function applyRuntimeState(): void {
 /** Removes all project-specific localStorage keys, same as clearStaleProjectStorage but unconditional. */
 function clearAllProjectData(): void {
   // Use the shared key collector so the key list stays in sync with
-  // clearStaleProjectStorage in persistence.ts
-  collectProjectStorageKeys().forEach((k) => localStorage.removeItem(k));
+  // clearStaleProjectStorage in persistence.ts.
+  collectProjectStorageKeys().forEach((k) => safeRemoveItem(k));
 
   // Also clear in-memory state
   setPinnedTables([]);
@@ -510,14 +507,16 @@ function clearAllProjectData(): void {
 
 /** Removes all preference keys, reverting to built-in defaults. */
 function resetAllPrefs(): void {
+  // Enumerate then remove all pref-prefixed keys. Safe wrappers handle
+  // private-mode / restricted webview contexts.
   const keysToRemove: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
+  for (let i = 0; i < safeStorageLength(); i++) {
+    const key = safeStorageKey(i);
     if (key && key.startsWith(PREF_PREFIX)) {
       keysToRemove.push(key);
     }
   }
-  keysToRemove.forEach((k) => localStorage.removeItem(k));
+  keysToRemove.forEach((k) => safeRemoveItem(k));
 }
 
 // ---------------------------------------------------------------------------

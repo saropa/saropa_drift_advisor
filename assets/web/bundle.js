@@ -5754,11 +5754,57 @@
     updateQbPreview();
   }
 
+  // assets/web/storage.ts
+  var warned = false;
+  function warnOnce() {
+    if (warned) return;
+    warned = true;
+    console.warn("localStorage unavailable \u2014 preferences will not persist this session");
+  }
+  function safeGetItem(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      warnOnce();
+      return null;
+    }
+  }
+  function safeSetItem(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      warnOnce();
+    }
+  }
+  function safeRemoveItem(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      warnOnce();
+    }
+  }
+  function safeStorageLength() {
+    try {
+      return localStorage.length;
+    } catch {
+      warnOnce();
+      return 0;
+    }
+  }
+  function safeStorageKey(index) {
+    try {
+      return localStorage.key(index);
+    } catch {
+      warnOnce();
+      return null;
+    }
+  }
+
   // assets/web/persistence.ts
   function collectProjectStorageKeys() {
     var keys = [];
-    for (var i = 0; i < localStorage.length; i++) {
-      var key = localStorage.key(i);
+    for (var i = 0; i < safeStorageLength(); i++) {
+      var key = safeStorageKey(i);
       if (!key) continue;
       if (key === PINNED_TABLES_KEY || key === NAV_HISTORY_KEY || key === SQL_HISTORY_KEY || key === BOOKMARKS_KEY || key.startsWith(TABLE_STATE_KEY_PREFIX) || key.startsWith(ANALYSIS_STORAGE_PREFIX)) {
         keys.push(key);
@@ -5767,22 +5813,19 @@
     return keys;
   }
   function clearStaleProjectStorage() {
-    try {
-      var baseEl = document.querySelector("base");
-      var origin = baseEl ? baseEl.href.replace(/\/+$/, "") : location.origin;
-      var prev = localStorage.getItem(SERVER_ORIGIN_KEY);
-      if (prev === origin) return;
-      console.log("[SDA] server origin changed: " + prev + " \u2192 " + origin + " \u2014 clearing stale project storage");
-      collectProjectStorageKeys().forEach(function(k) {
-        localStorage.removeItem(k);
-      });
-      localStorage.setItem(SERVER_ORIGIN_KEY, origin);
-    } catch (e) {
-    }
+    var baseEl = document.querySelector("base");
+    var origin = baseEl ? baseEl.href.replace(/\/+$/, "") : location.origin;
+    var prev = safeGetItem(SERVER_ORIGIN_KEY);
+    if (prev === origin) return;
+    console.log("[SDA] server origin changed: " + prev + " \u2192 " + origin + " \u2014 clearing stale project storage");
+    collectProjectStorageKeys().forEach(function(k) {
+      safeRemoveItem(k);
+    });
+    safeSetItem(SERVER_ORIGIN_KEY, origin);
   }
   function getPinnedTables() {
     try {
-      var raw = localStorage.getItem(PINNED_TABLES_KEY);
+      var raw = safeGetItem(PINNED_TABLES_KEY);
       if (!raw) return [];
       var arr = JSON.parse(raw);
       return Array.isArray(arr) ? arr : [];
@@ -5791,10 +5834,7 @@
     }
   }
   function setPinnedTables(arr) {
-    try {
-      localStorage.setItem(PINNED_TABLES_KEY, JSON.stringify(arr));
-    } catch (e) {
-    }
+    safeSetItem(PINNED_TABLES_KEY, JSON.stringify(arr));
   }
   function togglePinTable(name) {
     var pinned = getPinnedTables();
@@ -5825,14 +5865,11 @@
       queryBuilder: typeof captureQueryBuilderState === "function" ? captureQueryBuilderState() : null,
       columnConfig: getColumnConfig(tableName) || null
     };
-    try {
-      localStorage.setItem(TABLE_STATE_KEY_PREFIX + tableName, JSON.stringify(state));
-    } catch (e) {
-    }
+    safeSetItem(TABLE_STATE_KEY_PREFIX + tableName, JSON.stringify(state));
   }
   function restoreTableState(tableName) {
     try {
-      var raw = localStorage.getItem(TABLE_STATE_KEY_PREFIX + tableName);
+      var raw = safeGetItem(TABLE_STATE_KEY_PREFIX + tableName);
       if (!raw) return;
       var state = JSON.parse(raw);
       if (state.rowFilter != null) document.getElementById("row-filter").value = state.rowFilter;
@@ -5852,23 +5889,17 @@
     if (!tableName) return;
     setColumnConfig(tableName, null);
     delete tableColumnConfig[tableName];
-    try {
-      localStorage.removeItem(TABLE_STATE_KEY_PREFIX + tableName);
-    } catch (e) {
-    }
+    safeRemoveItem(TABLE_STATE_KEY_PREFIX + tableName);
   }
   function saveNavHistory() {
-    try {
-      localStorage.setItem(NAV_HISTORY_KEY, JSON.stringify({
-        history: navHistory,
-        currentTable: currentTableName
-      }));
-    } catch (e) {
-    }
+    safeSetItem(NAV_HISTORY_KEY, JSON.stringify({
+      history: navHistory,
+      currentTable: currentTableName
+    }));
   }
   function loadNavHistory() {
     try {
-      var raw = localStorage.getItem(NAV_HISTORY_KEY);
+      var raw = safeGetItem(NAV_HISTORY_KEY);
       if (!raw) return null;
       var data = JSON.parse(raw);
       if (!data || !Array.isArray(data.history)) return null;
@@ -5889,10 +5920,7 @@
   }
   function clearNavHistory() {
     navHistory.length = 0;
-    try {
-      localStorage.removeItem(NAV_HISTORY_KEY);
-    } catch (e) {
-    }
+    safeRemoveItem(NAV_HISTORY_KEY);
   }
 
   // assets/web/connection.ts
@@ -6604,7 +6632,7 @@
   var PREF_PREFIX = "drift-viewer-pref-";
   function getPref(key, defaultValue) {
     try {
-      const raw = localStorage.getItem(PREF_PREFIX + key);
+      const raw = safeGetItem(PREF_PREFIX + key);
       if (raw === null) return defaultValue;
       if (typeof defaultValue === "number") {
         const n = Number(raw);
@@ -6619,10 +6647,7 @@
     }
   }
   function setPref(key, value) {
-    try {
-      localStorage.setItem(PREF_PREFIX + key, String(value));
-    } catch {
-    }
+    safeSetItem(PREF_PREFIX + key, String(value));
   }
   var PREF_SQL_HISTORY_MAX = "sqlHistoryMax";
   var PREF_ANALYSIS_MAX = "analysisMax";
@@ -6915,7 +6940,7 @@
     setNullDisplay(getPref(PREF_NULL_DISPLAY, DEFAULTS[PREF_NULL_DISPLAY]));
   }
   function clearAllProjectData() {
-    collectProjectStorageKeys().forEach((k) => localStorage.removeItem(k));
+    collectProjectStorageKeys().forEach((k) => safeRemoveItem(k));
     setPinnedTables([]);
     clearNavHistory();
     setSqlHistory([]);
@@ -6923,13 +6948,13 @@
   }
   function resetAllPrefs() {
     const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
+    for (let i = 0; i < safeStorageLength(); i++) {
+      const key = safeStorageKey(i);
       if (key && key.startsWith(PREF_PREFIX)) {
         keysToRemove.push(key);
       }
     }
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
+    keysToRemove.forEach((k) => safeRemoveItem(k));
   }
   function initSettings() {
     const panel = document.getElementById("settings-body");
@@ -28166,13 +28191,70 @@ ${JSON.stringify(results, void 0, 2)}`);
     });
   }
 
+  // assets/web/theme.ts
+  function applyTheme(theme) {
+    if (theme === true) theme = "dark";
+    if (theme === false) theme = "light";
+    document.body.classList.remove("theme-dark", "theme-light", "theme-showcase", "theme-midnight");
+    document.body.classList.add("theme-" + theme);
+    var themeOptions = document.querySelectorAll(".tb-theme-option");
+    for (var i = 0; i < themeOptions.length; i++) {
+      var opt = themeOptions[i];
+      var isActive = opt.getAttribute("data-theme") === theme;
+      opt.classList.toggle("active", isActive);
+      opt.setAttribute("aria-pressed", isActive ? "true" : "false");
+    }
+    document.dispatchEvent(new CustomEvent("sda-theme-change", { detail: theme }));
+  }
+  function currentTheme() {
+    if (document.body.classList.contains("theme-showcase")) return "showcase";
+    if (document.body.classList.contains("theme-midnight")) return "midnight";
+    if (document.body.classList.contains("theme-light")) return "light";
+    return "dark";
+  }
+  function detectVscodeTheme() {
+    if (document.body.classList.contains("vscode-dark")) return "dark";
+    if (document.body.classList.contains("vscode-light")) return "light";
+    var kind = document.documentElement.getAttribute("data-vscode-theme-kind");
+    if (kind === "vscode-dark" || kind === "vscode-high-contrast") return "dark";
+    if (kind === "vscode-light" || kind === "vscode-high-contrast-light") return "light";
+    return null;
+  }
+  function initTheme() {
+    var saved = safeGetItem(THEME_KEY);
+    if (saved) {
+      applyTheme(saved);
+      return;
+    }
+    var vscodeTheme = detectVscodeTheme();
+    if (vscodeTheme) {
+      applyTheme(vscodeTheme);
+      return;
+    }
+    var prefersDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)").matches : false;
+    applyTheme(prefersDark ? "dark" : "light");
+  }
+  function initThemeListeners() {
+    if (window.matchMedia) {
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function(e) {
+        var hasOverride = !!safeGetItem(THEME_KEY);
+        if (!hasOverride) {
+          applyTheme(e.matches ? "dark" : "light");
+        }
+      });
+    }
+  }
+
   // assets/web/session.ts
   function captureViewerState() {
+    var savedTheme = safeGetItem(THEME_KEY);
     var state = {
       currentTable: currentTableName,
       sqlInput: document.getElementById("sql-input").value,
       searchTerm: document.getElementById("search-input") ? document.getElementById("search-input").value : "",
-      theme: localStorage.getItem(THEME_KEY),
+      // Fall back to the live computed theme when localStorage is unavailable,
+      // so the captured state always reflects the actual visible theme.
+      theme: savedTheme ?? currentTheme(),
       limit,
       offset,
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
@@ -28392,10 +28474,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   var sidebar = null;
   var layout = null;
   function persist(panel, collapsed) {
-    try {
-      localStorage.setItem(PANEL_KEY, JSON.stringify({ panel, collapsed }));
-    } catch (e) {
-    }
+    safeSetItem(PANEL_KEY, JSON.stringify({ panel, collapsed }));
   }
   function syncIcons() {
     if (!sidebar || !layout) return;
@@ -28444,7 +28523,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     let panel = "tables";
     let collapsed = false;
     try {
-      const raw = localStorage.getItem(PANEL_KEY);
+      const raw = safeGetItem(PANEL_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed.panel === "string") panel = parsed.panel;
@@ -29871,53 +29950,6 @@ ${JSON.stringify(results, void 0, 2)}`);
     chartResizeObserver.observe(wrap);
   }
 
-  // assets/web/theme.ts
-  function applyTheme(theme) {
-    if (theme === true) theme = "dark";
-    if (theme === false) theme = "light";
-    document.body.classList.remove("theme-dark", "theme-light", "theme-showcase", "theme-midnight");
-    document.body.classList.add("theme-" + theme);
-    var themeOptions = document.querySelectorAll(".tb-theme-option");
-    for (var i = 0; i < themeOptions.length; i++) {
-      var opt = themeOptions[i];
-      var isActive = opt.getAttribute("data-theme") === theme;
-      opt.classList.toggle("active", isActive);
-      opt.setAttribute("aria-pressed", isActive ? "true" : "false");
-    }
-    document.dispatchEvent(new CustomEvent("sda-theme-change", { detail: theme }));
-  }
-  function detectVscodeTheme() {
-    if (document.body.classList.contains("vscode-dark")) return "dark";
-    if (document.body.classList.contains("vscode-light")) return "light";
-    var kind = document.documentElement.getAttribute("data-vscode-theme-kind");
-    if (kind === "vscode-dark" || kind === "vscode-high-contrast") return "dark";
-    if (kind === "vscode-light" || kind === "vscode-high-contrast-light") return "light";
-    return null;
-  }
-  function initTheme() {
-    var saved = localStorage.getItem(THEME_KEY);
-    if (saved) {
-      applyTheme(saved);
-      return;
-    }
-    var vscodeTheme = detectVscodeTheme();
-    if (vscodeTheme) {
-      applyTheme(vscodeTheme);
-      return;
-    }
-    var prefersDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)").matches : false;
-    applyTheme(prefersDark ? "dark" : "light");
-  }
-  function initThemeListeners() {
-    if (window.matchMedia) {
-      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function(e) {
-        if (!localStorage.getItem(THEME_KEY)) {
-          applyTheme(e.matches ? "dark" : "light");
-        }
-      });
-    }
-  }
-
   // assets/web/long-press-copy.ts
   var HOLD_MS = 520;
   var MOVE_MAX_PX = 14;
@@ -30667,10 +30699,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     if (layout2) layout2.style.setProperty("--app-sidebar-width", px + "px");
   }
   function persist2(px) {
-    try {
-      localStorage.setItem(APP_SIDEBAR_WIDTH_KEY, String(px));
-    } catch (e) {
-    }
+    safeSetItem(APP_SIDEBAR_WIDTH_KEY, String(px));
   }
   function setExpandedWidth(px) {
     expandedWidth = Math.max(MIN_WIDTH, Math.min(maxWidth(), Math.round(px)));
@@ -30755,11 +30784,8 @@ ${JSON.stringify(results, void 0, 2)}`);
     resizer = document.getElementById("app-sidebar-resizer");
     if (!layout2 || !resizer) return;
     let stored = NaN;
-    try {
-      const raw = localStorage.getItem(APP_SIDEBAR_WIDTH_KEY);
-      if (raw) stored = parseInt(raw, 10);
-    } catch (e) {
-    }
+    const raw = safeGetItem(APP_SIDEBAR_WIDTH_KEY);
+    if (raw) stored = parseInt(raw, 10);
     expandedWidth = Number.isFinite(stored) ? Math.max(MIN_WIDTH, Math.min(maxWidth(), stored)) : DEFAULT_WIDTH;
     applyVar(expandedWidth);
     resizer.addEventListener("pointerdown", onPointerDown);
@@ -31247,7 +31273,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   }
   function getSavedAnalyses(type) {
     try {
-      var raw = localStorage.getItem(analysisStorageKey(type));
+      var raw = safeGetItem(analysisStorageKey(type));
       if (!raw) return [];
       var list = JSON.parse(raw);
       return Array.isArray(list) ? list : [];
@@ -31263,12 +31289,8 @@ ${JSON.stringify(results, void 0, 2)}`);
     list.unshift({ id: id2, savedAt: label, data });
     var maxSaved = getPref(PREF_ANALYSIS_MAX, DEFAULTS[PREF_ANALYSIS_MAX]);
     if (list.length > maxSaved) list.length = maxSaved;
-    try {
-      localStorage.setItem(analysisStorageKey(type), JSON.stringify(list));
-      return id2;
-    } catch (e) {
-      return null;
-    }
+    safeSetItem(analysisStorageKey(type), JSON.stringify(list));
+    return id2;
   }
   function getSavedAnalysisById(type, id2) {
     var list = getSavedAnalyses(type);
@@ -33208,7 +33230,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   function loadSqlHistory() {
     setSqlHistory([]);
     try {
-      const raw = localStorage.getItem(SQL_HISTORY_KEY);
+      const raw = safeGetItem(SQL_HISTORY_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(parsed)) return;
       setSqlHistory(parsed.map((h) => {
@@ -33223,10 +33245,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     }
   }
   function saveSqlHistory() {
-    try {
-      localStorage.setItem(SQL_HISTORY_KEY, JSON.stringify(sqlHistory));
-    } catch (e) {
-    }
+    safeSetItem(SQL_HISTORY_KEY, JSON.stringify(sqlHistory));
   }
   function pushSqlHistory(sql2, rowCount) {
     sql2 = (sql2 || "").trim();
@@ -33246,7 +33265,7 @@ ${JSON.stringify(results, void 0, 2)}`);
   function loadBookmarks() {
     setSqlBookmarks([]);
     try {
-      const raw = localStorage.getItem(BOOKMARKS_KEY);
+      const raw = safeGetItem(BOOKMARKS_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(parsed)) return;
       setSqlBookmarks(parsed.map(function(b) {
@@ -33261,10 +33280,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     }
   }
   function saveBookmarks() {
-    try {
-      localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(sqlBookmarks));
-    } catch (e) {
-    }
+    safeSetItem(BOOKMARKS_KEY, JSON.stringify(sqlBookmarks));
   }
   function refreshBookmarksDropdown(sel) {
     if (!sel) return;
@@ -34958,10 +34974,7 @@ ${JSON.stringify(results, void 0, 2)}`);
     var settled = false;
     function apply(available) {
       root.classList.toggle("icons-unavailable", !available);
-      try {
-        localStorage.setItem(ICON_STATE_KEY, available ? "1" : "0");
-      } catch (e) {
-      }
+      safeSetItem(ICON_STATE_KEY, available ? "1" : "0");
     }
     var fallbackTimer = setTimeout(function() {
       if (settled) return;
@@ -34988,24 +35001,18 @@ ${JSON.stringify(results, void 0, 2)}`);
     initIconFontFallback();
     var toolbar = document.getElementById("toolbar-bar");
     if (toolbar) {
-      try {
-        var pref = localStorage.getItem(TOOLBAR_LABELS_KEY);
-        if (pref === "1") {
-          toolbar.classList.add("tb-labeled");
-        } else if (pref === "0") {
-          toolbar.classList.add("tb-density-user");
-        }
-      } catch (e) {
+      var pref = safeGetItem(TOOLBAR_LABELS_KEY);
+      if (pref === "1") {
+        toolbar.classList.add("tb-labeled");
+      } else if (pref === "0") {
+        toolbar.classList.add("tb-density-user");
       }
       toolbar.addEventListener("click", function(e) {
         var hitButton = e.target.closest(".tb-icon-btn, .tb-flyout");
         if (hitButton) return;
         var labeled = toolbar.classList.toggle("tb-labeled");
         toolbar.classList.toggle("tb-density-user", !labeled);
-        try {
-          localStorage.setItem(TOOLBAR_LABELS_KEY, labeled ? "1" : "0");
-        } catch (e2) {
-        }
+        safeSetItem(TOOLBAR_LABELS_KEY, labeled ? "1" : "0");
       });
     }
     document.querySelectorAll(".tb-icon-btn[data-tool]").forEach(function(btn) {
@@ -35060,7 +35067,7 @@ ${JSON.stringify(results, void 0, 2)}`);
         btn.addEventListener("click", function() {
           var chosen = btn.getAttribute("data-theme");
           if (chosen) {
-            localStorage.setItem(THEME_KEY, chosen);
+            safeSetItem(THEME_KEY, chosen);
             applyTheme(chosen);
             themeTrigger.setAttribute("aria-expanded", "false");
           }

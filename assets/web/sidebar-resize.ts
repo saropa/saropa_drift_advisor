@@ -15,6 +15,7 @@
  */
 import * as S from './state.ts';
 import { setSidebarCollapsed, isSidebarCollapsed } from './sidebar-panels.ts';
+import { safeGetItem, safeSetItem } from './storage.ts';
 
 // Below MIN the sidebar content gets too cramped to read, so a release under
 // COLLAPSE_SNAP is treated as "hide" rather than "very narrow".
@@ -47,11 +48,7 @@ function applyVar(px: number): void {
 }
 
 function persist(px: number): void {
-  try {
-    localStorage.setItem(S.APP_SIDEBAR_WIDTH_KEY, String(px));
-  } catch (e) {
-    /* localStorage unavailable (private mode / restricted webview) */
-  }
+  safeSetItem(S.APP_SIDEBAR_WIDTH_KEY, String(px));
 }
 
 /**
@@ -154,13 +151,10 @@ export function initSidebarResize(): void {
 
   // Restore the stored expanded width; fall back to the default if absent or
   // malformed. Clamp so an old/oversized value can't push the sidebar off-screen.
+  // Restore persisted width; safeGetItem returns null when storage is unavailable.
   let stored = NaN;
-  try {
-    const raw = localStorage.getItem(S.APP_SIDEBAR_WIDTH_KEY);
-    if (raw) stored = parseInt(raw, 10);
-  } catch (e) {
-    /* localStorage unavailable — keep default */
-  }
+  const raw = safeGetItem(S.APP_SIDEBAR_WIDTH_KEY);
+  if (raw) stored = parseInt(raw, 10);
   expandedWidth = Number.isFinite(stored)
     ? Math.max(MIN_WIDTH, Math.min(maxWidth(), stored))
     : DEFAULT_WIDTH;

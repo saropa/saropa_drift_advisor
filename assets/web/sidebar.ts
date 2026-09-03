@@ -5,6 +5,7 @@
  * without needing to know about internal DOM references.
  */
 import * as S from './state.ts';
+import { safeGetItem, safeSetItem, safeRemoveItem } from './storage.ts';
 
 // Module-level refs resolved once in init.
 let layout: HTMLElement | null = null;
@@ -22,8 +23,7 @@ export function toggleSidebarCollapsed(): void {
   if (!layout) return;
   var collapsed = !layout.classList.contains('app-sidebar-panel-collapsed');
   applyAppSidebarCollapsed(collapsed);
-  try { localStorage.setItem(S.APP_SIDEBAR_PANEL_KEY, collapsed ? '1' : '0'); }
-  catch (e) { /* localStorage unavailable */ }
+  safeSetItem(S.APP_SIDEBAR_PANEL_KEY, collapsed ? '1' : '0');
 }
 
 /** Initializes sidebar: restores persisted state, wires Tables heading toggle. */
@@ -33,12 +33,10 @@ export function initSidebarCollapse(): void {
   if (!layout || !aside) return;
 
   // Restore persisted collapsed state.
-  var storedCollapsed = false;
-  try { storedCollapsed = localStorage.getItem(S.APP_SIDEBAR_PANEL_KEY) === '1'; }
-  catch (e) { /* localStorage unavailable */ }
+  // Restore persisted collapsed state.
+  var storedCollapsed = safeGetItem(S.APP_SIDEBAR_PANEL_KEY) === '1';
   applyAppSidebarCollapsed(storedCollapsed);
 
   // Clean up legacy key from older versions.
-  try { localStorage.removeItem('saropa_sidebar_tables_collapsed'); }
-  catch (e) { /* ignore */ }
+  safeRemoveItem('saropa_sidebar_tables_collapsed');
 }

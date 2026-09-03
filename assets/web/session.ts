@@ -9,15 +9,21 @@ import { esc, setButtonBusy } from './utils.ts';
 import { showCopyToast } from './table-view.ts';
 import { openTableTab } from './tabs.ts';
 import { vt } from './l10n.ts';
+import { safeGetItem } from './storage.ts';
+import { currentTheme } from './theme.ts';
 
     function captureViewerState(): Record<string, any> {
+      // Read persisted theme choice for inclusion in session state.
+      var savedTheme: string | null = safeGetItem(S.THEME_KEY);
       var state: Record<string, any> = {
         currentTable: S.currentTableName,
         sqlInput: document.getElementById('sql-input').value,
         searchTerm: document.getElementById('search-input')
           ? document.getElementById('search-input').value
           : '',
-        theme: localStorage.getItem(S.THEME_KEY),
+        // Fall back to the live computed theme when localStorage is unavailable,
+        // so the captured state always reflects the actual visible theme.
+        theme: savedTheme ?? currentTheme(),
         limit: S.limit,
         offset: S.offset,
         timestamp: new Date().toISOString(),

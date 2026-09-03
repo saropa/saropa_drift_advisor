@@ -14,10 +14,14 @@
  *   (VS Code's click-active-to-hide);
  * - active panel + collapsed flag persist in one localStorage entry.
  *
+ * All localStorage access goes through the safe wrappers in storage.ts.
+ *
  * Visibility itself is pure CSS driven by `data-active-panel` on #app-sidebar
  * (see _sidebar.scss); this module only flips that attribute + the collapse
  * class and keeps the icons' pressed state in sync.
  */
+
+import { safeGetItem, safeSetItem } from './storage.ts';
 
 // One combined entry so a reload restores both which panel and whether it was
 // hidden. JSON (not two keys) keeps the two facts atomic.
@@ -28,11 +32,7 @@ let sidebar: HTMLElement | null = null;
 let layout: HTMLElement | null = null;
 
 function persist(panel: string, collapsed: boolean): void {
-  try {
-    localStorage.setItem(PANEL_KEY, JSON.stringify({ panel: panel, collapsed: collapsed }));
-  } catch (e) {
-    /* localStorage unavailable (private mode / restricted webview) */
-  }
+  safeSetItem(PANEL_KEY, JSON.stringify({ panel: panel, collapsed: collapsed }));
 }
 
 /** Reflects active panel + collapsed state onto the activity-bar icons. */
@@ -115,14 +115,14 @@ export function initSidebarPanels(): void {
   let panel = 'tables';
   let collapsed = false;
   try {
-    const raw = localStorage.getItem(PANEL_KEY);
+    const raw = safeGetItem(PANEL_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed.panel === 'string') panel = parsed.panel;
       collapsed = !!(parsed && parsed.collapsed);
     }
   } catch (e) {
-    /* malformed / unavailable — keep defaults */
+    /* malformed JSON — keep defaults */
   }
   sidebar.setAttribute('data-active-panel', panel);
   layout.classList.toggle(COLLAPSED_CLASS, collapsed);

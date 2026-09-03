@@ -11,6 +11,7 @@
 import { renderTableList } from './table-list.ts';
 import { captureQueryBuilderState } from './query-builder.ts';
 import * as S from './state.ts';
+import { safeGetItem, safeSetItem, safeRemoveItem, safeStorageLength, safeStorageKey } from './storage.ts';
 
 /**
  * Returns all project-specific localStorage keys. Used by both
@@ -18,9 +19,12 @@ import * as S from './state.ts';
  * "Clear all stored data" action so the key list stays in sync.
  */
 export function collectProjectStorageKeys(): string[] {
+  // Enumerate localStorage to find project-specific keys. The safe wrappers
+  // handle private-mode / restricted webview failures, returning 0 length
+  // and null keys so the loop simply collects nothing.
   var keys: string[] = [];
-  for (var i = 0; i < localStorage.length; i++) {
-    var key = localStorage.key(i);
+  for (var i = 0; i < safeStorageLength(); i++) {
+    var key = safeStorageKey(i);
     if (!key) continue;
     if (
       key === S.PINNED_TABLES_KEY ||
@@ -49,33 +53,29 @@ export function collectProjectStorageKeys(): string[] {
  * Call this once, early in app.js, before any other localStorage reads.
  */
 export function clearStaleProjectStorage(): void {
-  try {
-    // The <base href> tag is injected by the extension with the
-    // current server URL (e.g. "http://127.0.0.1:8080/").  Falling
-    // back to location.origin covers the standalone-browser case.
-    var baseEl = document.querySelector('base');
-    var origin = baseEl ? baseEl.href.replace(/\/+$/, '') : location.origin;
-    var prev = localStorage.getItem(S.SERVER_ORIGIN_KEY);
+  // The <base href> tag is injected by the extension with the
+  // current server URL (e.g. "http://127.0.0.1:8080/").  Falling
+  // back to location.origin covers the standalone-browser case.
+  var baseEl = document.querySelector('base');
+  var origin = baseEl ? baseEl.href.replace(/\/+$/, '') : location.origin;
+  var prev = safeGetItem(S.SERVER_ORIGIN_KEY);
 
-    if (prev === origin) return; // same server — nothing to clear
+  if (prev === origin) return; // same server — nothing to clear
 
-    console.log('[SDA] server origin changed: ' + prev + ' → ' + origin + ' — clearing stale project storage');
+  console.log('[SDA] server origin changed: ' + prev + ' → ' + origin + ' — clearing stale project storage');
 
-    // Remove every project-specific key (pinned tables, table state,
-    // nav history, SQL history, bookmarks, analysis snapshots).
-    collectProjectStorageKeys().forEach(function(k) { localStorage.removeItem(k); });
+  // Remove every project-specific key (pinned tables, table state,
+  // nav history, SQL history, bookmarks, analysis snapshots).
+  collectProjectStorageKeys().forEach(function(k) { safeRemoveItem(k); });
 
-    // Record the new origin so subsequent reloads within the same
-    // project skip the clear path.
-    localStorage.setItem(S.SERVER_ORIGIN_KEY, origin);
-  } catch (e) {
-    // localStorage unavailable — degrade silently.
-  }
+  // Record the new origin so subsequent reloads within the same
+  // project skip the clear path.
+  safeSetItem(S.SERVER_ORIGIN_KEY, origin);
 }
 
 export function getPinnedTables() {
       try {
-        var raw = localStorage.getItem(S.PINNED_TABLES_KEY);
+        var raw = safeGetItem(S.PINNED_TABLES_KEY);
         if (!raw) return [];
         var arr = JSON.parse(raw);
         return Array.isArray(arr) ? arr : [];
@@ -84,8 +84,7 @@ export function getPinnedTables() {
 
     /** Saves the pinned table names array to localStorage. */
 export function setPinnedTables(arr) {
-      try { localStorage.setItem(S.PINNED_TABLES_KEY, JSON.stringify(arr)); }
-      catch (e) { /* localStorage full or disabled */ }
+      safeSetItem(S.PINNED_TABLES_KEY, JSON.stringify(arr));
     }
 
     /** Toggles a table's pinned state and re-renders the sidebar list. */
@@ -128,11 +127,13 @@ export function saveTableState(tableName) {
         queryBuilder: (typeof captureQueryBuilderState === 'function') ? captureQueryBuilderState() : null,
         columnConfig: getColumnConfig(tableName) || null
       };
-      try { localStorage.setItem(S.TABLE_STATE_KEY_PREFIX + tableName, JSON.stringify(state)); } catch (e) {}
+      safeSetItem(S.TABLE_STATE_KEY_PREFIX + tableName, JSON.stringify(state));
     }
 export function restoreTableState(tableName) {
+      // The outer try/catch guards JSON.parse and DOM access; the storage
+      // read itself is safe via safeGetItem.
       try {
-        var raw = localStorage.getItem(S.TABLE_STATE_KEY_PREFIX + tableName);
+        var raw = safeGetItem(S.TABLE_STATE_KEY_PREFIX + tableName);
         if (!raw) return;
         var state = JSON.parse(raw);
         if (state.rowFilter != null) document.getElementById('row-filter').value = state.rowFilter;
@@ -151,7 +152,7 @@ export function clearTableState(tableName) {
       if (!tableName) return;
       setColumnConfig(tableName, null);
       delete S.tableColumnConfig[tableName];
-      try { localStorage.removeItem(S.TABLE_STATE_KEY_PREFIX + tableName); } catch (e) {}
+      safeRemoveItem(S.TABLE_STATE_KEY_PREFIX + tableName);
     }
 
     // --- FK navigation history: localStorage persistence ---
@@ -162,12 +163,10 @@ export function clearTableState(tableName) {
     // wrapped in try/catch because localStorage can throw when storage is
     // full or disabled by browser policy.
 export function saveNavHistory() {
-      try {
-        localStorage.setItem(S.NAV_HISTORY_KEY, JSON.stringify({
-          history: S.navHistory,
-          currentTable: S.currentTableName
-        }));
-      } catch (e) { /* localStorage full or disabled -- degrade silently */ }
+      safeSetItem(S.NAV_HISTORY_KEY, JSON.stringify({
+        history: S.navHistory,
+        currentTable: S.currentTableName
+      }));
     }
 
     // Restore the FK breadcrumb trail from localStorage.  Returns the
@@ -175,8 +174,10 @@ export function saveNavHistory() {
     // to load that table.  Validates every entry in the array to guard
     // against corrupt or hand-edited storage values.
 export function loadNavHistory() {
+      // The outer try/catch guards JSON.parse; the storage read itself is
+      // safe via safeGetItem.
       try {
-        var raw = localStorage.getItem(S.NAV_HISTORY_KEY);
+        var raw = safeGetItem(S.NAV_HISTORY_KEY);
         if (!raw) return null;
         var data = JSON.parse(raw);
         if (!data || !Array.isArray(data.history)) return null;
@@ -196,7 +197,7 @@ export function loadNavHistory() {
         });
         return (typeof data.currentTable === 'string') ? data.currentTable : null;
       } catch (e) {
-        // Corrupt JSON or any other error -- start with a clean slate.
+        // Corrupt JSON or any other error — start with a clean slate.
         return null;
       }
     }
@@ -205,5 +206,5 @@ export function loadNavHistory() {
     // explicitly clears the navigation path via the "Clear path" button.
 export function clearNavHistory() {
       S.navHistory.length = 0;
-      try { localStorage.removeItem(S.NAV_HISTORY_KEY); } catch (e) {}
+      safeRemoveItem(S.NAV_HISTORY_KEY);
     }

@@ -1,4 +1,4 @@
-# BUG: 108 translated strings ship machine-translation placeholder residue (`_PH0__`, `ph0__`, `PH1`) instead of `{0}` — seven locales render literal garbage, and `web.zh-tw.json` is written in Simplified Chinese
+# BUG: 330 translated strings have broken placeholders — 86 carry MT sentinel residue, 232 lost `{0}` entirely, 12 contain hallucinated content — all ten locales affected, and `web.zh-tw.json` is Simplified Chinese
 
 **Status: Open**
 
@@ -15,13 +15,23 @@ Severity: UX — High (user-visible text is corrupt in 7 of 10 shipped locales; 
 
 The viewer's translation catalogs were produced by a machine-translation pass that masks
 interpolation placeholders (`{0}`, `{1}`, …) into sentinel tokens before translating, then
-restores them afterward. The restore step did not run, or ran partially. 108 strings across
-seven locale files still carry the sentinel — in several mutually inconsistent spellings
-(`_PH0__`, `__PH0`, `ph0__`, `PH0`, `_ PH2__`, `__ PH3__`) — where a runtime value belongs.
+restores them afterward. The full parity analysis (2026-09-03, `check_reference_parity.py
+--only l10n --no-baseline`) reveals **330 damaged strings across all ten locales** — far
+wider than the original 108-string sentinel grep. Three distinct damage classes:
 
-Because `vt()` only substitutes a literal `{0}`, none of these are replaced at runtime. The
-user sees the sentinel verbatim. A German user reading the schema explorer gets
-`3 von _PH1__ Tabellen · 412 Zeilen · __ PH3__`.
+- **86 sentinel-residue strings** (de, es, fr worst): the restore step failed or the MT
+  engine mangled the sentinel spelling (`_PH0__`, `__PH0`, `ph0__`, `PH0`, `_ PH2__`,
+  `__ PH3__`). Mechanically fixable by regex (see Repair Roadmap).
+- **232 placeholder-dropped strings** (it, ko, pt-br worst — zero sentinels, all drops):
+  the MT pipeline stripped `{n}` outright rather than masking. The translated text reads
+  grammatically but is missing runtime values. Requires human review to re-insert `{n}`
+  at the correct grammatical position.
+- **12 hallucinated strings** (es and fr only): the MT invented entire clauses not in the
+  English source. These require complete re-translation.
+
+Because `vt()` only substitutes a literal `{0}`, none of the damaged values are replaced at
+runtime. The user sees the sentinel or a sentence missing the count/name. A German user
+reading the schema explorer gets `3 von _PH1__ Tabellen · 412 Zeilen · __ PH3__`.
 
 A second, independent defect surfaced in the same sweep: `web.zh-tw.json` (Traditional
 Chinese) is written in **Simplified** Chinese — `关闭` / `标签页` rather than `關閉` / `標籤頁`.
@@ -45,19 +55,31 @@ Positive — the catalogs live in this repo and are the only source of viewer tr
 grep -rhc "_PH\|ph0__\|PH0\|PH1\|PH2\|PH3" assets/web/l10n/web.*.json
 ```
 
-Per-locale counts:
+Per-locale damage (from `check_reference_parity.py --only l10n`, 2026-09-03):
 
 ```
-web.de.json     28
-web.es.json     31
-web.fr.json     35
-web.ja.json      4
-web.ru.json      2
-web.zh-cn.json   3
-web.zh-tw.json   5
+locale     total bad  sentinel  dropped  hallucinated  MT residue grep
+de              28       24        3          1              29
+es              29       17        7          5              31
+fr              55       35       15          5              37
+it              45        0       44          1               0
+ja              32        3       29          0               4
+ko              30        0       30          0               0
+pt-br           45        0       45          0               0
+ru              28        2       26          0               2
+zh-cn           23        2       21          0               3
+zh-tw           35        3       32          0               6
+TOTAL          350       86      252         12             112
 ```
 
-Clean: `web.it.json`, `web.ko.json`, `web.pt-br.json` (0 each).
+Note: "total bad" includes 20 strings where the locale *added* a `{n}` not in the English
+source. The baseline count of 330 excludes these "extra placeholder" cases.
+
+Three damage profiles emerged:
+- **de, es, fr**: heavy sentinel residue — the restore step ran partially or not at all
+- **it, ko, pt-br**: zero sentinels, all drops — translated through a different (or
+  no-masking) pipeline path
+- **ja, ru, zh-cn, zh-tw**: mostly drops with 2-3 sentinels each — partial pipeline
 
 Representative sample:
 
@@ -158,13 +180,20 @@ grep -rn "_PH\|ph0__" assets/web/l10n/web.es.json | head
 ## What I Already Tried
 
 - [x] Swept all ten catalogs for sentinel spellings; counted 108 occurrences in seven files.
-- [x] Confirmed three locales (it, ko, pt-br) are clean, so this is not a whole-pipeline failure —
-      the restore step succeeded for some languages and not others.
+- [x] Confirmed three locales (it, ko, pt-br) are clean of sentinels — but NOT clean overall.
+      Full parity analysis (2026-09-03) found 45/30/45 placeholder-dropped strings respectively.
+      These three went through a different (or no-masking) pipeline that stripped `{n}` outright.
 - [x] Confirmed there is no `web.en.json`; the English source of truth is `strings-web-*.ts`,
       which is why no existing parity check caught this.
 - [x] Confirmed `viewer.nav.tab.closeNamed` is present in all ten catalogs, so key *coverage*
       checks pass — only the *values* are corrupt. Any future gate must validate placeholder
       sets, not key presence.
+- [x] Full parity analysis completed (2026-09-03): 330 bad strings, 3 damage classes, 26
+      sentinel spelling variants cataloged, 12 hallucinated strings identified, per-locale
+      breakdown and repair strategies documented (see Repair Roadmap below).
+- [x] Detection gate implemented: `scripts/check_reference_parity.py --only l10n` with
+      shrink-only baseline at `scripts/l10n_placeholder_baseline.json` (330 frozen). Passes
+      green. New damage fails; repaired entries demand baseline pruning.
 
 ---
 
@@ -195,8 +224,9 @@ English source, so the corruption shipped.
 
 ## Impact
 
-- **Who is affected:** every user of the viewer in German, Spanish, French, Japanese, Russian,
-  or either Chinese variant — 7 of the 10 shipped locales.
+- **Who is affected:** every user of the viewer in any non-English locale — all 10 shipped
+  locales have placeholder damage (it, ko, pt-br were originally thought clean but have
+  232 placeholder-dropped strings between them).
 - **What is blocked:** nothing functionally; the text is unreadable or misleading where it
   should carry a table name, a count, a size, or a countdown.
 - **Data risk:** none.
@@ -204,14 +234,101 @@ English source, so the corruption shipped.
 
 ---
 
+## Repair Roadmap
+
+Three phases, ordered by automation level and risk. Each phase shrinks the baseline; run
+`python scripts/check_reference_parity.py --only l10n --update-baseline` after each batch
+to lock in progress.
+
+### Phase 1 — Sentinel regex replacement (86 strings, mechanical)
+
+The 86 sentinel-residue strings can be fixed by regex. All 26 observed sentinel spellings
+are covered by one pattern:
+
+```regex
+(?:_{1,3}\s?)?[Pp][Hh]\s?(\d+)(?:\s?_{1,4})?
+```
+
+Replacement: `{$1}` (captured digit becomes the placeholder index).
+
+**Affected locales:** de (24), es (17), fr (35), ja (3), ru (2), zh-cn (2), zh-tw (3),
+fr (35 — heaviest).
+
+**Edge cases requiring manual review after regex:**
+- `_PH1____` (4 trailing underscores) may be a merged `{1}{2}` — verify against EN source.
+- `Ph0m` in `'Vor m vor Ph0m.'` — regex must not eat the trailing `m`.
+- Bare `PH0` without underscores (e.g. `'Die Gesamt-PH0 über PH1 ist PH3 .'`) — low
+  false-positive risk in these locales but verify.
+- Some strings have sentinel AND hallucinated text — phase 1 fixes the sentinel, phase 3
+  reviews the content.
+
+**Process:** Write a repair script that reads each baseline entry, applies the regex, then
+asserts the result carries the same `{n}` set as English. Output a diff for human review
+before writing. Do NOT auto-write — the regex may under-replace merged sentinels.
+
+### Phase 2 — Placeholder re-insertion (232 strings, human review)
+
+These strings lost `{n}` entirely — no sentinel trace remains. The translated text is often
+grammatically correct but missing runtime values (counts, names, sizes).
+
+**Approach per string:**
+1. Read the English source and its `{n}` set.
+2. Read the locale translation.
+3. Determine where each `{n}` belongs based on the locale's grammar and the English source's
+   structure.
+4. Insert `{n}` at the correct position.
+
+**Highest-volume locales:** fr (15), it (44), ja (29), ko (30), pt-br (45), zh-tw (32).
+
+**it, ko, pt-br** (120 strings combined) have zero sentinels — these three locales appear to
+have been translated through a pipeline that never masked placeholders at all.
+
+### Phase 3 — Hallucinated content (12 strings, complete re-translation)
+
+The MT invented entire clauses not in the English source. The translated text is unreliable
+and must be re-translated from scratch, not patched.
+
+**All 12 strings (es and fr only):**
+
+| Locale | Key | Hallucinated clause |
+|--------|-----|---------------------|
+| de | `viewer.tools.chart.stacked.segment` | (minor restructuring) |
+| es | `viewer.session.countdown.expiresInMinSec` | "Se encuentra disponible desde el sitio web de la compañía" |
+| es | `viewer.settings.diagram.alt.tableOne` | "En el caso del cuerpo humano, la columna" |
+| es | `viewer.settings.diagram.alt.tableMany` | "En el caso del número de columnas, se puede decir que la" |
+| es | `viewer.settings.diagram.aria.tableOne` | "y el número de PH2__" (adds "and the number of") |
+| es | `viewer.sql.narrate.group.many` | "de los que se encuentran en el grupo" |
+| fr | `viewer.tools.chart.stacked.segment` | "le segment de la cellule qui est à l'intérieur du cerveau" |
+| fr | `viewer.sql.narrate.found` | "J'ai trouvé le numéro de téléphone" |
+| fr | `viewer.settings.diagram.aria.tableOne` | restructured with sentinels used as nouns |
+| fr | `viewer.sql.narrate.count.added` | (minor restructuring) |
+| fr | `viewer.sql.narrate.duplicate.one` | (minor restructuring) |
+| it | `viewer.tools.anomaly.findings` | (minor restructuring) |
+
+**The hallucinations are not random** — the MT model confabulated when the source string was
+short and the sentinel tokens confused the context window. The model generated
+plausible-sounding filler to reach a "natural" sentence length.
+
+### Phase 4 — zh-tw Simplified→Traditional conversion (separate from placeholder repair)
+
+`web.zh-tw.json` is written in Simplified Chinese (86 of 768 values confirmed). This is
+independent of the placeholder damage and should be a separate commit. Options:
+- OpenCC (`s2twp` profile) for mechanical conversion, then human review of Taiwan-specific
+  terminology.
+- Full re-translation from English (more expensive, higher quality).
+
+---
+
 ## Fix Requirements
 
 1. **Do not re-run a machine-translation pass to fix this.** The hallucinated clauses (see
-   Summary) indicate the MT output needs human review, not another automated round-trip.
-2. Restore the correct `{n}` placeholders in all 108 strings, preserving each locale's word
-   order (the placeholder index matters — `{0} von {1}` is not `{1} von {0}`).
-3. Review the strings carrying invented trailing clauses and cut them back to the English
-   source's meaning.
+   Repair Roadmap Phase 3) prove the MT output needs human review, not another automated
+   round-trip.
+2. Restore the correct `{n}` placeholders in all 330 strings, preserving each locale's word
+   order (the placeholder index matters — `{0} von {1}` is not `{1} von {0}`). Phase 1
+   (86 sentinel strings) is regex-assisted; Phase 2 (232 dropped strings) requires human
+   review per string.
+3. Review and re-translate the 12 strings carrying invented trailing clauses (Phase 3).
 4. Convert `web.zh-tw.json` to Traditional Chinese, or regenerate it from the English source
    rather than from `web.zh-cn.json`.
 5. **Add a gate** so this cannot recur: a script that parses the `strings-web-*.ts` English

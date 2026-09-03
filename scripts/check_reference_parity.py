@@ -110,6 +110,7 @@ Usage:
     python scripts/check_reference_parity.py --only tokens
     python scripts/check_reference_parity.py --only l10n [--no-baseline]
     python scripts/check_reference_parity.py --only l10n --update-baseline
+    python scripts/check_reference_parity.py --only l10n --budget 200
     python scripts/check_reference_parity.py --verbose
 
 Exit code: 0 when every reference resolves (l10n judged against the baseline);
@@ -436,11 +437,16 @@ def load_baseline() -> dict:
 
 
 def check_l10n(verbose: bool, use_baseline: bool, update_baseline: bool,
-               strict: bool = False) -> int:
+               strict: bool = False, budget: int | None = None) -> int:
     """Assert every locale value carries its English placeholder set.
 
     When strict=True, baselined mismatches also fail the gate — use in CI to
     enforce a "fix N baseline entries per sprint" policy.
+
+    When budget is an integer, the gate fails if the number of baselined
+    mismatches exceeds budget. This is a middle ground: the default ignores
+    all baseline debt, --strict treats any debt as failure (budget=0), and
+    --budget N lets CI enforce gradual shrinkage ("fix N per sprint").
     """
     print("== L10n placeholder parity (assets/web/l10n/) ==")
 
@@ -566,18 +572,39 @@ def check_l10n(verbose: bool, use_baseline: bool, update_baseline: bool,
         if len(repaired) > 20:
             print(f"  ... and {len(repaired) - 20} more", file=sys.stderr)
 
-    # 3. Strict mode: baseline entries are also failures. This lets CI enforce
-    # a "fix N entries per sprint" policy by failing when debt remains.
-    if strict and known_bad:
-        still_bad = sorted(current_bad & known_bad)
-        if still_bad:
+    # 3. Compute surviving baseline debt only when a mode needs it.
+    # --strict and --budget are mutually exclusive (argparse guards above),
+    # but both inspect the same intersection, so compute it once here.
+    if strict or budget is not None:
+        still_bad = current_bad & known_bad
+        still_bad_count = len(still_bad)
+
+        # 4. Strict mode: baseline entries are also failures. This lets CI
+        # enforce a "fix N entries per sprint" policy by failing when debt
+        # remains.
+        if strict and still_bad:
             ok = False
-            print(f"\nFAIL (--strict): {len(still_bad)} baselined mismatch(es) "
+            still_bad_sorted = sorted(still_bad)
+            print(f"\nFAIL (--strict): {still_bad_count} baselined mismatch(es) "
                   f"still present:", file=sys.stderr)
-            for pair in still_bad[:20]:
+            for pair in still_bad_sorted[:20]:
                 print(f"  {pair}", file=sys.stderr)
-            if len(still_bad) > 20:
-                print(f"  ... and {len(still_bad) - 20} more", file=sys.stderr)
+            if still_bad_count > 20:
+                print(f"  ... and {still_bad_count - 20} more", file=sys.stderr)
+
+        # 5. Budget mode: fail if baseline debt exceeds the allowed ceiling.
+        # Unlike --strict (which is all-or-nothing), --budget N lets CI
+        # ratchet down gradually — set N to (current - target_per_sprint)
+        # each cycle.
+        if budget is not None:
+            if still_bad_count > budget:
+                ok = False
+                print(f"\nFAIL (--budget {budget}): {still_bad_count} baselined "
+                      f"mismatch(es) remain (budget: {budget})", file=sys.stderr)
+            else:
+                # Budget satisfied — report the count so CI logs show progress.
+                print(f"\n  {still_bad_count} baselined mismatch(es) remain "
+                      f"(budget: {budget})")
 
     if ok:
         if known_bad:
@@ -621,6 +648,17 @@ def main() -> int:
              "Use in CI to enforce baseline shrinkage.",
     )
     parser.add_argument(
+        "--budget",
+        type=int,
+        metavar="N",
+        default=None,
+        help="Fail if baselined mismatch count exceeds N (exit 1), pass if "
+             "<= N (exit 0). A middle ground between the permissive default "
+             "(any baseline count passes) and --strict (budget=0). "
+             "Equivalent to --strict when N is 0. "
+             "Use in CI to enforce 'fix N entries per sprint' shrinkage.",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print per-file counts and the full token allowlist.",
@@ -643,6 +681,23 @@ def main() -> int:
     # rewrites the baseline — combining them conflates two different actions.
     if args.strict and args.update_baseline:
         parser.error("--strict and --update-baseline are contradictory.")
+    # --budget needs the baseline to count against; --no-baseline empties it,
+    # so the count would always be zero and the budget meaningless.
+    if args.budget is not None and args.no_baseline:
+        parser.error("--budget and --no-baseline are contradictory — budget "
+                     "counts baselined entries, but --no-baseline ignores them.")
+    # --strict is equivalent to --budget 0; combining them is redundant and
+    # ambiguous about which semantics the caller intended.
+    if args.budget is not None and args.strict:
+        parser.error("--budget and --strict are contradictory — --strict is "
+                     "equivalent to --budget 0.")
+    # --budget applies to the l10n baseline; it has no meaning for tokens.
+    if args.budget is not None and args.only == "tokens":
+        parser.error("--budget applies to the l10n half only.")
+    # --budget sets a ceiling on allowed baseline debt; --update-baseline
+    # rewrites the file — combining them conflates querying with mutating.
+    if args.budget is not None and args.update_baseline:
+        parser.error("--budget and --update-baseline are contradictory.")
 
     status = 0
     if args.only in (None, "tokens"):
@@ -655,6 +710,7 @@ def main() -> int:
             use_baseline=not args.no_baseline,
             update_baseline=args.update_baseline,
             strict=args.strict,
+            budget=args.budget,
         )
     return status
 

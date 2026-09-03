@@ -7,11 +7,13 @@ import { esc } from './utils.ts';
 import { vt } from './l10n.ts';
 import * as S from './state.ts';
 import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
+import { safeGetItem, safeSetItem } from './storage.ts';
 
     export function loadSqlHistory() {
       S.setSqlHistory([]);
+      // The outer try/catch guards JSON.parse; safeGetItem handles storage errors.
       try {
-        const raw = localStorage.getItem(S.SQL_HISTORY_KEY);
+        const raw = safeGetItem(S.SQL_HISTORY_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
         if (!Array.isArray(parsed)) return;
         S.setSqlHistory(parsed
@@ -27,9 +29,7 @@ import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
       } catch (e) { S.setSqlHistory([]); }
     }
     export function saveSqlHistory() {
-      try {
-        localStorage.setItem(S.SQL_HISTORY_KEY, JSON.stringify(S.sqlHistory));
-      } catch (e) {}
+      safeSetItem(S.SQL_HISTORY_KEY, JSON.stringify(S.sqlHistory));
     }
     export function refreshHistoryDropdown(sel) {
       if (!sel) return;
@@ -64,8 +64,9 @@ import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
     // --- Bookmarks: localStorage CRUD ---
     export function loadBookmarks() {
       S.setSqlBookmarks([]);
+      // The outer try/catch guards JSON.parse; safeGetItem handles storage errors.
       try {
-        const raw = localStorage.getItem(S.BOOKMARKS_KEY);
+        const raw = safeGetItem(S.BOOKMARKS_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
         if (!Array.isArray(parsed)) return;
         S.setSqlBookmarks(parsed
@@ -80,9 +81,7 @@ import { getPref, PREF_SQL_HISTORY_MAX, DEFAULTS } from './settings.ts';
       } catch (e) { S.setSqlBookmarks([]); }
     }
     export function saveBookmarks() {
-      try {
-        localStorage.setItem(S.BOOKMARKS_KEY, JSON.stringify(S.sqlBookmarks));
-      } catch (e) {}
+      safeSetItem(S.BOOKMARKS_KEY, JSON.stringify(S.sqlBookmarks));
     }
     export function refreshBookmarksDropdown(sel) {
       if (!sel) return;
