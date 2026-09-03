@@ -135,6 +135,8 @@ The `ignore` directive for n-plus-one warnings now works even when the diagnosti
 
 - **Publish pipeline: retry/skip/abort on Dart analysis, downgrade, outdated, docs, and dry-run steps.** These five steps previously hard-aborted the entire pipeline on failure. They now offer the same retry/skip/abort prompt the test and lint steps already have, so a transient or externally-caused failure (e.g. upstream plugin emitting unsupported-option warnings) no longer forces a full pipeline restart.
 
+- **Fixed 2 stale server-origin storage tests.** `clearStaleProjectStorage` was refactored to use `safeSetItem`/`safeGetItem` wrappers (from `storage.ts`) instead of raw `localStorage` calls with inline try/catch, but the tests still asserted the old pattern. Updated to verify the safe-wrapper delegation.
+
 </details>
 
 ---

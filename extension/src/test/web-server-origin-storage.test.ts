@@ -146,18 +146,23 @@ describe('server-origin storage — persistence.ts clearStaleProjectStorage', ()
   });
 
   it('records the new origin after clearing', () => {
+    // Uses safeSetItem wrapper (defined in storage.ts) which handles
+    // try/catch internally — raw localStorage.setItem is not called.
     assert.ok(
-      persistenceTs.includes("localStorage.setItem(S.SERVER_ORIGIN_KEY, origin)"),
-      'clearStaleProjectStorage should persist the new origin',
+      persistenceTs.includes("safeSetItem(S.SERVER_ORIGIN_KEY, origin)"),
+      'clearStaleProjectStorage should persist the new origin via safeSetItem',
     );
   });
 
-  it('wraps everything in try/catch for localStorage unavailability', () => {
+  it('delegates to safe* wrappers for localStorage unavailability', () => {
+    // clearStaleProjectStorage relies on safeGetItem / safeSetItem /
+    // safeRemoveItem (from storage.ts) which wrap every call in try/catch,
+    // so the function itself does not need an inline try/catch block.
     const funcStart = persistenceTs.indexOf('function clearStaleProjectStorage');
     const funcBody = persistenceTs.substring(funcStart, persistenceTs.indexOf('\nexport function', funcStart + 1));
     assert.ok(
-      funcBody.includes('try {') && funcBody.includes('catch (e)'),
-      'clearStaleProjectStorage should be wrapped in try/catch',
+      funcBody.includes('safeGetItem') && funcBody.includes('safeSetItem'),
+      'clearStaleProjectStorage should use safe* wrappers from storage.ts',
     );
   });
 });
