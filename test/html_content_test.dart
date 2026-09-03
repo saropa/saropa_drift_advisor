@@ -411,4 +411,36 @@ void main() {
       expect(html, contains(r'a<\/script>b'));
     });
   });
+
+  // Regression tests for bug 075. The <title> was a hand-typed literal that
+  // had drifted to the misspelling "Saropa Drift Adviser" while the masthead
+  // directly below it — already built from ServerConstants.appDisplayName —
+  // read "Advisor". The browser tab and the page therefore disagreed on the
+  // product name. Sourcing the title from the same constant makes the two
+  // impossible to diverge again.
+  group('document title (bug 075)', () {
+    late String html;
+
+    setUp(() {
+      html = HtmlContent.buildIndexHtml(inlineBundleJs: '/* j */');
+    });
+
+    test('title is sourced from ServerConstants.appDisplayName', () {
+      expect(
+        html,
+        contains('<title>${ServerConstants.appDisplayName}</title>'),
+      );
+    });
+
+    test('no "Adviser" misspelling in rendered markup', () {
+      // Guards the whole document, not just the title: the misspelling must
+      // not reappear in any other hand-typed string either. HTML comments are
+      // stripped first — the fix deliberately documents the old misspelling in
+      // a comment next to the <title>, and that explanatory text is never
+      // rendered, so matching it would fail the test for the wrong reason.
+      final rendered = html.replaceAll(RegExp(r'<!--.*?-->', dotAll: true), '');
+
+      expect(rendered.toLowerCase(), isNot(contains('adviser')));
+    });
+  });
 }

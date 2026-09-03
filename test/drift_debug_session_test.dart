@@ -271,5 +271,71 @@ void main() {
       store.create(<String, dynamic>{});
       expect(store.toString(), contains('1'));
     });
+
+    // Regression tests for bug 037. The original ID was
+    // `millisecondsSinceEpoch.toRadixString(36)` and nothing else, which had
+    // two defects: same-millisecond creates produced an identical key so the
+    // second session silently overwrote the first, and the ID was fully
+    // derivable from the creation time so a client could guess or enumerate
+    // another user's live session. These tests pin both properties; without
+    // the random suffix each one fails.
+    group('session id (bug 037)', () {
+      test('rapid successive creates produce distinct ids', () {
+        // A tight loop reliably lands multiple creates inside the same
+        // millisecond, which is exactly what collided before the fix. Any
+        // duplicate here means a session was silently lost.
+        final ids = <String>{};
+        for (var i = 0; i < 200; i++) {
+          ids.add(store.create(<String, dynamic>{'i': i})['id'] as String);
+        }
+
+        expect(ids.length, 200);
+      });
+
+      test('every created session remains retrievable', () {
+        // The collision consequence, stated directly: an overwritten ID meant
+        // store.length lagged the number of creates and the earlier session
+        // was unreachable via get(). Kept well under DriftDebugSessionStore
+        // .maxSessions (50) so capacity eviction — a separate, intended
+        // behavior covered by its own test — cannot account for a missing
+        // session here.
+        const count = 20;
+        final ids = <String>[];
+        for (var i = 0; i < count; i++) {
+          ids.add(store.create(<String, dynamic>{'i': i})['id'] as String);
+        }
+
+        expect(store.length, count);
+        for (final id in ids) {
+          expect(store.get(id), isNotNull, reason: 'session $id was lost');
+        }
+      });
+
+      test('id is not derivable from the creation timestamp alone', () {
+        // The pre-fix ID was exactly the base-36 timestamp. If an ID ever
+        // equals its own timestamp prefix again, the entropy has been dropped
+        // and enumeration is possible once more.
+        final id = store.create(<String, dynamic>{})['id'] as String;
+        final timestamp = DateTime.now()
+            .toUtc()
+            .millisecondsSinceEpoch
+            .toRadixString(36);
+
+        expect(id, isNot(timestamp));
+        expect(id.length, greaterThan(timestamp.length));
+      });
+
+      test('ids created in the same millisecond differ in their suffix', () {
+        // Isolates the suffix specifically: strip the shared timestamp head
+        // and confirm the tails are not all identical.
+        final ids = List.generate(
+          20,
+          (_) => store.create(<String, dynamic>{})['id'] as String,
+        );
+        final suffixes = ids.map((id) => id.substring(id.length - 8)).toSet();
+
+        expect(suffixes.length, greaterThan(1));
+      });
+    });
   });
 }

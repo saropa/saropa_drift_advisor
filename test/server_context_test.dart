@@ -10,6 +10,10 @@
 // recordTiming, timedQuery, checkDataChange, etc.) live
 // in ServerContext.
 
+// dart:convert supplies JsonEncoder / JsonUnsupportedObjectError for the
+// bug 013 encode-fallback tests below.
+import 'dart:convert';
+
 import 'package:test/test.dart';
 
 import 'package:saropa_drift_advisor/src/server/server_context.dart';
@@ -199,6 +203,61 @@ void main() {
           ServerUtils.quoteIdent('x" = 1 OR "1"="1'),
           '"x"" = 1 OR ""1""=""1"',
         );
+      });
+
+      // Regression tests for bug 013. Five row-returning endpoints built a
+      // JsonEncoder.withIndent with no toEncodable, so any value jsonEncode
+      // cannot handle natively — a DateTime or BigInt coming back from the
+      // host executor — threw mid-encode. Because the status line and headers
+      // were already written by then, the client received a 200 followed by a
+      // truncated, unparseable body rather than a clean error. Passing
+      // ServerUtils.jsonEncodeFallback as toEncodable makes those values
+      // encode instead of throw.
+      group('jsonEncodeFallback (bug 013)', () {
+        test('renders DateTime as an ISO-8601 string', () {
+          final value = DateTime.utc(2026, 9, 3, 12, 30);
+          expect(
+            ServerUtils.jsonEncodeFallback(value),
+            '2026-09-03T12:30:00.000Z',
+          );
+        });
+
+        test('falls back to toString for other unencodable types', () {
+          // BigInt is the other type the host executor realistically returns
+          // for large integer columns; jsonEncode rejects it natively.
+          expect(
+            ServerUtils.jsonEncodeFallback(BigInt.parse('9223372036854775807')),
+            '9223372036854775807',
+          );
+        });
+
+        test('an encoder using it survives a row jsonEncode would reject', () {
+          // The end-to-end shape of the defect: this exact structure threw
+          // before the fix and now encodes cleanly.
+          final row = <String, dynamic>{
+            'id': 1,
+            'created': DateTime.utc(2026, 9, 3),
+            'big': BigInt.from(2).pow(70),
+          };
+          final encoder = JsonEncoder.withIndent(
+            '  ',
+            ServerUtils.jsonEncodeFallback,
+          );
+
+          expect(() => encoder.convert(row), returnsNormally);
+          expect(encoder.convert(row), contains('2026-09-03T00:00:00.000Z'));
+        });
+
+        test('the same row without the fallback throws', () {
+          // Pins that the fallback is what is doing the work — if this ever
+          // stops throwing, the test above no longer proves anything.
+          final row = <String, dynamic>{'created': DateTime.utc(2026)};
+
+          expect(
+            () => const JsonEncoder.withIndent('  ').convert(row),
+            throwsA(isA<JsonUnsupportedObjectError>()),
+          );
+        });
       });
 
       test('extractCountFromRows parses a String count (M1)', () {

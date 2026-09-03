@@ -11,6 +11,74 @@ import 'package:test/test.dart';
 import 'helpers/test_helpers.dart';
 
 void main() {
+  // Regression tests for bug 012. SchemaHandler interpolated table names
+  // straight into SQL as `"$tableName"`, so a name containing a double quote
+  // closed the identifier early and the remainder was parsed as SQL. Table
+  // names are attacker-influenced wherever the inspected database is not
+  // fully trusted (a shared dev DB, an imported file, a synced schema).
+  // ServerUtils.quoteIdent doubles embedded quotes, which neutralizes the
+  // break-out. These tests assert on the SQL the handler actually emits, so
+  // they fail if any call site regresses to raw interpolation.
+  group('SchemaHandler identifier quoting (bug 012)', () {
+    // A name whose payload would terminate the identifier and append a second
+    // statement if it were interpolated unescaped.
+    const hostileTable = 'ev"il';
+
+    /// Returns a query callback that records every SQL string it receives
+    /// into [captured] while serving just enough rows for the handler to
+    /// traverse [hostileTable].
+    DriftDebugQuery recordingQuery(List<String> captured) {
+      return (String sql) async {
+        captured.add(sql);
+
+        if (sql.contains("type IN ('table','view')")) {
+          return [
+            {'name': hostileTable},
+          ];
+        }
+        if (sql.contains('PRAGMA table_info')) {
+          return [
+            {'name': 'id', 'type': 'INTEGER', 'pk': 1},
+          ];
+        }
+
+        return <Map<String, dynamic>>[];
+      };
+    }
+
+    test('PRAGMA table_info escapes an embedded double quote', () async {
+      final captured = <String>[];
+      final handler = SchemaHandler(createTestContext());
+
+      await handler.getDiagramData(recordingQuery(captured));
+
+      final pragmas = captured
+          .where((sql) => sql.contains('PRAGMA table_info'))
+          .toList();
+      expect(pragmas, isNotEmpty, reason: 'handler never read column info');
+      // Doubled quote = escaped correctly.
+      expect(pragmas.first, contains('PRAGMA table_info("ev""il")'));
+    });
+
+    test('no emitted statement contains an unescaped identifier', () async {
+      final captured = <String>[];
+      final handler = SchemaHandler(createTestContext());
+
+      await handler.getDiagramData(recordingQuery(captured));
+
+      for (final sql in captured) {
+        // The pre-fix output embedded the name verbatim, producing the
+        // sequence `"ev"il"` — a closed identifier followed by stray tokens.
+        // The escaped form is `"ev""il"`, which never contains it.
+        expect(
+          sql,
+          isNot(contains('"$hostileTable"')),
+          reason: 'unescaped identifier reached SQL: $sql',
+        );
+      }
+    });
+  });
+
   group('SchemaHandler', () {
     // -------------------------------------------------------
     // getDiagramData
