@@ -182,3 +182,23 @@ if has_staged 'assets/web/toolbar\.ts$' || has_staged 'lib/src/server/html_conte
 else
   echo "toolbar.ts and html_content.dart not staged — skipping ICON_STATE_KEY parity check"
 fi
+
+# ── Gate 8: Dangling bug references ──
+# Only runs when markdown, code, or config files are staged. Catches
+# stale `bugs/<file>.md` paths left behind after archiving closed bugs
+# to plans/history/. Files inside plans/history/ are excluded (they
+# contain historical context, not live references).
+if has_staged '\.(md|py|dart|ts|tsx|yml|yaml|json)$'; then
+  echo "Checking for dangling bug references..."
+  python scripts/check_bug_ref_dangling.py || {
+    echo ""
+    echo "Dangling bug reference check failed!"
+    echo "Update stale bugs/<file>.md paths to their plans/history/ location."
+    echo "Run the script manually for details:"
+    echo "   python scripts/check_bug_ref_dangling.py"
+    echo ""
+    exit 1
+  }
+else
+  echo "No text files staged — skipping dangling bug-reference check"
+fi

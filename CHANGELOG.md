@@ -126,6 +126,10 @@ The `ignore` directive for n-plus-one warnings now works even when the diagnosti
 
 - **Issue reporting guide.** Replaced `bugs/BUG_REPORT_GUIDE.md` with a broader `ISSUE_REPORT_GUIDE.md` covering bugs, feature requests, and proposals — aligned with `saropa_lints`' structure. Added file naming conventions, attribution evidence requirements, investigation checklist, common pitfalls, fix requirements, lifecycle diagrams, and severity guide. Updated GitHub issue templates (`bug_report.yml`, `feature_request.yml`) with severity dropdown, emitter attribution field, and detection/behavior section, and added `.github/ISSUE_TEMPLATE/config.yml` to route all new issues through the structured templates (`blank_issues_enabled: false`).
 
+- **Archived 7 fixed bugs.** Moved closed bug files (012, 013, 036, 037, 063, 075, 076) from `bugs/` to `plans/history/2026.09/20260903/` per the project archival convention. Repointed cross-references in bugs 065 and 073.
+
+- **Dangling bug-reference gate.** New `scripts/check_bug_ref_dangling.py` scans staged files for `bugs/<file>.md` paths where the target no longer exists in `bugs/` — catches stale references left behind after archiving. Wired into pre-commit as Gate 8. Files inside `plans/history/` are excluded (historical context, not live references).
+
 </details>
 
 ---
