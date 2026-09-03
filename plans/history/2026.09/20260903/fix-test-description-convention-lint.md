@@ -23,25 +23,33 @@ the `require_test_description_convention` rule:
 
 - New file: `lib/src/fixes/testing_best_practices/suggest_test_description_fix.dart`
 - Import + `fixGenerators` added to `RequireTestDescriptionConventionRule`
-- Uses AST-based matcher detection via `_MatcherCollector` (RecursiveAstVisitor)
-  instead of string-matching on `toSource()` — avoids false positives from
-  matchers appearing in string literals or comments
-- Properly escapes single vs double quotes based on original literal style
-- Supports bulk application via `CorrectionApplicability.acrossFiles`
-- Matcher-to-verb mapping: `isTrue` → accept, `isFalse` → reject,
-  `isEmpty` → return empty result, `throwsA` → throw, fallback → handle
 
-**Hardening applied:**
+**Hardening (round 1):**
 
-1. Verb inference replaced from `toSource()` substring matching to proper AST
-   walking — `_MatcherCollector` visits only `expect()` second-argument nodes,
-   ignoring matchers in string literals, comments, or other positions.
-2. Quote escaping fixed — `_buildQuotedString()` detects whether the original
-   used single or double quotes and escapes accordingly.
+1. AST-based matcher detection via `_MatcherCollector` (RecursiveAstVisitor)
+   instead of `toSource()` string matching — avoids false positives from
+   matchers appearing in string literals or comments.
+2. Quote escaping: `_buildQuotedString()` detects single vs double quotes
+   from the original literal and escapes only the relevant character.
 3. `_resolveStringLiteral()` handles `SimpleStringLiteral`,
    `StringInterpolation`, `AdjacentStrings`, and ancestor-walk fallback.
-4. Bulk-fix enabled via `CorrectionApplicability.acrossFiles` so all flagged
-   descriptions in a file (or project) can be fixed in one IDE action.
+4. Bulk-fix via `CorrectionApplicability.acrossFiles`.
+
+**Hardening (round 2):**
+
+1. Smart subject extraction: `_ExpectCollector._extractSubject()` inspects the
+   first argument of `expect()` to extract a readable subject name — static
+   calls (`SqlValidator.isReadOnlySql(...)` → `SqlValidator.isReadOnlySql`),
+   instance calls, property access (`obj.field`), and simple identifiers.
+   Subject is prefixed to the description when available.
+2. Expanded verb map: added coverage for collection matchers (`contains`,
+   `hasLength`, `everyElement`), equality matchers (`equals`, `isA`, `matches`),
+   error matchers (`throwsFormatError`, `throwsUnsupportedError`), and widget
+   test matchers (`findsOneWidget`, `findsNothing`, `findsWidgets`).
+3. Refactored `_MatcherCollector` → `_ExpectCollector` to collect both subject
+   and matcher per expect() call via `_ExpectEntry` data class.
+4. `_extractMatcherName` returns nullable `String?` instead of void-adding to
+   a list — cleaner control flow, skips unrecognized matcher forms.
 
 **Tests:** All 269 tests pass across all 6 affected drift_advisor test files.
 The saropa_lints fix file passes `dart analyze` with zero issues.
