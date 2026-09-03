@@ -1,6 +1,6 @@
 # Saropa Drift Advisor — REST API Reference
 
-**API version:** 4.2.5 (synced with `ServerConstants.packageVersion`)
+**API version:** 4.3.0 (synced with `ServerConstants.packageVersion`)
 **Base URL:** `http://localhost:{port}` (default port: **8642**)
 
 > **Finding a running server (non-UI clients):** on startup the server writes a
@@ -64,7 +64,7 @@ user's home directory:
 {
   "host": "127.0.0.1",
   "port": 8642,
-  "version": "4.2.5",
+  "version": "4.3.0",
   "schemaVersion": 1,
   "writeEnabled": false,
   "loopbackOnly": true,
@@ -209,11 +209,11 @@ endpoints an external agent uses to inspect a live database.
 ```json
 {
   "name": "Saropa Drift Advisor",
-  "version": "4.2.5",
+  "version": "4.3.0",
   "schemaVersion": 1,
   "writeEnabled": false,
   "loopbackOnly": true,
-  "docs": "https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v4.2.5/doc/API.md",
+  "docs": "https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v4.3.0/doc/API.md",
   "endpoints": [
     { "method": "GET", "path": "/api/health", "description": "Liveness probe; reports version, flags, capabilities, endpoints." },
     { "method": "POST", "path": "/api/sql", "description": "Run read-only SQL. Body {\"sql\":\"SELECT ...\"}; returns {\"rows\":[...]}." }
@@ -261,7 +261,7 @@ Health check. Always succeeds when the server is running.
 {
   "ok": true,
   "extensionConnected": false,
-  "version": "4.2.5",
+  "version": "4.3.0",
   "schemaVersion": 1,
   "writeEnabled": false,
   "compareEnabled": false,
