@@ -526,24 +526,117 @@ def _run_dart_build_steps(
             # abort
             return False
 
+    # Analysis, downgrade, outdated, docs, and dry-run all offer retry/skip/abort
+    # so a transient or externally-caused failure (e.g. saropa_lints emitting
+    # unsupported_option warnings) does not force a full pipeline restart.
     heading("Dart \u00b7 Analysis")
-    if not run_step("Dart analysis", run_analysis, results):
+    while True:
+        if run_step("Dart analysis", run_analysis, results):
+            break
+        if results and results[-1][0] == "Dart analysis":
+            results.pop()
+        choice = ask_choice(
+            "Dart analysis failed. Choose what to do next",
+            choices=("retry", "skip", "abort"),
+            default="retry",
+            eof_default="abort",
+        )
+        if choice == "retry":
+            warn("Retrying Dart analysis...")
+            continue
+        if choice == "skip":
+            warn("Continuing despite analysis failures by user choice.")
+            results.append(("Dart analysis (skipped)", True, 0.0))
+            break
+        # abort
         return False
 
     heading("Dart \u00b7 Downgrade check")
-    if not run_step("Downgrade + analyze", run_downgrade_check, results):
+    while True:
+        if run_step("Downgrade + analyze", run_downgrade_check, results):
+            break
+        if results and results[-1][0] == "Downgrade + analyze":
+            results.pop()
+        choice = ask_choice(
+            "Downgrade check failed. Choose what to do next",
+            choices=("retry", "skip", "abort"),
+            default="retry",
+            eof_default="abort",
+        )
+        if choice == "retry":
+            warn("Retrying downgrade check...")
+            continue
+        if choice == "skip":
+            warn("Continuing despite downgrade check failure by user choice.")
+            results.append(("Downgrade + analyze (skipped)", True, 0.0))
+            break
+        # abort
         return False
 
     heading("Dart \u00b7 Outdated check")
-    if not run_step("Dependencies up-to-date", run_outdated_check, results):
+    while True:
+        if run_step("Dependencies up-to-date", run_outdated_check, results):
+            break
+        if results and results[-1][0] == "Dependencies up-to-date":
+            results.pop()
+        choice = ask_choice(
+            "Outdated check failed. Choose what to do next",
+            choices=("retry", "skip", "abort"),
+            default="retry",
+            eof_default="abort",
+        )
+        if choice == "retry":
+            warn("Retrying outdated check...")
+            continue
+        if choice == "skip":
+            warn("Continuing despite outdated check failure by user choice.")
+            results.append(("Dependencies up-to-date (skipped)", True, 0.0))
+            break
+        # abort
         return False
 
     heading("Dart \u00b7 Documentation")
-    if not run_step("Dart docs", generate_docs, results):
+    while True:
+        if run_step("Dart docs", generate_docs, results):
+            break
+        if results and results[-1][0] == "Dart docs":
+            results.pop()
+        choice = ask_choice(
+            "Documentation generation failed. Choose what to do next",
+            choices=("retry", "skip", "abort"),
+            default="retry",
+            eof_default="abort",
+        )
+        if choice == "retry":
+            warn("Retrying documentation generation...")
+            continue
+        if choice == "skip":
+            warn("Continuing despite doc generation failure by user choice.")
+            results.append(("Dart docs (skipped)", True, 0.0))
+            break
+        # abort
         return False
 
     heading("Dart \u00b7 Dry Run")
-    if not run_step("Dart dry-run", pre_publish_validation, results):
+    while True:
+        if run_step("Dart dry-run", pre_publish_validation, results):
+            break
+        if results and results[-1][0] == "Dart dry-run":
+            results.pop()
+        choice = ask_choice(
+            "Dry-run validation failed. Choose what to do next",
+            choices=("retry", "skip", "abort"),
+            default="retry",
+            eof_default="abort",
+        )
+        if choice == "retry":
+            warn("Retrying dry-run validation...")
+            continue
+        if choice == "skip":
+            warn("Continuing despite dry-run failure by user choice.")
+            results.append(("Dart dry-run (skipped)", True, 0.0))
+            break
+        # abort
         return False
     return True
 

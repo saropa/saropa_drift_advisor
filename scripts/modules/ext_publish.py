@@ -219,7 +219,14 @@ def publish_openvsx(vsix_path: str) -> bool:
 
 
 def ask_publish_stores() -> str:
-    """Ask which store(s) to publish to. Returns 'vscode_only', 'openvsx_only', or 'both'."""
+    """Ask which store(s) to publish to. Returns 'vscode_only', 'openvsx_only', or 'both'.
+
+    In CI mode, defaults to 'both' without prompting.
+    """
+    from modules.display import CI_MODE
+    if CI_MODE:
+        info("CI auto-answer: publish stores → both")
+        return "both"
     print(f"\n  {C.YELLOW}Which store(s) to publish to?{C.RESET}")
     print("    1 = VS Code Marketplace only")
     print("    2 = Open VSX only (Cursor / VSCodium)")
@@ -287,6 +294,11 @@ def _publish_openvsx_step(
     """Publish to Open VSX, prompting for token if not already set."""
     pat = get_ovsx_pat()
     if not pat:
+        # In CI mode, tokens must come from env vars — skip without prompting.
+        from modules.display import CI_MODE
+        if CI_MODE:
+            info("CI mode: OVSX_PAT not set; skipping Open VSX.")
+            return
         try:
             import getpass
             info(f"Token page: {C.WHITE}https://open-vsx.org/user-settings/tokens{C.RESET}")

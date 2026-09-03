@@ -9,6 +9,22 @@ from datetime import datetime
 
 from modules.constants import C, REPO_ROOT
 
+# ── Non-Interactive (CI) Mode ────────────────────────────────
+# When True, all interactive prompts (ask_yn, ask_choice, etc.) return
+# their default value immediately and log the auto-selected answer.
+# Set by ``--ci`` in publish.py or by calling ``set_ci_mode(True)``.
+CI_MODE: bool = False
+
+
+def set_ci_mode(enabled: bool) -> None:
+    """Toggle non-interactive mode globally.
+
+    Called from publish.py when ``--ci`` is passed so every prompt helper
+    in this module (and any caller that checks ``CI_MODE``) skips stdin.
+    """
+    global CI_MODE  # noqa: PLW0603
+    CI_MODE = enabled
+
 
 # ── Display Helpers ──────────────────────────────────────────
 
@@ -177,9 +193,15 @@ class ProgressMeter:
 def ask_yn(question: str, default: bool = True) -> bool:
     """Prompt the user with a yes/no question. Returns the boolean answer.
 
+    In CI mode, returns the default without prompting and logs the choice.
     Handles EOF and Ctrl+C gracefully by returning the default.
     """
     hint = "Y/n" if default else "y/N"
+    if CI_MODE:
+        # Log the question and auto-selected answer so the run is auditable.
+        answer_label = "yes" if default else "no"
+        info(f"CI auto-answer: {question} → {answer_label}")
+        return default
     try:
         answer = input(
             f"  {C.YELLOW}{question} [{hint}]: {C.RESET}",
@@ -251,6 +273,11 @@ def ask_choice(
             label += " (default)"
         parts.append(label)
     hint = ", ".join(parts)
+
+    # In CI mode, return the eof_default (safe non-interactive choice) and log it.
+    if CI_MODE:
+        info(f"CI auto-answer: {question} → {eof_choice}")
+        return eof_choice
 
     while True:
         try:

@@ -140,6 +140,13 @@ def check_vsce_auth() -> bool:
     info("Marketplace needs a login token (PAT).")
     info(f"  Get one: {C.WHITE}https://marketplace.visualstudio.com/manage{C.RESET}")
 
+    # In CI mode, tokens must be pre-configured via env vars — no interactive
+    # prompt is possible, so fail immediately with a clear message.
+    from modules.display import CI_MODE
+    if CI_MODE:
+        fail("CI mode: vsce PAT not found. Set VSCE_PAT env var before running.")
+        return False
+
     # Prompt for the PAT ourselves (up to 3 attempts) instead of letting
     # vsce login prompt interactively — vsce re-prompts indefinitely when
     # the credential store is unavailable, which is confusing.

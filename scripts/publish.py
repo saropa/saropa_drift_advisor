@@ -14,6 +14,7 @@ Usage:
     python scripts/publish.py openvsx             # Republish existing .vsix to Open VSX
     python scripts/publish.py dart --bump minor   # Bump version before validation
     python scripts/publish.py --resume            # Retry publish from last checkpoint
+    python scripts/publish.py analyze --ci        # Non-interactive (all prompts use defaults)
 
 Exit codes match the ExitCode enum in modules/constants.py.
 """
@@ -51,8 +52,8 @@ except ImportError:
 # to the repository root and the VS Code extension sub-directory.
 from modules.constants import C, CHECKPOINT_PATH, ExitCode, REPO_ROOT, EXTENSION_DIR
 from modules.display import (
-    ask_yn, close_publish_log, dim, heading, info, open_publish_log, show_logo,
-    warn,
+    ask_yn, close_publish_log, dim, heading, info, open_publish_log,
+    set_ci_mode, show_logo, warn,
 )
 
 # Reusable cancellation message shown whenever the user aborts a publish.
@@ -135,6 +136,8 @@ def _delete_checkpoint() -> None:
 # dynamically in `parse_args()` so new flags only require a single edit here.
 _CLI_FLAGS = [
     ("--analyze-only", "Run analysis + build + package only. No publish."),
+    ("--ci", "Non-interactive mode: all prompts use defaults, implies --yes --no-logo. "
+             "Tokens (VSCE_PAT, OVSX_PAT) must be set via env vars."),
     ("--yes", "Accept version without prompting (CI mode)."),
     ("--skip-tests", "Skip test steps."),
     ("--skip-lint", "Skip saropa_lints scan step (extension pipeline)."),
@@ -233,6 +236,16 @@ def parse_args() -> argparse.Namespace:
         parser.add_argument(flag, action="store_true", help=help_text)
 
     args = parser.parse_args()
+
+    # --ci implies --yes and --no-logo, and activates the global CI_MODE
+    # flag so every interactive helper in display.py returns defaults.
+    if args.ci:
+        set_ci_mode(True)
+        args.yes = True
+        args.no_logo = True
+        # A target is mandatory in CI mode — there's no human to pick one.
+        if args.target is None and not args.resume:
+            parser.error("--ci requires an explicit target (e.g. 'dart', 'extension', 'all')")
 
     # Fall back to interactive prompt when no target was given.
     # --resume reads the target from the checkpoint file, so skip the prompt.
@@ -587,9 +600,10 @@ def main() -> int:
 
     Returns an integer exit code suitable for `sys.exit()`.
     """
-    # The --no-logo flag is checked via sys.argv *before* argparse runs so
-    # the logo can be displayed (or not) before the argument parser fires.
-    if "--no-logo" not in sys.argv:
+    # The --no-logo and --ci flags are checked via sys.argv *before* argparse
+    # runs so the logo can be suppressed before the argument parser fires.
+    # --ci implies --no-logo to keep non-interactive output clean.
+    if "--no-logo" not in sys.argv and "--ci" not in sys.argv:
         show_logo()
 
     # Open a log file that mirrors all console output for later review.
@@ -635,6 +649,13 @@ def _run_openvsx_only() -> int:
     # environment or a cached .env file.
     pat = get_ovsx_pat()
     if not pat:
+        from modules.display import CI_MODE
+        if CI_MODE:
+            # CI mode — tokens must be pre-set via env vars, no prompting.
+            from modules.display import fail
+            fail("CI mode: OVSX_PAT not set. Cannot publish to Open VSX.")
+            return ExitCode.PREREQUISITE_FAILED
+
         # No cached token — prompt the user to paste one interactively.
         try:
             import getpass
