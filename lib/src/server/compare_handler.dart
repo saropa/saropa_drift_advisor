@@ -132,10 +132,25 @@ final class CompareHandler {
           ServerConstants.attachmentDiffReport,
         );
         _ctx.setCors(res);
-        res.write(const JsonEncoder.withIndent('  ').convert(report));
+        // Route through jsonEncodeFallback: the compare report carries row
+        // values that can include a DateTime (Drift DateTimeColumn), BigInt,
+        // or other custom host type that bare jsonEncode cannot serialize,
+        // throwing AFTER headers are already committed and leaving the
+        // client with a truncated/empty 200 (bug 013).
+        res.write(
+          JsonEncoder.withIndent(
+            '  ',
+            ServerUtils.jsonEncodeFallback,
+          ).convert(report),
+        );
       } else {
         _ctx.setJsonHeaders(res);
-        res.write(const JsonEncoder.withIndent('  ').convert(report));
+        res.write(
+          JsonEncoder.withIndent(
+            '  ',
+            ServerUtils.jsonEncodeFallback,
+          ).convert(report),
+        );
       }
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);

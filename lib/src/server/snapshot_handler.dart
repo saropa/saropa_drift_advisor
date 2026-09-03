@@ -289,10 +289,25 @@ final class SnapshotHandler {
           ServerConstants.attachmentSnapshotDiff,
         );
         _ctx.setCors(res);
-        res.write(const JsonEncoder.withIndent('  ').convert(body));
+        // Route through jsonEncodeFallback: compared snapshot rows can carry
+        // a DateTime (Drift DateTimeColumn), BigInt, or other custom host
+        // type that bare jsonEncode cannot serialize, throwing AFTER headers
+        // are already committed and leaving the client with a
+        // truncated/empty 200 (bug 013).
+        res.write(
+          JsonEncoder.withIndent(
+            '  ',
+            ServerUtils.jsonEncodeFallback,
+          ).convert(body),
+        );
       } else {
         _ctx.setJsonHeaders(res);
-        res.write(const JsonEncoder.withIndent('  ').convert(body));
+        res.write(
+          JsonEncoder.withIndent(
+            '  ',
+            ServerUtils.jsonEncodeFallback,
+          ).convert(body),
+        );
       }
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);

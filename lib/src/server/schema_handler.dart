@@ -131,8 +131,11 @@ final class SchemaHandler {
     final List<Map<String, dynamic>> foreignKeys = [];
 
     for (final tableName in tableNames) {
+      // Quote the identifier (audit H2): a raw "$tableName" interpolation lets
+      // a table name containing a double quote break out of the PRAGMA string
+      // and inject SQL. quoteIdent doubles embedded quotes to neutralize that.
       final List<Map<String, dynamic>> infoRows = ServerUtils.normalizeRows(
-        await query('PRAGMA table_info("$tableName")'),
+        await query('PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})'),
       );
       final List<Map<String, dynamic>> columns = _pragmaTableInfoToColumns(
         infoRows,
@@ -144,8 +147,10 @@ final class SchemaHandler {
       });
 
       try {
+        // Quoted identifier (audit H2) — see comment above on the sibling
+        // table_info PRAGMA in this same loop.
         final dynamic rawFk = await query(
-          'PRAGMA foreign_key_list("$tableName")',
+          'PRAGMA foreign_key_list(${ServerUtils.quoteIdent(tableName)})',
         );
         final List<Map<String, dynamic>> fkRows = ServerUtils.normalizeRows(
           rawFk,
@@ -283,7 +288,17 @@ final class SchemaHandler {
       final Map<String, dynamic> data = await getDiagramData(query);
 
       _ctx.setJsonHeaders(res);
-      res.write(const JsonEncoder.withIndent('  ').convert(data));
+      // Route through jsonEncodeFallback: diagram data is built from PRAGMA
+      // rows that can carry a DateTime (Drift DateTimeColumn), BigInt, or
+      // other custom host type that bare jsonEncode cannot serialize,
+      // throwing AFTER headers are already committed and leaving the client
+      // with a truncated/empty 200 (bug 013).
+      res.write(
+        JsonEncoder.withIndent(
+          '  ',
+          ServerUtils.jsonEncodeFallback,
+        ).convert(data),
+      );
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
@@ -380,8 +395,10 @@ final class SchemaHandler {
     final tables = <Map<String, dynamic>>[];
 
     for (final tableName in tableNames) {
+      // Quoted identifier (audit H2) — prevents a table name containing a
+      // double quote from breaking out of the PRAGMA string and injecting SQL.
       final infoRows = ServerUtils.normalizeRows(
-        await query('PRAGMA table_info("$tableName")'),
+        await query('PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})'),
       );
       final columns = _pragmaTableInfoToColumns(infoRows);
 
@@ -401,11 +418,12 @@ final class SchemaHandler {
       if (cachedCount != null) {
         count = cachedCount;
       } else {
+        // Quoted identifier (audit H2) — see comment on the PRAGMA calls above.
         final countRows = ServerUtils.normalizeRows(
           await query(
             'SELECT COUNT(*) AS '
             '${ServerConstants.jsonKeyCountColumn} '
-            'FROM "$tableName"',
+            'FROM ${ServerUtils.quoteIdent(tableName)}',
           ),
         );
         count = ServerUtils.extractCountFromRows(countRows);
@@ -434,8 +452,10 @@ final class SchemaHandler {
         };
 
         try {
+          // Quoted identifier (audit H2) — see comment on the PRAGMA call
+          // above in getDiagramData.
           final dynamic rawFk = await query(
-            'PRAGMA foreign_key_list("$tableName")',
+            'PRAGMA foreign_key_list(${ServerUtils.quoteIdent(tableName)})',
           );
           final fkRows = ServerUtils.normalizeRows(rawFk);
           for (final fk in TableHandler.fkMetaMapsFromPragmaRows(fkRows)) {
@@ -521,7 +541,11 @@ final class SchemaHandler {
     final tables = await ServerUtils.getTableNames(query);
 
     for (final table in tables) {
-      final dynamic raw = await query('SELECT * FROM "$table"');
+      // Quoted identifier (audit H2) — a raw "$table" interpolation lets a
+      // table name containing a double quote break out of the SQL string.
+      final dynamic raw = await query(
+        'SELECT * FROM ${ServerUtils.quoteIdent(table)}',
+      );
       final List<Map<String, dynamic>> rows = ServerUtils.normalizeRows(raw);
 
       if (rows.isNotEmpty) {
@@ -531,7 +555,12 @@ final class SchemaHandler {
           final keys = firstRow.keys.toList();
 
           if (keys.isNotEmpty) {
-            final colList = keys.map((k) => '"$k"').join(', ');
+            // Quoted column identifiers (audit H2) — column names come from
+            // the live row keys, which can contain arbitrary characters
+            // (e.g. a double quote) if the schema itself was crafted that way.
+            final colList = keys
+                .map((k) => ServerUtils.quoteIdent(k))
+                .join(', ');
 
             for (final row in rows) {
               final values = keys
@@ -539,7 +568,7 @@ final class SchemaHandler {
                   .join(', ');
 
               buffer.writeln(
-                'INSERT INTO "$table" '
+                'INSERT INTO ${ServerUtils.quoteIdent(table)} '
                 '($colList) VALUES ($values);',
               );
             }

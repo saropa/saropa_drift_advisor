@@ -1,9 +1,11 @@
+import 'dart:math';
+
 /// In-memory session store for collaborative debug sessions.
 ///
 /// Provides create / get / annotate / extend / cleanup semantics with a
 /// configurable expiry ([sessionExpiry]) and a hard cap on stored sessions
-/// ([maxSessions]). Sessions are keyed by a base-36 timestamp ID and
-/// auto-evicted when expired or when the cap is reached.
+/// ([maxSessions]). Sessions are keyed by a base-36 timestamp plus a random
+/// suffix and auto-evicted when expired or when the cap is reached.
 final class DriftDebugSessionStore {
   /// Creates a session store with the given [sessionExpiry] duration.
   ///
@@ -56,13 +58,46 @@ final class DriftDebugSessionStore {
     });
   }
 
+  /// Number of random base-36 characters appended to the timestamp when
+  /// generating a session ID (see [_generateId]).
+  static const int _randomSuffixLength = 8;
+
+  /// Generates a collision-resistant, non-enumerable session ID.
+  ///
+  /// Bug 037: the old ID was `millisecondsSinceEpoch.toRadixString(36)`
+  /// alone — two `create()` calls landing in the same millisecond (easily
+  /// triggered by concurrent requests, or fast automated test loops)
+  /// produced identical IDs, and the second `_sessions[id] = ...` silently
+  /// overwrote the first session. The timestamp was also fully predictable,
+  /// letting a client guess/enumerate another user's session ID. Appending
+  /// a `Random.secure()` suffix fixes both: the suffix makes same-millisecond
+  /// IDs distinct with overwhelming probability, and it is cryptographically
+  /// unpredictable so an attacker can't guess a live session ID just by
+  /// knowing when it was created.
+  String _generateId() {
+    final timestamp = DateTime.now()
+        .toUtc()
+        .millisecondsSinceEpoch
+        .toRadixString(_radixBase36);
+    final random = List.generate(
+      _randomSuffixLength,
+      (_) => Random.secure().nextInt(_radixBase36).toRadixString(_radixBase36),
+    ).join();
+
+    return '$timestamp$random';
+  }
+
   /// Creates a new session with the given [state] map.
   ///
   /// Returns `{id, url, expiresAt}` on success.
   Map<String, dynamic> create(Map<String, dynamic> state) {
-    final id = DateTime.now().toUtc().millisecondsSinceEpoch.toRadixString(
-      _radixBase36,
-    );
+    // Regenerate on the (astronomically unlikely) chance the random suffix
+    // collides with an existing, still-live session ID — belt-and-braces
+    // on top of the entropy added in _generateId (bug 037).
+    var id = _generateId();
+    while (_sessions.containsKey(id)) {
+      id = _generateId();
+    }
 
     cleanExpired();
 

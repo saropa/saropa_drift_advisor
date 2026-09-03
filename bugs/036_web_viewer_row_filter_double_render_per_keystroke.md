@@ -1,6 +1,6 @@
 # BUG: `#row-filter` has both `input` and `keyup` handlers — every keystroke rebuilds the entire data grid twice, undebounced
 
-**Status: Open**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server (web viewer)
@@ -206,7 +206,27 @@ One keystroke logs `content rebuilt 1` and `content rebuilt 2`.
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+- `assets/web/app.js` (was lines 376-377, now ~394-405): deleted the `keyup` listener on
+  `#row-filter` entirely. `input` already covers typing, paste, cut, drag-drop and IME
+  composition commits, so `keyup` contributed only a duplicate `renderTableView` call per
+  keystroke plus spurious rebuilds on non-value keys (Shift, arrows, Ctrl).
+- Added a 150ms debounce around the surviving `input` handler (module-scoped
+  `rowFilterTimer` + `clearTimeout`/`setTimeout`), so a fast typist settles to one grid
+  rebuild per pause in typing rather than one per character. `table-view.ts` had no
+  existing debounce utility to reuse (grepped `debounce|setTimeout`; the only hit was an
+  unrelated toast auto-hide timer at `table-view.ts:123`), so the debounce was added
+  inline in `app.js` next to the listener it protects, matching the fix sketch.
+- Added a comment above the handler explaining why `keyup` was removed and why the
+  debounce was added, per the project's "comments are load-bearing" rule.
+- Rebuilt `assets/web/bundle.js` via `npm run build` (esbuild + sass); verified
+  `rowFilterTimer` appears in the built bundle.
+- Regenerated `scripts/web_build_manifest.json` via
+  `python scripts/check_web_build_freshness.py --update`.
+- Not done: the regression test suggested in the Fix Sketch (asserting a single listener
+  and coalesced renders under rapid `input` events) was not added — no web-viewer test
+  gate currently runs it (see `bugs/016_infra_web_typecheck_and_tests_never_gated.md`).
+  The deeper full-subtree-rebuild cost remains tracked separately in
+  `bugs/073_proposal_ux_data_grid_virtualization_and_render_cost.md`.
 
 ---
 

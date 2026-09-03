@@ -368,7 +368,9 @@ final class Router {
       return true;
     }
 
-    // GET /assets/web/style.css and /assets/web/app.js — local web UI assets.
+    // GET /assets/web/style.css and /assets/web/bundle.js — local web UI assets.
+    // (bundle.js is the esbuild output served here; app.js is only the
+    // pre-bundle source input and is never itself a served route.)
     // These are served from the package to avoid hard dependency on CDN MIME
     // handling (and to support offline/local development).
     if (request.method == ServerConstants.methodGet &&

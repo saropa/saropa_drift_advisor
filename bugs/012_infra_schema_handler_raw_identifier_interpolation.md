@@ -1,6 +1,6 @@
 # BUG: `schema_handler.dart` interpolates table/column identifiers raw into SQL, bypassing `ServerUtils.quoteIdent`
 
-**Status: Open**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server
@@ -167,7 +167,24 @@ invisible.
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+Replaced all eight raw `"$tableName"` / `"$table"` / `"$k"` interpolation sites in
+`lib/src/server/schema_handler.dart` with `ServerUtils.quoteIdent(...)`, each with a comment citing
+audit item H2:
+
+1. `getDiagramData` — `PRAGMA table_info(...)` (was line 135)
+2. `getDiagramData` — `PRAGMA foreign_key_list(...)` (was line 148)
+3. `getSchemaMetadataList` — `PRAGMA table_info(...)` (was line 384)
+4. `getSchemaMetadataList` — `SELECT COUNT(*) ... FROM ...` (was line 408)
+5. `getSchemaMetadataList` — `PRAGMA foreign_key_list(...)` (was line 438)
+6. `getFullDumpSql` — `SELECT * FROM ...` (was line 524)
+7. `getFullDumpSql` — column list (`keys.map((k) => quoteIdent(k))`) (was line 534)
+8. `getFullDumpSql` — `INSERT INTO ...` (was line 542)
+
+Confirmed no `"$tableName"` / `"$table"` / `"$k"` raw interpolations remain in the file (grep clean).
+
+Fix sketch items 2-4 (per-table try/catch isolation in the metadata/diagram loops, a mechanical
+lint-style grep guard, and a `say"hi` regression test) were **not** done — out of scope for this
+fix, which was limited to the eight identifier-quoting sites. Left open as follow-up if wanted.
 
 ---
 

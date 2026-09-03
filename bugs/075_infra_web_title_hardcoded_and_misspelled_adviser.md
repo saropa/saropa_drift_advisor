@@ -1,6 +1,6 @@
 # BUG: Browser tab title is hardcoded "Saropa Drift Adviser" — misspelled and bypassing `ServerConstants.appDisplayName`
 
-**Status: Open**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server (web viewer shell)
@@ -192,7 +192,11 @@ The `<title>` was written as a literal before `ServerConstants.appDisplayName` e
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+`lib/src/server/html_content.dart:136` — replaced the hardcoded literal
+`<title>Saropa Drift Adviser</title>` with `<title>${ServerConstants.appDisplayName}</title>`,
+matching the masthead and loading-overlay usage a few lines below. Added a
+comment above the `<title>` tag explaining why the constant is used (to stay
+in sync with the centralised display name, per bug 075's root cause).
 
 ---
 

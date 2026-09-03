@@ -1,6 +1,6 @@
 # BUG: Shared-session IDs are a base-36 millisecond timestamp — predictable, enumerable, and collision-prone
 
-**Status: Open**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server

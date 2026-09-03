@@ -1,6 +1,6 @@
 # BUG: Five row-bearing endpoints encode JSON without `jsonEncodeFallback`, reproducing the "empty 200, no rows, no error" body
 
-**Status: Open**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server
@@ -206,7 +206,29 @@ endpoints that share the hazard. Nothing prevents a handler from calling `jsonEn
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+Added `toEncodable: ServerUtils.jsonEncodeFallback` (as the second positional argument —
+`JsonEncoder.withIndent` takes `toEncodable` positionally, not as a named parameter) to all five
+identified `JsonEncoder.withIndent('  ').convert(...)` call sites, matching the fallback already used
+by `ServerContext.writeJsonResponse`. `const` was dropped from each constructor call since a non-null
+`toEncodable` closure makes the constructor non-const.
+
+- `lib/src/server/table_handler.dart:199` (`sendTableData`, GET `/api/table/<name>`)
+- `lib/src/server/schema_handler.dart:286` (`sendSchemaDiagram`, GET `/api/schema/diagram` — the bug
+  doc's "GET /api/schema/metadata" label was a naming slip; this is the diagram endpoint, the only
+  `JsonEncoder.withIndent` site in that file)
+- `lib/src/server/snapshot_handler.dart:283` and `:286` (both branches of the snapshot-compare
+  response, download and inline)
+- `lib/src/server/compare_handler.dart:135` and `:138` (both branches of the DB-compare report
+  response, download and inline)
+
+All four files already imported `server_utils.dart`, so no import changes were needed. Left the
+broader recommendations from the fix sketch (converting these sites to `writeJsonResponse` outright,
+dropping pretty-printing for API responses, adding a grep-based regression test) out of scope — this
+change addresses only the crash, not the secondary pretty-print performance note or the "make it
+mechanical" test.
+
+Not run: `dart analyze` / `dart test` (per task instructions — analyzer/build runs excluded from this
+fix).
 
 ---
 

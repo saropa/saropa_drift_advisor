@@ -34269,14 +34269,15 @@ ${JSON.stringify(results, void 0, 2)}`);
       }
     }
   });
+  var rowFilterTimer = null;
   document.getElementById("row-filter").addEventListener("input", function() {
-    if (currentTableName && currentTableJson) {
-      renderTableView(currentTableName, currentTableJson);
-      saveTableState(currentTableName);
-    }
-  });
-  document.getElementById("row-filter").addEventListener("keyup", function() {
-    if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson);
+    clearTimeout(rowFilterTimer);
+    rowFilterTimer = setTimeout(function() {
+      if (currentTableName && currentTableJson) {
+        renderTableView(currentTableName, currentTableJson);
+        saveTableState(currentTableName);
+      }
+    }, 150);
   });
   var rowDisplayAll = document.getElementById("row-display-all");
   var rowDisplayMatching = document.getElementById("row-display-matching");

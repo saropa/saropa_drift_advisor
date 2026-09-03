@@ -1,6 +1,6 @@
 # BUG: `extension/package.json` declares `driftViewer.logVerbosity` twice; every gate silently drops the duplicate
 
-**Status: Open**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Extension
@@ -224,7 +224,28 @@ JSON has no duplicate-key error in any parser used by this project's toolchain, 
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+The duplicate was already removed as an incidental side effect of an unrelated
+change, before this fix pass began. Commit `2df5ac70` ("fix(080-084): web viewer
+bug batch — pagination, icon font, mono token, nav guard, nested controls"), which
+touched the diagnostics settings block for other reasons, deleted the second
+`driftViewer.logVerbosity` block (previously at line 1770, in the diagnostics
+group) along with its trailing comma. Only the original declaration at line 1446
+(in the logging/connection settings group) remains:
+
+```bash
+grep -n '"driftViewer\.logVerbosity"' extension/package.json
+# 1446:        "driftViewer.logVerbosity": {
+```
+
+Verified on 2026-09-03: `grep -c '"driftViewer.logVerbosity"'` returns 1, and the
+file is valid JSON (`extension/package.json` is 1920 lines; line 1770 now falls in
+the middle of `driftViewer.diagnostics.disabledRules`, unrelated to logVerbosity).
+
+No further edit to `extension/package.json` was needed for this bug. The
+duplicate-key guard proposed in "Fix Sketch" step 2/3 (an `object_pairs_hook` in
+`scripts/modules/ext_build.py` to reject duplicate manifest/NLS keys going
+forward) was NOT implemented — it remains open follow-up work if the project
+wants a permanent gate against this class of paste-duplicate.
 
 ---
 

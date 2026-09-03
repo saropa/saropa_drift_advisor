@@ -1,6 +1,6 @@
 {
   "artifacts": {
-    "assets/web/bundle.js": "c53a6cfe6c36a4d7e602460018930f35912ae9168e5eec2b1afa740f6c98a0c2",
+    "assets/web/bundle.js": "b469e3485bff853d55d57159f8bfa63693d99b0f9b989ac4edcd9124a385e11e",
     "assets/web/style.css": "fb5dc535240fe11dba810cace208e6cde2a9f133eb306b02af07b75e80bb8e5d"
   },
   "buildInputs": {
@@ -38,7 +38,7 @@
     "assets/web/_toolbar.scss": "063b9bf71e714c2a2d2a0de0c087b7af0ab827a184ea1f640ebc9f3addb07c11",
     "assets/web/_views-screen.scss": "92a4a34869ae9c7a65ea5b230ed54f1786a591b063fb9e458f5121bbc4aaf1e3",
     "assets/web/analysis.ts": "53b90561f4d2577dc87a894939f02ae1403e518cee9d64b2839f16d8a63c35e5",
-    "assets/web/app.js": "d3d8a56bab0f541beb281eaa22ba31c1d38289d4bd394c9bcccfcc3250c321a4",
+    "assets/web/app.js": "142a69bc4ba97177c4fbd96345536356a9c5d5eaa2ac8e0fee1c156a900422d0",
     "assets/web/cell-edit.ts": "382f4489e55c7e6a7fe8af17798cd3fedb061b706138aec12a867a7ce5549b3f",
     "assets/web/charts.ts": "36d2629cd2963817c146e218291c1a5b0ca132ea8d89877dc7904943e5239025",
     "assets/web/connection.ts": "92fc556703902f1d64fe0a8b33fc54148416ac8e68e4c74305c0a88a20bb6b6f",

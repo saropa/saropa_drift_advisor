@@ -1,6 +1,6 @@
 # BUG: README documents a `/assets/web/app.js` route that does not exist, and four version markers are ~28 releases stale
 
-**Status: Open**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server / Documentation
@@ -227,7 +227,15 @@ The first lists documentation claiming `app.js`; the second shows the constant r
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+- `README.md:237` — `/assets/web/app.js` → `/assets/web/bundle.js` in the "Web UI assets" bullet.
+- `README.md:369` — `assets/web/app.js` → `assets/web/bundle.js` in the "Assets" bullet under app-size impact.
+- `README.md:105` — version banner `2.10.0` → `4.2.5`.
+- `README.md:352` — install snippet `saropa_drift_advisor: ^2.9.0` → `^4.2.5`.
+- `README.md:515` — typecheck description rewritten to name `tsconfig.web.json`'s actual scope (`assets/web/index.js`, `assets/web/app.js`, and all `assets/web/**/*.ts`) instead of `app.js` alone.
+- `README.md:533` — `git tag v2.x.x` / `git push origin v2.x.x` → `v4.x.x` (both occurrences).
+- `lib/src/server/router.dart:371` (previously reported as line 346; line numbers shifted) — stale comment `GET /assets/web/style.css and /assets/web/app.js` corrected to `bundle.js`, with an added note clarifying `app.js` is only the pre-bundle source input and is never itself served.
+
+Note: `scripts/modules/target_config.py` `sync_readme_version()` (Fix Sketch item 4) was not added — out of scope for this pass, which was a text-only correction. A follow-up bug/task should be filed if automated README version-sync is wanted.
 
 ---
 

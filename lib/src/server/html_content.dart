@@ -133,7 +133,10 @@ abstract final class HtmlContent {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Saropa Drift Adviser</title>
+  <!-- Sourced from ServerConstants.appDisplayName (not a literal): a hand-typed
+       title here previously drifted to the misspelling "Adviser" while the
+       masthead below it (already using the constant) read "Advisor" — bug 075. -->
+  <title>${ServerConstants.appDisplayName}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;700&display=swap">

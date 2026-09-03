@@ -391,8 +391,19 @@
       }
     });
 
-    document.getElementById('row-filter').addEventListener('input', function() { if (S.currentTableName && S.currentTableJson) { renderTableView(S.currentTableName, S.currentTableJson); saveTableState(S.currentTableName); } });
-    document.getElementById('row-filter').addEventListener('keyup', function() { if (S.currentTableName && S.currentTableJson) renderTableView(S.currentTableName, S.currentTableJson); });
+    // Bug 036: a redundant `keyup` listener used to sit alongside this one, doubling every
+    // renderTableView() call (full grid rebuild via content.innerHTML) on each keystroke, and
+    // firing extra no-op rebuilds for keys that produce no value change (Shift, arrows, Ctrl).
+    // `input` alone is correct here — it fires for typing, paste, cut, drag-drop and IME commits —
+    // so `keyup` was deleted rather than kept as a second trigger. The render is also debounced
+    // (150ms) so a fast typist settles to one rebuild per pause instead of one per character.
+    var rowFilterTimer = null;
+    document.getElementById('row-filter').addEventListener('input', function() {
+      clearTimeout(rowFilterTimer);
+      rowFilterTimer = setTimeout(function() {
+        if (S.currentTableName && S.currentTableJson) { renderTableView(S.currentTableName, S.currentTableJson); saveTableState(S.currentTableName); }
+      }, 150);
+    });
     var rowDisplayAll = document.getElementById('row-display-all');
     var rowDisplayMatching = document.getElementById('row-display-matching');
     if (rowDisplayAll) rowDisplayAll.addEventListener('click', function() {

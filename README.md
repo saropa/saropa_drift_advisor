@@ -102,7 +102,7 @@
 - [Development](#development)
 - [Publishing](#publishing)
 
-> **README ↔ changelog:** This file was last revised to match **[CHANGELOG.md](CHANGELOG.md) version 2.10.0**. For the full version history and older releases, see the changelog and [CHANGELOG_ARCHIVE.md](CHANGELOG_ARCHIVE.md).
+> **README ↔ changelog:** This file was last revised to match **[CHANGELOG.md](CHANGELOG.md) version 4.2.5**. For the full version history and older releases, see the changelog and [CHANGELOG_ARCHIVE.md](CHANGELOG_ARCHIVE.md).
 
 ---
 
@@ -234,7 +234,7 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 - **Session duration** — optional `sessionDuration` (e.g. 1 hour) for shared session URLs
 - **Rate limiting** — optional `maxRequestsPerSecond`; 429 with `Retry-After` when exceeded; long-poll and health endpoints exempt
 - **Health** — `GET /api/health` → `{"ok": true, "version": "…", …}`; extension port discovery requires **`ok`** and a non-empty **`version`**
-- **Web UI assets** — CSS and JS are inlined directly into the HTML response when the package root is resolved on disk (zero extra requests, works offline). When local files are unavailable (e.g. Flutter on Android/iOS emulators), the HTML references version-pinned jsDelivr CDN URLs directly. The `/assets/web/style.css` and `/assets/web/app.js` routes remain available for backward-compatible direct access (e.g. VS Code extension)
+- **Web UI assets** — CSS and JS are inlined directly into the HTML response when the package root is resolved on disk (zero extra requests, works offline). When local files are unavailable (e.g. Flutter on Android/iOS emulators), the HTML references version-pinned jsDelivr CDN URLs directly. The `/assets/web/style.css` and `/assets/web/bundle.js` routes remain available for backward-compatible direct access (e.g. VS Code extension)
 - **Browser table tabs** — Opening a table in the debug web viewer shows a **Table definition** block (column names, SQLite types, PK / NOT NULL) above the query builder and data grid
 
 #### API Reference
@@ -349,7 +349,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 ```yaml
 # pubspec.yaml
 dependencies:
-  saropa_drift_advisor: ^2.9.0 # use the latest compatible release from pub.dev
+  saropa_drift_advisor: ^4.2.5 # use the latest compatible release from pub.dev
 ```
 
 **Path dependency (local or monorepo):**
@@ -366,7 +366,7 @@ Run `flutter pub get` or `dart pub get`.
 
 - **Runtime dependencies:** None. The package has zero third-party dependencies; optional Bearer auth uses in-memory token comparison; Basic auth uses `dart:convert` only.
 - **Your app’s binary:** Only the code that is actually used is included (tree-shaking). The package’s `lib/` is ~32 Dart files (~245 KB source); the compiled footprint is the server and handlers you use. CSS and JS are read from disk and inlined into the HTML response at runtime — they are not compiled into the binary as Dart string constants.
-- **Assets:** The published package includes `assets/web/style.css` and `assets/web/app.js`. When the debug server resolves the package root on disk, these are inlined directly into the HTML response (works offline, no extra requests). When local files are unavailable, the HTML references version-pinned jsDelivr CDN URLs.
+- **Assets:** The published package includes `assets/web/style.css` and `assets/web/bundle.js`. When the debug server resolves the package root on disk, these are inlined directly into the HTML response (works offline, no extra requests). When local files are unavailable, the HTML references version-pinned jsDelivr CDN URLs.
 
 To measure the exact delta for your app, build with and without the package and compare sizes (e.g. `flutter build apk --analyze-size` and inspect the size report, or compare total APK/IPA size).
 
@@ -516,7 +516,7 @@ With token auth, open `https://your-tunnel.example/?token=your-secret-token`; th
 
 From repo root:
 
-- **Web viewer type-check:** `npm run typecheck:web` — runs TypeScript over `assets/web/app.js` (with `allowJs`/`checkJs`) so the viewer is type-checked without a separate build. Add JSDoc or migrate to `.ts` over time for stricter typing.
+- **Web viewer type-check:** `npm run typecheck:web` — runs TypeScript per `tsconfig.web.json`, covering `assets/web/index.js`, `assets/web/app.js` (with `allowJs`/`checkJs`) and all `assets/web/**/*.ts` sources, so the whole viewer is type-checked without a separate build.
 - **Web viewer styles (SCSS):** Source is `assets/web/style.scss`; compile to `style.css` with `npm run build:style`. Use `npm run build:style:watch` to recompile on save. **Edit only the `.scss`**; the committed `style.css` must match the build (CI and `scripts/publish.py` enforce this). Run `npm run build:style` before committing after any style change.
 - **Extension:** `npm run compile:extension`, `npm run lint:extension`, `npm run test:extension` (run from root; they `cd` into `extension/`).
 
@@ -534,6 +534,6 @@ The Dart pipeline runs pub.dev score checks (downgrade + analyze, dependency up-
 
 - **Stale override check:** `python scripts/check_stale_overrides.py [--pubspec PATH] [--flutter]` — classifies `dependency_overrides` as required vs safe-to-remove by running a version solve with each override removed.
 
-**Manual:** Bump version in `pubspec.yaml`, then `git tag v2.x.x` and `git push origin v2.x.x`. GitHub Actions publishes to pub.dev.
+**Manual:** Bump version in `pubspec.yaml`, then `git tag v4.x.x` and `git push origin v4.x.x`. GitHub Actions publishes to pub.dev.
 
 - [Package on pub.dev](https://pub.dev/packages/saropa_drift_advisor)

@@ -196,7 +196,16 @@ final class TableHandler {
     );
     final List<Map<String, dynamic>> data = ServerUtils.normalizeRows(raw);
     _ctx.setJsonHeaders(res);
-    res.write(const JsonEncoder.withIndent('  ').convert(data));
+    // Route through jsonEncodeFallback: raw row data can carry a DateTime
+    // (Drift DateTimeColumn), BigInt, or other custom host type that bare
+    // jsonEncode cannot serialize, throwing AFTER headers are already
+    // committed and leaving the client with a truncated/empty 200 (bug 013).
+    res.write(
+      JsonEncoder.withIndent(
+        '  ',
+        ServerUtils.jsonEncodeFallback,
+      ).convert(data),
+    );
     await res.close();
   }
 }
