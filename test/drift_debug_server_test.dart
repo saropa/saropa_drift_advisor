@@ -1229,7 +1229,13 @@ void main() {
 
         final client = HttpClient();
         try {
+          // Content-Type is mandatory since e0e1028b (bug 003): POST
+          // endpoints reject anything but application/json with 415 to block
+          // CORS-safelisted cross-origin form submissions that would
+          // otherwise bypass preflight. This test predates that change and
+          // was silently failing with 415 instead of 200.
           final postReq = await client.post('localhost', p, '/api/snapshot');
+          postReq.headers.contentType = ContentType.json;
           final postResp = await postReq.close();
           expect(postResp.statusCode, HttpStatus.ok);
           final postBody = await postResp.transform(utf8.decoder).join();
@@ -1264,7 +1270,12 @@ void main() {
 
         final client = HttpClient();
         try {
-          await (await client.post('localhost', p, '/api/snapshot')).close();
+          // Same 415 guard as the test above — without the JSON content type
+          // this POST is rejected, no snapshot is stored, and the compare
+          // below then fails with 400 ("no snapshot") rather than 200.
+          final seedReq = await client.post('localhost', p, '/api/snapshot');
+          seedReq.headers.contentType = ContentType.json;
+          await (await seedReq.close()).drain<void>();
           final req = await client.get('localhost', p, '/api/snapshot/compare');
           final resp = await req.close();
           expect(resp.statusCode, HttpStatus.ok);

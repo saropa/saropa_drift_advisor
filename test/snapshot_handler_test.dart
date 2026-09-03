@@ -83,8 +83,24 @@ void main() {
               {'c': itemRows.length},
             ];
           }
-          // SELECT * FROM items.
-          if (sql.contains('SELECT * FROM')) {
+          // Full-table row capture for 'items'.
+          //
+          // This stub used to match the literal `SELECT * FROM`, which went
+          // stale in e0e1028b: snapshot/compare capture now goes through
+          // BlobSafeSelect.buildQuery, which emits an explicit column
+          // projection with a row cap —
+          // `SELECT "id", "title" FROM "items" LIMIT <n>` — and contains no
+          // `SELECT * FROM` substring. The old check therefore fell through
+          // to the empty catch-all below, so every snapshot read back zero
+          // rows and four tests asserted counts against an empty capture.
+          // Match on the FROM target instead of the projection so the stub
+          // stays correct whichever projection the capture path builds
+          // (`*` fallback or BLOB-safe column list). UNION is excluded so the
+          // change-detection signature query still falls through to its own
+          // branch below rather than being answered with row data.
+          if (sql.startsWith('SELECT') &&
+              sql.contains('FROM "items"') &&
+              !sql.contains('UNION')) {
             return itemRows;
           }
           // UNION ALL signature (for change detection) — matches
