@@ -51,6 +51,13 @@ the `require_test_description_convention` rule:
 4. `_extractMatcherName` returns nullable `String?` instead of void-adding to
    a list — cleaner control flow, skips unrecognized matcher forms.
 
+**Hardening (round 3):**
+
+1. Fixed typos in widget matcher keys: `findsonewidge` → `findsonewidget`,
+   `findsatleastne` → `findsatleastonewidget`. Added `findsnwidgets`.
+2. Added `expectLater` and `expectAsync` support — `_ExpectCollector` now
+   recognizes all three expect-family functions via `_expectNames` set.
+
 **Tests:** All 269 tests pass across all 6 affected drift_advisor test files.
 The saropa_lints fix file passes `dart analyze` with zero issues.
 
