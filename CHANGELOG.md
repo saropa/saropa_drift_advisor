@@ -49,12 +49,15 @@ browse source on
 
 -->
 
+---
+
 ## [4.3.0]
 
 The `ignore` directive for n-plus-one warnings now works even when the diagnostic points at the caller, not the table file. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.3.0/CHANGELOG.md)
 
 ### Changed
 
+- **Minimum VS Code version raised to 1.134 (August 2026).** Users on older VS Code versions will need to update.
 - **Consolidated docs into a single `doc/` folder.** Moved `DESIGN_LANGUAGE.md`, `IDE_ONLY_CAPABILITIES.md`, and `LAUNCH_TEST.md` from `plans/guides/` into `doc/`. Merged `LOG_CAPTURE_FILE_CONTRACT.md` into `EXTENSION_API.md` as a "File-based access" section.
 - **All `doc/*.md` files now listed in the README Documentation table.** Added `EXTENSION_API.md`, `DESIGN_LANGUAGE.md`, `IDE_ONLY_CAPABILITIES.md`, and `LAUNCH_TEST.md`. A parity check script (`scripts/check_doc_readme_parity.py`) catches future drift.
 
@@ -129,6 +132,8 @@ The `ignore` directive for n-plus-one warnings now works even when the diagnosti
 - **Archived 7 fixed bugs.** Moved closed bug files (012, 013, 036, 037, 063, 075, 076) from `bugs/` to `plans/history/2026.09/20260903/` per the project archival convention. Repointed cross-references in bugs 065 and 073.
 
 - **Dangling bug-reference gate.** New `scripts/check_bug_ref_dangling.py` scans staged files for `bugs/<file>.md` paths where the target no longer exists in `bugs/` — catches stale references left behind after archiving. Wired into pre-commit as Gate 8. Files inside `plans/history/` are excluded (historical context, not live references).
+
+- **Publish pipeline: retry/skip/abort on Dart analysis, downgrade, outdated, docs, and dry-run steps.** These five steps previously hard-aborted the entire pipeline on failure. They now offer the same retry/skip/abort prompt the test and lint steps already have, so a transient or externally-caused failure (e.g. upstream plugin emitting unsupported-option warnings) no longer forces a full pipeline restart.
 
 </details>
 

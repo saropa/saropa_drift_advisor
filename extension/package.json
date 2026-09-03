@@ -14,7 +14,7 @@
     "url": "https://github.com/saropa/saropa_drift_advisor/issues"
   },
   "engines": {
-    "vscode": "^1.115.0"
+    "vscode": "^1.134.0"
   },
   "categories": [
     "Debuggers",
