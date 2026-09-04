@@ -51,7 +51,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.3.1]
+
+Fixed a crash where large projects could make the extension run out of memory and get killed by VS Code. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.3.1/CHANGELOG.md)
 
 ### Fixed
 

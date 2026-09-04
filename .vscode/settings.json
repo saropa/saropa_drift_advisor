@@ -31,7 +31,10 @@
     // watcher so opening the project doesn't crawl/index it. Only the build/
     // output is excluded, not example/ source, so example edits still reload.
     "files.watcherExclude": {
-        "**/example/build/**": true
+        "**/build/**": true,
+        "**/example/build/**": true,
+        "**/.dart_tool/**": true,
+        "**/.claude/worktrees/**": true
     },
     "saropaLogCapture.integrations.adapters": [
         "packages",
@@ -43,5 +46,28 @@
         "crashlytics",
         "testResults"
     ],
-    "saropaLints.tier": "professional"
+    "saropaLints.tier": "professional",
+    "search.exclude": {
+        "**/build/**": true,
+        "**/example/build/**": true,
+        "**/.dart_tool/**": true,
+        "**/*.g.dart": true,
+        "**/*.freezed.dart": true
+    },
+    "dart.analysisExcludedFolders": [
+        "bugs",
+        "docs",
+        "plans",
+        "reports",
+        "scripts"
+    ],
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+        "*.dart": "${capture}.g.dart, ${capture}.freezed.dart",
+        "pubspec.yaml": "pubspec.lock, .metadata, .flutter-plugins, .flutter-plugins-dependencies"
+    },
+    "files.readonlyInclude": {
+        "**/*.g.dart": true,
+        "**/*.freezed.dart": true
+    }
 }
