@@ -12,10 +12,11 @@ import { annotateSession, openSession, shareSession } from '../session/session-c
 export function registerExportCommands(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
+  bulkState: vscode.Memento,
 ): void {
-  // History store for size analytics snapshots
+  // History store for size analytics snapshots — disk-backed to avoid OOM (bug 086).
   const sizeHistoryStore = new AnalysisHistoryStore<ISizeAnalytics>(
-    context.workspaceState,
+    bulkState,
     'driftViewer.analysisHistory.sizeAnalytics',
   );
 

@@ -15,18 +15,21 @@ export function registerHealthCommands(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
   healthStatusBar?: HealthStatusBar,
+  bulkState?: vscode.Memento,
 ): void {
-  // Create history stores backed by workspace state
+  // Analysis history stores carry up to 50 snapshots each — use disk-backed
+  // memento when available to avoid renderer OOM (bug 086).
+  const state = bulkState ?? context.workspaceState;
   const indexHistoryStore = new AnalysisHistoryStore<IndexSuggestion[]>(
-    context.workspaceState,
+    state,
     'driftViewer.analysisHistory.indexSuggestions',
   );
   const anomalyHistoryStore = new AnalysisHistoryStore<Anomaly[]>(
-    context.workspaceState,
+    state,
     'driftViewer.analysisHistory.anomalies',
   );
   const healthHistoryStore = new AnalysisHistoryStore<IHealthScore>(
-    context.workspaceState,
+    state,
     'driftViewer.analysisHistory.healthScore',
   );
 

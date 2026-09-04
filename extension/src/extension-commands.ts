@@ -41,6 +41,8 @@ export interface CommandRegistrationDeps
   /** Present when the intelligence activation phase succeeded. */
   schemaIntelligence?: SchemaIntelligence;
   queryIntelligence?: QueryIntelligence;
+  /** Disk-backed memento for heavy stores (bug 086 OOM fix). */
+  bulkState: vscode.Memento;
 }
 
 /**

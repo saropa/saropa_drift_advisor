@@ -17,8 +17,11 @@ import { snapshotToBranchTables } from './snapshot-to-branch';
 export function registerBranchCommands(
   context: vscode.ExtensionContext,
   client: DriftApiClient,
+  bulkState: vscode.Memento,
 ): void {
-  const manager = new BranchManager(client, context.workspaceState);
+  // BranchManager stores full row snapshots (easily 1–4 MB); use disk-backed
+  // memento instead of workspaceState to avoid renderer OOM (bug 086).
+  const manager = new BranchManager(client, bulkState);
   context.subscriptions.push({ dispose: () => manager.dispose() });
 
   context.subscriptions.push(

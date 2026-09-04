@@ -41,6 +41,7 @@ import type { DriftAdvisorApi } from './log-capture-api';
 import { createDriftAdvisorApi } from './log-capture-api';
 import { ts, runPhase } from './extension-phase-utils';
 import { setupFinalPhases } from './extension-activation-final';
+import { createBulkState } from './storage/bulk-state-factory';
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -138,11 +139,18 @@ function _activateInner(
   ));
 
   // -----------------------------------------------------------------------
+  // Bulk state: disk-backed memento for heavy stores (branches, schema
+  // snapshots, analysis history). Migrates existing workspaceState keys
+  // to storageUri on first run to free the renderer heap (bug 086).
+  // -----------------------------------------------------------------------
+  const bulkState = createBulkState(context, channel);
+
+  // -----------------------------------------------------------------------
   // Phase 3: Schema cache + cached client.
   // Commands need cachedClient, so we bail if this fails.
   // -----------------------------------------------------------------------
   const cacheResult = track(runPhase('schema-cache', channel, () => {
-    const schemaCache = new SchemaCache(client, context.workspaceState, {
+    const schemaCache = new SchemaCache(client, bulkState, {
       ttlMs: cfg.get<number>('schemaCache.ttlMs', 30_000) ?? 30_000,
       persistKey: cfg.get<string>('schemaCache.persistKey', 'driftViewer.lastKnownSchema') || undefined,
       log: channel,
@@ -222,7 +230,7 @@ function _activateInner(
 
   // Schema tracker depends on watcher; independent of diagnostics.
   const schemaTracker = runPhase('schema-tracker', channel, () => {
-    const tracker = new SchemaTracker(cachedClient, context.workspaceState, watcher);
+    const tracker = new SchemaTracker(cachedClient, bulkState, watcher);
     context.subscriptions.push(tracker);
     return tracker;
   });
@@ -275,6 +283,7 @@ function _activateInner(
     loadOnConnect,
     getLightweight,
     intel: intel ?? undefined,
+    bulkState,
   }, track);
 
   // -----------------------------------------------------------------------

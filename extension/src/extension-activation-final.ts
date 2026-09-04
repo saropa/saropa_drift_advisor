@@ -49,6 +49,8 @@ export interface FinalPhaseDeps {
   getLightweight: () => boolean;
   /** Intelligence engines when the intelligence activation phase succeeded. */
   intel?: { schemaIntel: SchemaIntelligence; queryIntel: QueryIntelligence };
+  /** Disk-backed memento for heavy stores (bug 086 OOM fix). */
+  bulkState: vscode.Memento;
 }
 
 /**
@@ -147,13 +149,14 @@ export function setupFinalPhases(
         serverManager: d.serverManager,
         discoveryEnabled: d.discoveryEnabled,
         watcher: d.watcher,
-        schemaTracker: d.schemaTracker ?? new SchemaTracker(d.cachedClient, d.context.workspaceState, d.watcher),
+        schemaTracker: d.schemaTracker ?? new SchemaTracker(d.cachedClient, d.bulkState, d.watcher),
         updateStatusBar: statusBars?.refreshStatusBar ?? (() => {}),
         connectionChannel: d.channel,
         healthStatusBar: statusBars?.healthStatusBar ?? new HealthStatusBar(),
         refreshDriftConnectionUi: () => connectionUiRefresh.fn?.(),
         schemaIntelligence: d.intel?.schemaIntel,
         queryIntelligence: d.intel?.queryIntel,
+        bulkState: d.bulkState,
       });
     } else if (d.providers) {
       d.channel.appendLine(`[${ts()}] Registering commands without editing (editing phase failed).`);

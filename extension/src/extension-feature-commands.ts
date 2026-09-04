@@ -80,6 +80,7 @@ export function registerFeatureModules(
     schemaTracker,
     healthStatusBar,
     filterStore,
+    bulkState,
   } = deps;
 
   // Feature command modules — each is isolated so one failing module does not
@@ -113,7 +114,7 @@ export function registerFeatureModules(
         }),
     ],
     ['snapshot', () => registerSnapshotCommands(context, client, snapshotStore)],
-    ['branching', () => registerBranchCommands(context, client)],
+    ['branching', () => registerBranchCommands(context, client, bulkState)],
     ['schemaDiff', () => registerSchemaDiffCommands(context, client)],
     [
       'editing',
@@ -127,7 +128,7 @@ export function registerFeatureModules(
           snapshotStore,
         ),
     ],
-    ['export', () => registerExportCommands(context, client)],
+    ['export', () => registerExportCommands(context, client, bulkState)],
     ['snippet', () => registerSnippetCommands(context, client)],
     ['dataBreakpoint', () => registerDataBreakpointCommands(context, client, dbpProvider)],
     ['migrationGen', () => registerMigrationGenCommands(context, client)],
@@ -139,7 +140,7 @@ export function registerFeatureModules(
     ['constraintWizard', () => registerConstraintWizardCommands(context, client)],
     ['impact', () => registerImpactCommands(context, client)],
     ['isarGen', () => registerIsarGenCommands(context)],
-    ['health', () => registerHealthCommands(context, client, healthStatusBar)],
+    ['health', () => registerHealthCommands(context, client, healthStatusBar, bulkState)],
     ['queryCost', () => registerQueryCostCommands(context, client)],
     [
       'queryBuilder',

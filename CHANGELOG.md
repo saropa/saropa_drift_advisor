@@ -51,6 +51,20 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Large workspaceState causing VS Code OOM crashes** — heavy stores (branch
+  snapshots, schema timeline, schema cache, analysis history) now persist to
+  `storageUri` on disk instead of the in-memory `workspaceState`. On large
+  projects the extension was accumulating 4.6 MB of serialized state in the
+  renderer heap, triggering VS Code warnings and eventual OOM kills during debug
+  sessions. Existing data migrates automatically on first activation after
+  upgrade. Disk-backed reads are lazy-loaded per key to keep activation fast.
+
+---
+
 ## [4.3.0]
 
 The `ignore` directive for n-plus-one warnings now works even when the diagnostic points at the caller, not the table file. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.3.0/CHANGELOG.md)
