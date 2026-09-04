@@ -62,6 +62,8 @@ browse source on
   renderer heap, triggering VS Code warnings and eventual OOM kills during debug
   sessions. Existing data migrates automatically on first activation after
   upgrade. Disk-backed reads are lazy-loaded per key to keep activation fast.
+  A background check now also flags any individual `workspaceState` key that
+  grows past 100 KB, so a future store won't silently reproduce this bug.
 
 ---
 

@@ -52,11 +52,16 @@ factory falls back to `workspaceState` so the extension still activates.
 
 ## Tests
 
-9 new tests in `extension/src/test/disk-backed-memento.test.ts` covering
+9 tests in `extension/src/test/disk-backed-memento.test.ts` covering
 round-trip persistence, cross-instance survival, key removal, corrupt file
 handling, special characters, nested directory creation, and value overwrite.
 
-All 3160 existing tests pass unchanged.
+4 tests in `extension/src/test/bulk-state-factory.test.ts` covering: heavy-key
+migration end to end, migration idempotency (sentinel skip), fallback to
+workspaceState when storageUri is unavailable, and the per-key size warning
+for a key outside HEAVY_KEYS.
+
+All 3164 tests pass.
 
 ## Finish Report (2026-09-04)
 
@@ -80,3 +85,17 @@ Hardening (reflection gate):
 5. JSON round-trip assumption documented on `update()`.
 6. Lazy-load — disk reads deferred to first `get()` per key; full directory
    scan deferred to first `keys()` call. Activation no longer reads files.
+7. Fire-and-forget migration flush now catches its own rejection and logs it,
+   instead of surfacing as an unhandled promise rejection; un-flushed keys
+   remain in workspaceState (sentinel unset) and retry on next activation.
+8. Migration path test coverage added (`bulk-state-factory.test.ts`) — the
+   migration logic itself was previously untested, only `DiskBackedMemento`.
+
+Unrequested feature (per-key bloat detection, scoped minimally):
+9. `warnIfWorkspaceStateLarge` now flags any individual workspaceState key
+   over 100 KB, not just the seven keys in `HEAVY_KEYS`. This closes the gap
+   the original size guard had: a future store that grows large without
+   being added to `HEAVY_KEYS` would otherwise silently reproduce this bug
+   with no operator-facing signal. A dashboard command was considered and
+   rejected — it would require a user to know to look for it, so it would
+   not catch bloat in practice; an automatic log warning at activation does.

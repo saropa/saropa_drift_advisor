@@ -75,7 +75,13 @@ export function createBulkState(
       bulkState.seedCache(key, value);
     }
     // Flush to disk and clear workspaceState async (ordered, crash-safe).
-    void flushMigrationToDisk(context.workspaceState, bulkState, pending, log);
+    // Catch here — an uncaught rejection in a fire-and-forget call would
+    // otherwise surface as an unhandled promise rejection instead of a
+    // diagnosable log line. Un-flushed keys stay in workspaceState and
+    // re-migrate on next activation since the sentinel was never set.
+    flushMigrationToDisk(context.workspaceState, bulkState, pending, log).catch((err: unknown) => {
+      log.appendLine(`[bulk-state] migration flush failed: ${err}. Will retry on next activation.`);
+    });
   }
 
   // Safety check: warn if workspaceState still holds unexpectedly large data.
@@ -138,11 +144,22 @@ async function flushMigrationToDisk(
 const WARN_THRESHOLD_BYTES = 512 * 1024;
 
 /**
+ * Warn threshold for a single workspaceState key (100 KB). Catches bloat from
+ * ANY key — not just the known HEAVY_KEYS list — so a future store that grows
+ * large without being added to HEAVY_KEYS still gets flagged automatically.
+ * This is the fix for the original bug's blind spot: the size guard only
+ * checked known keys, so a new offender would silently reproduce the OOM.
+ */
+const WARN_THRESHOLD_PER_KEY_BYTES = 100 * 1024;
+
+/**
  * Estimate the total size of all remaining workspaceState keys and log a
  * warning if it exceeds the threshold. VS Code itself warns at ~1 MB;
- * catching it earlier keeps us well under the danger zone. Also flags any
- * heavy key that was not migrated — a dev-time signal that a new store was
- * wired to workspaceState instead of bulkState.
+ * catching it earlier keeps us well under the danger zone. Also flags:
+ * - any heavy key that was not migrated (wiring mistake), and
+ * - any individual key (heavy or not) over WARN_THRESHOLD_PER_KEY_BYTES, so
+ *   a new store that grows large gets caught before it reproduces the OOM,
+ *   without needing to be added to HEAVY_KEYS first.
  */
 function warnIfWorkspaceStateLarge(
   ws: vscode.Memento,
@@ -166,8 +183,16 @@ function warnIfWorkspaceStateLarge(
     let totalBytes = 0;
     for (const key of keys) {
       const value = ws.get(key);
-      if (value !== undefined) {
-        totalBytes += JSON.stringify(value).length * 2; // UTF-16 worst case
+      if (value === undefined) continue;
+      const byteLen = JSON.stringify(value).length * 2; // UTF-16 worst case
+      totalBytes += byteLen;
+      // Per-key guard: catches new bloat from any key, known or not.
+      if (byteLen > WARN_THRESHOLD_PER_KEY_BYTES && !HEAVY_KEYS.includes(key)) {
+        const kb = (byteLen / 1024).toFixed(1);
+        log.appendLine(
+          `[bulk-state] WARNING: workspaceState key "${key}" is ~${kb} KB — ` +
+          `consider moving it to bulkState (disk-backed storage).`,
+        );
       }
     }
     if (totalBytes > WARN_THRESHOLD_BYTES) {
