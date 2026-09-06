@@ -14,6 +14,9 @@ Prerequisites (one-time):
 Environment overrides:
     SAROPA_QWEN_TIMEOUT       per-string wall-clock cap in seconds (default 90,
                               clamped [15, 600])
+    SAROPA_QWEN_KEEP_ALIVE    how long Ollama keeps the model resident after the
+                              last request (default "5m"; set higher for multi-
+                              locale batches, or "0" to unload immediately)
     SAROPA_SKIP_QWEN=1        disable Qwen entirely (fall back to NLLB/Google)
     OLLAMA_HOST               Ollama base URL (default http://localhost:11434)
 """
@@ -28,6 +31,9 @@ import urllib.request
 
 _MODEL = "qwen2.5:7b"
 _DEFAULT_TIMEOUT_SEC = 90.0
+# How long Ollama keeps the model in memory after the last request. Was 30m,
+# which holds 9-16 GB for half an hour after a run that no longer needs it.
+_DEFAULT_KEEP_ALIVE = "5m"
 
 # Tokens that must survive translation intact — masked to __PHn__ before the model
 # sees the text, then restored after. Two families:
@@ -66,6 +72,60 @@ def _read_timeout() -> float:
     except ValueError:
         value = _DEFAULT_TIMEOUT_SEC
     return max(15.0, min(value, 600.0))
+
+
+# Ollama accepts keep_alive as integer seconds or a duration string like "5m".
+_KEEP_ALIVE_PATTERN = re.compile(r"^\d+[smh]?$")
+
+
+def _keep_alive() -> str:
+    """Model residency duration from env, falling back to _DEFAULT_KEEP_ALIVE.
+
+    Validates the env value against Ollama's accepted formats (integer seconds
+    or duration string like "5m", "300s", "1h"). Invalid values are rejected
+    with a warning so a typo doesn't silently break every translation request.
+    """
+    raw = os.environ.get("SAROPA_QWEN_KEEP_ALIVE", "").strip()
+    if not raw:
+        return _DEFAULT_KEEP_ALIVE
+    if not _KEEP_ALIVE_PATTERN.match(raw):
+        sys.stderr.write(
+            f"[qwen] SAROPA_QWEN_KEEP_ALIVE={raw!r} is not a valid Ollama "
+            f"duration — using default {_DEFAULT_KEEP_ALIVE}.\n"
+        )
+        sys.stderr.flush()
+        return _DEFAULT_KEEP_ALIVE
+    return raw
+
+
+def unload() -> None:
+    """Evict the model from Ollama's memory immediately.
+
+    Sends keep_alive=0 via /api/generate so the model is freed as soon as the
+    translation run finishes, rather than sitting resident for the keep_alive
+    timeout. Safe to call when Ollama is not running — errors are swallowed.
+    """
+    payload = json.dumps({
+        "model": _MODEL,
+        "keep_alive": 0,
+    }).encode("utf-8")
+
+    url = f"{_ollama_base()}/api/generate"
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            # Drain the response body so the connection is cleanly released.
+            resp.read()
+        sys.stderr.write(f"[qwen] Model {_MODEL} unloaded from Ollama.\n")
+        sys.stderr.flush()
+    except Exception:
+        # Ollama may already be gone or the model may not be loaded — either is fine.
+        pass
 
 
 def _check_circuit_breaker() -> bool:
@@ -234,7 +294,7 @@ def _translate_via_ollama(text: str, target_locale: str) -> str | None:
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.1,
         "stream": False,
-        "keep_alive": "30m",
+        "keep_alive": _keep_alive(),
     }).encode("utf-8")
 
     url = f"{_ollama_base()}/v1/chat/completions"

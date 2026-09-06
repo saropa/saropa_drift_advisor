@@ -235,6 +235,61 @@ def _write_cognate_candidates(
     return path
 
 
+def _dry_run_translate(
+    emit: Emit,
+    locales: list[str],
+    scope: str,
+    source: dict[str, str],
+    source_host: dict[str, str],
+    source_web: dict[str, str],
+) -> int:
+    """Report what a translate pass would do without loading engines or calling APIs.
+
+    Shows per-locale key count, word count, and which engine would be selected, so
+    the operator can estimate cost/time before committing to a real run.
+    """
+    # Detect engine availability without constructing a translator (no model load).
+    engine_name = "google (fallback)"
+    try:
+        from modules.l10n import qwen_engine
+        if qwen_engine.is_available():
+            engine_name = "qwen 2.5 7b (local)"
+    except Exception:
+        pass
+    if engine_name != "qwen 2.5 7b (local)":
+        if engines.nllb_model_is_cached():
+            engine_name = "nllb-200 3.3b (local)"
+
+    emit(f"{C.BOLD}DRY RUN{C.RESET} — no translations will be made.\n")
+    emit(f"  Engine: {C.MAGENTA}{engine_name}{C.RESET}")
+    emit(f"  Scope:  {scope}\n")
+
+    grand_keys = 0
+    grand_words = 0
+    for locale in locales:
+        existing = _translated_by_key(locale, source_host, source_web)
+        prov_existing = provenance.load_provenance(locale)
+        keys = sorted(scopes.select_keys(scope, source, existing, locale, prov_existing))
+        # Filter to genuinely translatable keys (not identity/brand).
+        translatable = [k for k in keys if not is_forced_identity(source[k], locale)]
+        identity_count = len(keys) - len(translatable)
+        words = sum(len(source[k].split()) for k in translatable)
+        grand_keys += len(translatable)
+        grand_words += words
+        parts = [
+            f"  {C.BOLD}{locale}{C.RESET}: ",
+            f"{C.CYAN}{len(translatable)}{C.RESET} keys ",
+            f"({words} words)",
+        ]
+        if identity_count:
+            parts.append(f" + {identity_count} identity")
+        emit("".join(parts))
+
+    emit(f"\n  {C.GREEN}Total{C.RESET}: {C.BOLD}{grand_keys}{C.RESET} keys, "
+         f"{grand_words} words across {len(locales)} locale(s).")
+    return 0
+
+
 def run_translate_action(
     emit: Emit,
     locales: list[str],
@@ -244,6 +299,7 @@ def run_translate_action(
     throttle: float = 0.2,
     reports_dir: Path | None = None,
     timestamp: str | None = None,
+    dry_run: bool = False,
 ) -> int:
     """The deliberate translate pass — operator-gated (plan 75 §7).
 
@@ -260,7 +316,21 @@ def run_translate_action(
     and every key is journaled: shipped values to reports/<date>/<stamp>_translate.log
     and dropped/failed keys to the sibling ..._translate_errors.log, whose paths are
     printed at the end (even on an early abort).
+
+    With `dry_run=True`, reports the key count, word count, and engine per locale
+    without making any API calls or writing bundles.
     """
+    # Dry-run skips the confirmation gate since it makes no API calls and writes
+    # nothing — but still requires a locale list to know what to report.
+    if dry_run:
+        if not locales:
+            emit("--dry-run still needs --locales to know what to report.")
+            return 1
+        source_host = extract.extract_host()
+        source_web = extract.extract_web()
+        source = {**source_host, **source_web}
+        return _dry_run_translate(emit, locales, scope, source, source_host, source_web)
+
     if not confirmed or not locales:
         emit("REFUSED: the translate pass is operator-gated and never runs "
              "unattended (plan 75 §7).")
@@ -300,6 +370,8 @@ def run_translate_action(
     )
 
     grand_total = 0
+    # Track whether Qwen was selected so we only unload when it was actually used.
+    used_qwen = False
     cognate_candidates: dict[str, list[tuple[str, str]]] = {}
     try:
         for locale in locales:
@@ -314,6 +386,8 @@ def run_translate_action(
             except engines.TranslationNotAuthorizedError:
                 emit("REFUSED: translation is operator-gated (plan 75 §7).")
                 return 1
+            if engine_label == engines.ENGINE_LABEL_QWEN:
+                used_qwen = True
 
             # Forced-identity keys (brands/acronyms/symbols) that are missing from
             # the bundles get their English value written now — they don't need MT
@@ -408,6 +482,17 @@ def run_translate_action(
             emit(f"  {C.DIM}Confirmed entries go into VERIFIED_IDENTICAL in brands.py.{C.RESET}")
         return 0
     finally:
+        # Evict the model from Ollama so 9-16 GB of RAM is freed immediately rather
+        # than sitting resident for the keep_alive timeout after the run is done.
+        # Only fires when Qwen was actually selected — no point poking Ollama if
+        # the run used NLLB or Google exclusively.
+        if used_qwen:
+            try:
+                from modules.l10n import qwen_engine
+                qwen_engine.unload()
+            except Exception:
+                pass
+
         # Always close the logs and surface their locations — including on an early
         # abort/return — so the operator can open them straight from the terminal.
         logger.close()

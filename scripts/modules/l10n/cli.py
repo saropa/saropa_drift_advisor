@@ -9,6 +9,8 @@ Usage (via `scripts/translate_l10n.py`):
   --run-mode translate --locales de,fr --scope gaps --confirm-translate
                                    the deliberate, operator-gated MT pass (refuses
                                    without confirmation; never runs MT from here)
+  --run-mode translate --locales de,fr --scope gaps --dry-run
+                                   report key/word counts and engine without translating
 
 `audit` and `sync` are always safe (no translation). `translate` is hard-gated
 (plan 75 §7). The wall-clock timestamp is read here and passed down, so the audit
@@ -57,7 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--check", action="store_true",
                    help="audit only: exit 1 when any locale has gaps")
     p.add_argument("--dry-run", action="store_true",
-                   help="sync only: report what would change, write nothing")
+                   help="sync/translate: report what would change, write nothing")
     p.add_argument("--import", dest="import_file", default=None,
                    help="import mode: path to a hand-filled gaps JSON")
     p.add_argument("--web", action="store_true",
@@ -230,6 +232,7 @@ def main(argv: Sequence[str] | None = None, emit: Callable[[str], None] = print)
     if args.run_mode == "translate":
         return actions.run_translate_action(
             emit, locales, args.scope, confirmed=args.confirm_translate,
+            dry_run=args.dry_run,
         )
     # default: audit
     return actions.run_audit_action(

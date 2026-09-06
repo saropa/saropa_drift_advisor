@@ -37,7 +37,7 @@ browse source on
   Each release (and [Unreleased]) opens with one plain-language line for humans—user-facing only, casual wording—then end it with:
   `[log](https://github.com/saropa/saropa_drift_advisor/blob/vX.Y.Z/CHANGELOG.md)` substituting X.Y.Z.
 
-  **Audience separation** — User-facing sections (Added, Fixed, Changed, Improved) describe impact, not implementation. Infrastructure, build tooling, code refactoring, publish pipeline, SDK/linter/formatter changes, and internal test additions go inside a collapsed `<details><summary>Maintenance</summary>` block at the bottom of each release. Users skip it; contributors expand it.
+  **Audience separation** — User-facing sections (Added, Fixed, Changed, Improved) describe impact, not implementation. Infrastructure, build tooling, code refactoring, publish pipeline, SDK/linter/formatter changes, and internal test additions go inside a collapsed `### Internal` block at the bottom of each release. Users skip it; contributors expand it.
 
   **Banned inside bullets** (move to commit message, PR, or code comment):
   - **PR archaeology** — prior attempts, rename history, "after X didn't hold". Describe the landed state only.
@@ -48,6 +48,49 @@ browse source on
   - **Decision-making narrative** — one clause of reasoning is fine; a paragraph is not.
 
 -->
+
+---
+
+## [Unreleased]
+
+### Fixed
+
+- Translation engine no longer holds the Qwen model resident for 30 minutes
+  after a run finishes; the model is explicitly unloaded when the translate pass
+  completes and the default keep-alive is reduced from 30 to 5 minutes.
+
+### Added
+
+- **`--dry-run` for translate mode** — `--run-mode translate --dry-run` shows
+  per-locale key and word counts plus the engine that would be used, without
+  loading models or making API calls. Useful for estimating time before a run.
+
+- **Switching servers no longer forks duplicate poll chains** — each server
+  switch could leave an orphaned generation-poll loop running against the
+  previous server, progressively multiplying network traffic and tree refreshes
+  for the rest of the session.
+
+- **Dart source lookups no longer open every file as a TextDocument** —
+  Go-to-Definition (F12), tree navigation, and badge refresh used to create a
+  live document for every scanned `.dart` file, firing `onDidOpenTextDocument`
+  into every other extension and promoting each file with the Dart analysis
+  server. Now reads raw bytes instead, and the exclude glob skips generated
+  code, build output, and vendored packages.
+
+<details><summary><h3>Internal</h3></summary>
+
+- Added `qwen_engine.unload()` — sends `keep_alive: 0` to Ollama to evict the
+  model immediately rather than waiting for the timeout.
+- `keep_alive` is now configurable via `SAROPA_QWEN_KEEP_ALIVE` env var.
+- `actions.translate_pass()` calls `unload()` in its `finally` block.
+- `GenerationWatcher` now uses a monotonic `_pollId` epoch to retire in-flight
+  polls on stop, preventing duplicate chains and stale-server generation writes.
+- New shared `dart-source-reader.ts` module: `readSourceText()` reads file
+  bytes via `fs.readFile` (with dirty-buffer fallback), `positionFromOffset()`
+  computes line/character from raw text, and `DART_SOURCE_EXCLUDE_GLOB` is the
+  single-source-of-truth exclude pattern for all bulk Dart scans.
+
+</details>
 
 ---
 
@@ -115,7 +158,7 @@ The `ignore` directive for n-plus-one warnings now works even when the diagnosti
 
 - **Editing a 64-bit INTEGER cell (a snowflake/Discord ID, an `Int64Column`, or a microsecond timestamp) no longer silently corrupts the stored value.** Inline cell edits and new-row inserts converted INTEGER text through a JavaScript `number`, which only carries 53 bits of exact integer precision; a value above `2^53` (e.g. `9007199254740993`) was rounded to the nearest representable double and written to the database with no warning. Values above `Number.MAX_SAFE_INTEGER` are now kept as an exact digit string and written into the generated SQL unquoted, so the 64-bit value round-trips exactly; a one-time informational message tells you when this path was used.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **CSRF gate coverage script now detects regex drift.** The pre-commit check that enforces `_rejectNonJsonBody` on every POST route could silently pass if the router was refactored to check the method differently (variable alias, string literal, route table). A secondary detector now flags any POST-related pattern the primary regex does not recognise, failing the build instead of silently skipping the route.
 
@@ -155,7 +198,6 @@ The `ignore` directive for n-plus-one warnings now works even when the diagnosti
 
 - **Fixed 2 stale server-origin storage tests.** `clearStaleProjectStorage` was refactored to use `safeSetItem`/`safeGetItem` wrappers (from `storage.ts`) instead of raw `localStorage` calls with inline try/catch, but the tests still asserted the old pattern. Updated to verify the safe-wrapper delegation.
 
-</details>
 
 ---
 
@@ -167,13 +209,12 @@ Error messages now tell you whether the problem was your SQL or a bug in the ser
 
 - **Error classification for the `onError` callback.** New `DriftDebugErrorKind` enum (`userQuery`, `server`) and `DriftDebugOnClassifiedError` callback let host apps distinguish expected user-input errors (bad SQL, unknown column) from genuine server bugs (bind failure, snapshot corruption). Pass `onClassifiedError:` to `startDriftViewer` or `DriftDebugServer.start`; when set, it fires instead of `onError` with the error kind attached. `DriftDebugErrorLogger.classifiedErrorCallback()` provides a ready-made implementation that logs user-query errors at info level and server errors at SEVERE. Existing `onError` callers are unchanged.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Localization translate-gaps pass no longer cycles without progress.** Forced-identity keys (brands, acronyms, symbol-only strings) that were missing from locale bundles were never written because the translate action skipped them, so `missing=25` persisted across runs. They are now written with their English value during the translate pass. Added `NULL`, `PNG`, `SVG` to the acronym list; enhanced the no-translatable-content detector to strip known acronyms (word-boundary-aware) before checking for ASCII letters (resolves strings like `✓ FK {0} → {1}`); added per-locale verified cognates (`Schema` in Italian, `Status`/`Total`/`Regex` in Portuguese, `ms` in Korean). The `is_verified_identical` check now strips placeholders before matching, so a single cognate entry (e.g., `Total`) covers all placeholder variants (e.g., `Total: {0}`).
 - **Auto-cognate detector.** After a translate pass, any key where MT returned the English text unchanged is written to a `*_cognate_candidates.json` report. Confirmed entries can be added to `VERIFIED_IDENTICAL` in `brands.py` to prevent future cycling.
 - **Hardened `doc/API.md` version sync.** `sync_api_md_version` now replaces only the *current* header version (old→new), not any semver-shaped text. The `@vX.Y.Z` pattern is anchored to `cdn.jsdelivr.net` URLs. Dry-run mode added (`dry_run=True` returns a change report without writing). 20-test Python suite (`test_target_config_api_md.py`) covers replacement, preservation of example payloads/IPs/prose semver, round-trip, dry-run, and `ensure_api_md_version_sync` guard rails.
 
-</details>
 
 ---
 
@@ -193,7 +234,7 @@ Exported reports no longer count the schema browser's own lookups as app queries
 - **Exported reports are now version-stamped.** The `.drift-advisor.json` sidecar carries a `versions` block with the extension version and the connected server version, so a report can be tied to the release that produced it.
 - **`GET /api/docs` serves the full API reference as Markdown.** A non-UI client (AI coding agent, CLI script) can now read the REST contract from the running server without internet access or a GitHub checkout. Served from the package root on disk; available even while the monitoring kill switch is engaged.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - `HealthResponse` type gains an optional `version` field (already emitted by `/api/health`). `DriftAdvisorSidecar` gains an optional `versions` block. Regression test added in `test/performance_handler_test.dart` for PRAGMA exclusion.
 - `staticTables` threaded through `start()`/`_startInternal`/stub/`startDriftViewer` → `ServerContext.staticTables` → `AnomalyDetector.getAnomaliesResult` (auto-derives `potential_outlier` suppressions) and the two `analytics_handler` call sites. New `outlier_check_hint` anomaly type (additive to the issues envelope). Regression tests in `test/anomaly_detector_test.dart`.
@@ -204,7 +245,6 @@ Exported reports no longer count the schema browser's own lookups as app queries
 - `test/version_sync_test.dart` gains a test that asserts `doc/API.md`'s `**API version:**` header matches `ServerConstants.packageVersion`, preventing the version string from drifting on future releases.
 - Publish pipeline now auto-syncs `doc/API.md` version strings from pubspec. `ensure_api_md_version_sync` runs pre- and post-bump (mirroring the server-constants sync) and `write_version(DART, ...)` calls `sync_api_md_version` so `--bump` flows also update the doc. Exit-code mapping added for the new `API doc version` step.
 
-</details>
 
 ---
 
@@ -227,7 +267,7 @@ New schema diagnostics warn about missing schema snapshots and catch version mis
 - **Lint compliance for `_deriveDeclaredSchemaVersion` ignore directive.** Added rationale comments satisfying both `document_analyzer_ignore_rationale` and `prefer_commenting_analyzer_ignores` rules.
 - **SchemaVerifier codegen input hardening.** Import path prompt now rejects a `package:` prefix (the template prepends it automatically), preventing a double-prefix in the generated import. Info message clarifies that the file must be saved under `test/` for the relative `generated_migrations` import to resolve.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Simplified `AnomalySuppression.matches` guard.** Replaced trailing if-return-false / return-true with a single boolean return to satisfy `avoid_unnecessary_if` lint. Added explicit `String?` cast on the `anomaly['type']` lookup for type-safe comparison, matching the existing pattern for `table` and `column`.
 - **"Generate SchemaVerifier Test" code action.** The `no-schema-snapshots` diagnostic now offers a quick fix that scaffolds a Drift `SchemaVerifier` test file — prompts for the import path, then opens an editor with the generated test code.
@@ -237,7 +277,6 @@ New schema diagnostics warn about missing schema snapshots and catch version mis
 - **Web stub parity.** Added `declaredSchemaVersion` parameter to `DriftDebugServer.start` stub so web builds compile.
 - **Publish pipeline: retry prompts on failures.** Remote sync, dependency, and Dependabot PR steps now ask retry/ignore/cancel instead of aborting immediately.
 
-</details>
 
 ---
 
@@ -284,7 +323,7 @@ A new Heartbeat screen shows your database's pulse live — tables glow as they 
 - **Port forwarding to a device is automatically re-established when it drops.** During a Dart/Flutter debug session, the extension watches `adb forward --list` every 15 s and re-creates the mapping when it silently dies (device reconnect, adb server restart, editor crash mid-debug). Previously a dead forward was only healed reactively — up to scan-interval + 60 s throttle of unexplained "server lost." Only acts on a confirmed drop (the forward must have been observed alive this session first), honors the 60 s re-forward throttle, and preserves the once-per-session toast latch on recovery.
 - **After repeated connection failures, the extension short-circuits requests for 30 s instead of hammering the network.** A circuit breaker gates all outbound HTTP — after 5 consecutive transient failures, requests are rejected immediately instead of every subsystem independently retrying. Discovery health probes bypass the breaker (they are the recovery mechanism). User-initiated retry resets the breaker.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **NLLB no longer loads when Qwen is available.** The engine cascade was eagerly constructing `NllbTranslator` (loading the 3.3B model into GPU memory) even when Qwen was the active engine, wasting ~2 GB VRAM and adding startup delay. NLLB now only loads when Qwen is unavailable.
 - **Brand-token placeholders survive Qwen translation.** Brand-shield tokens (`<B0>`, `<B1>`, …) were sent raw to the Qwen model, which dropped or mangled them. `validate_brands` then rejected every translation containing a brand name ("wrote 0 translations"). The placeholders are now masked alongside format placeholders (`{count}`, `{name}`) before the model sees the text, then restored after.
@@ -297,7 +336,6 @@ A new Heartbeat screen shows your database's pulse live — tables glow as they 
 - **96 brand-mangled translations hand-written and patched.** The MT engine (Qwen) dropped keys across 10 locales (de, es, fr, it, ja, ko, pt-br, ru, zh-cn, zh-tw) because it altered brand names (Drift, Saropa, Isar, Flutter, SQLite, WAL, VM Service). All 96 were manually translated with brand terms, HTML tags, and `{0}`/`{1}` placeholders preserved, then inserted into `bundle.l10n.*.json` and `assets/web/l10n/web.*.json`.
 - **Full codebase audit archived.** With its last open item closed, the audit document moved from `plans/` to `plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md`; the ~30 source comments and docs citing the old path were rewritten to the archive path, and a pointer stub remains at `plans/full-codebase-audit-2026.06.12.md` so stale external references still resolve.
 
-</details>
 
 ---
 
@@ -325,11 +363,10 @@ One switch now turns ALL monitoring off: a power button in the Database sidebar 
 
 - **Web viewer activity bar widened ~20% with lightly tinted icons.** The vertical icon strip (Home, Tables, Search, and the tool launchers) now uses larger 2.4rem buttons and slightly more side padding, giving the 20+ icons more breathing room and bigger tap targets. The resting icons are tinted with a soft, theme-aware blend of the accent and muted colors instead of flat gray, so the strip reads as interactive and scans faster; hover and active states still escalate to the full foreground/accent color. Scoped to the activity bar, so the tab-bar icons are unchanged.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Split five over-cap extension source/test files into focused modules** to satisfy the 300-line (source) and 500-line (test) caps: the Phase-10 event wiring extracted its auto-capture recommender and heavy-sweep scheduler; the discovery core extracted its scan-result/state-machine updater and UI-snapshot builder; the tree provider extracted its refresh orchestrator; the vscode test mock split its clipboard/dialog/message/fs backing stores into separate files; and the snapshot-store test split its `rowsToObjects`/`computeTableDiff` blocks and shared helpers into their own files. Behavior is unchanged. A review pass caught and corrected four behavior-parity breaks introduced by the extraction before they shipped: the discovery change event was firing a one-generation-stale server list (would have blocked first-scan auto-connect), the tree refresh cleared the table list on a safety-timeout abort (should preserve the last-known/offline schema), the coalesced pending refresh bypassed the monitoring kill switch, and the tree refresh captured the pin store at construction (before `setPinStore` runs, so pins never rendered). Added a discovery regression test asserting the change event's payload — not just the `servers` getter — carries the freshly-found server.
 
-</details>
 
 ---
 
@@ -359,11 +396,10 @@ Row-count file badges now render on every Drift table file — including large t
 
 - **Row-count file badges now show on tables of every size and stop flooding the extension-host log.** The badge label could exceed VS Code's two-character limit for whole row-count bands (100–999 rows, and roughly 9 500 rows and up — e.g. `"100"`, `"10K"`, `"999K"`, `"10M"`). VS Code rejects an over-length badge: it dropped the decoration entirely (so exactly the large tables that most need a count showed none) and logged an `INVALID decoration … 'badge'-property must be undefined or a short character` warning once per offending file on every badge refresh — hundreds of lines per refresh, compounding on a reconnecting link. The badge is now always two characters or fewer: exact counts under 100, then a leading digit plus a magnitude letter (`3H`, `5K`, `2M`, `1B`) or the bare letter when even that won't fit, with the full per-table counts still in the hover tooltip.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - `formatBadge` rewritten to be total-safe to ≤2 characters (`Math.floor` instead of `Math.round` so values like 9 500 stay `"9K"` rather than overflowing to the 3-char `"10K"`; guards non-finite and non-positive input). Added a defensive guard at the `FileDecoration` call site that omits the badge (keeping the tooltip) if a label ever exceeds two characters, so a future regression cannot reach VS Code. Added a unit test asserting `formatBadge(n).length <= 2` across the full range plus updated the band-specific expectations. Fixes `plans/history/2026.06/2026.06.27/BUG_file_decoration_badge_exceeds_two_chars_floods_exthost_log.md`.
 
-</details>
 
 ---
 
@@ -416,11 +452,10 @@ Rewind a table in Time Travel, then save that moment as a branch you can diff or
 
 - **"Create Branch Here" in Time Travel.** While scrubbing a table's history in the Time-Travel panel, a new button saves the database state at the current snapshot position as a named data branch — which you can then diff, generate merge/rollback SQL from, or restore, exactly like a branch captured from live state. The button appears only when Data Branching is available. Snapshots cap rows per table, so a branch made from a large historical snapshot is flagged as truncated rather than passed off as complete.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Fixed flaky rate-limiting integration test.** `handler_integration_test.dart`'s "returns 429 when rate limit exceeded" test fired three sequential HTTP requests and assumed all three landed in the same one-second window; on a slow CI runner the third request crossed into the next wall-clock window, where the fixed-window counter reset to 1 and returned 200, failing the assertion. The test now fires a burst of concurrent requests so they cluster densely in one window and asserts at least one is throttled (and at least one succeeds), which holds regardless of where second boundaries fall.
 
-</details>
 
 ---
 
@@ -437,7 +472,7 @@ Raw SQL strings in your Drift code now get the same column checking as the typed
 
 - **Activity bar icon slightly undersized.** The database glyph in `media/icon-activitybar.svg` spanned 14 of the 24-unit viewBox width (`cx=12, rx=7`), so VS Code drew it a touch narrow next to the codicons around it. Nudged the cylinder width up (`rx=8`) to bring it in line with the neighboring sidebar icons.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Split three over-cap source files to satisfy the 300-line quality gate; no behavior change.**
   - `server-discovery-core.ts` (346 → 290): extracted the once-per-session "server lost" flap debouncer into `server-discovery-lost-debounce.ts` (`ServerLostDebouncer`) and the searching/backoff/connected cadence into a pure, independently testable `server-discovery-state-machine.ts` (`nextDiscoveryState` / `pollIntervalForState`).
@@ -446,7 +481,6 @@ Raw SQL strings in your Drift code now get the same column checking as the typed
 - **Publish line-limit gate now offers retry / continue / ignore instead of a yes/no.** The Step 7 quality check previously asked "Continue anyway? [Y/n]" where No aborted the publish. It now prompts `[R]etry` (default — re-scan after trimming files), `[C]ontinue` (proceed, keep the warning on record), or `[I]gnore` (proceed, drop the warning). A line-limit overrun is advisory, so there is no abort path; a closed stdin (CI) maps to continue so it cannot loop on retry.
 - **Host discovery manifest writer (`host-discovery-manifest.ts`).** New extension module: `writeHostManifest` / `removeHostManifest` publish and tear down `~/.saropa_drift_advisor/server.json` on the host. It mirrors the in-app manifest JSON schema (so a reader parses one format) plus two host-only fields — a `source: "vscode-extension"` ownership stamp and `transport`. The writer fetches `/api/health` best-effort to enrich the file but always writes a valid (host, port, transport) manifest even when health is unreachable. The ownership stamp gates both write and remove: the extension never clobbers or deletes a manifest written by an in-app (desktop/emulator-on-host) server. Wired into `bootstrapExtension`'s discovery lifecycle (write on first reachable server, deduped by port; remove when servers go empty and on deactivation). 11 injected-IO unit tests cover the schema, the app-owned guard, the unreachable-health path, and error swallowing. Resolves Finding 1 / Enhancement E1+E3 of `plans/history/2026.06/2026.06.24/BUG_agent_discovery_and_resilience_for_device_hosted_server.md`; Finding 2 (SQL resilience: statement timeout, row cap, error-envelope, never-empty body) was already in place.
 
-</details>
 
 ---
 
@@ -454,13 +488,12 @@ Raw SQL strings in your Drift code now get the same column checking as the typed
 
 Github CI cleanup tasks. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.10/CHANGELOG.md)
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Discovery-manifest cleanup no longer swallows its errors.** The best-effort manifest delete in `stop()` caught and discarded any failure (satisfying `avoid_swallowing_exceptions` / `require_catch_logging`). The server now captures the context's `logError` sink on start and routes a cleanup failure through the same channel (dart:developer + the caller's `onError`), so a recurring delete failure is diagnosable instead of silent.
 - Tightened `ServerUtils.jsonEncodeFallback` return type from `Object?` to `Object` — it never returns null (a null input encodes to the string `"null"`), so callers no longer carry a redundant null check (`avoid_unnecessary_nullable_return_type`).
 - **Publish pre-flight analyze now matches CI exactly, so it can no longer ship one store while the other fails.** The Dart analysis step in `scripts/publish.py` used to strip the `plugins:` block from `analysis_options.yaml` and run `flutter analyze --fatal-infos`, which disabled saropa_lints locally — the exact rules CI enforces with `flutter analyze --fatal-warnings`. The local gate passed on code CI would reject, the script committed/tagged/pushed, the VS Code extension published, and only then did CI catch the warnings and block the pub.dev publish. The step now runs `flutter analyze --fatal-warnings` with the plugins block intact, byte-for-byte the CI command, before any commit/tag/push — a lint failure now stops the publish locally instead of after a tag triggers CI.
 
-</details>
 
 ---
 
@@ -481,12 +514,11 @@ The debug server can now tell tools and AI agents what it offers and where to fi
 - Activity-bar label mode (web viewer): when the sidebar strip shows text labels, every button is now the same width with its icon and label left-aligned, and the rows have vertical spacing so the labels read as a clean aligned list.
 - Run SQL screen (web viewer): redesigned the controls above the editor. The Template, Table and Fields pickers are now a clean aligned card instead of a cramped wrapping toolbar, and the Fields list is a compact fixed-height scroll box rather than the tall narrow column it used to balloon into. Saved-query actions are grouped together with "Show as" pushed to the right. The query box also opens taller by default (about seven lines instead of three) so a typical formatted query fits without scrolling; it is still drag-resizable.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Publish pipeline: format Dart sources at stage time so the husky pre-commit hook never aborts the release commit.** The hook runs `dart format --set-exit-if-changed .` whenever `.dart` files are staged; the analysis phase formatted early, but `--resume` runs skip analysis and any step (or manual edit) between analysis and commit could re-dirty a file, leaving an unformatted file in the index and failing the commit. `git_commit_and_push` now runs `dart format .` immediately before `git add` (gated by a new `TargetConfig.format_before_stage`, Dart-only), so the staged content always matches what the hook checks.
 - **Fixed a flaky discovery-manifest test that passed alone but failed in the full suite.** The discovery manifest is written to a single global path (`$home/.saropa_drift_advisor/server.json`), and dart's `pid` is identical across the in-process suite isolates, so the other server-starting test files running concurrently overwrote or deleted this test's manifest between its write and its assertions. `DriftDebugServer.start` now accepts an optional `discoveryDirectory` override (threaded as instance state and reused on `stop` so write and remove target the same file); the test points each run at its own temp directory, making the manifest lifecycle deterministic and removing the prior "home not resolvable" skip.
 
-</details>
 
 ---
 
@@ -494,14 +526,13 @@ The debug server can now tell tools and AI agents what it offers and where to fi
 
 Internal tooling only — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.8/CHANGELOG.md)
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Publish pipeline now stops on diverged history instead of blind-merging.** The pre-flight remote-sync check mislabeled a truly diverged branch (origin's history rewritten, local on old SHAs) as "ahead," and the push step then recovered a non-fast-forward by running `git pull --no-edit` (a merge) — tangling two near-duplicate ~240-commit histories into a 25-conflict merge mid-release. The pre-flight now detects divergence explicitly and fails with a rebase hint, and the push recovery uses `git pull --ff-only` (which cannot merge), stopping loudly on divergence so reconciliation stays a deliberate manual rebase.
 - **Publish pipeline now catches committed-and-gitignored files before tagging.** A file that is both tracked and matched by `.gitignore` makes `dart pub publish --dry-run` exit 65 — previously only in CI, after the git tag and GitHub release were already created. A new `git ls-files -i -c --exclude-standard` guard runs in the local pre-flight (Dart and extension legs) and as a CI step before the dry-run, naming the offending files and the `git rm --cached` fix instead of failing with a cryptic exit code.
 - **Fixed pub.dev "Pass static analysis" deductions for dangling library doc comments.** Three server files (`html_content.dart`, `mutation_handler.dart`, `mutation_tracker.dart`) opened with a top-of-file `///` doc comment but no `library;` directive, so pana flagged them as dangling library doc comments and docked static-analysis points. Each now carries a `library;` directive after its header comment.
 - **Enabled `dangling_library_doc_comments` in `analysis_options.yaml`.** This core Dart lint is scored by pana/pub.dev but was not in the package's base lint set, so local `dart analyze` (and the publish pipeline's analyze step) passed while pub.dev still deducted points. Enabling it closes that gap — the lint now fires locally and `dart fix` can auto-insert the `library;` directive.
 
-</details>
 
 The debug server now tells you how to reach it when you debug on a physical device over Wi-Fi, instead of leaving a silent connection-refused when you try the device's network address. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.7/CHANGELOG.md)
 
@@ -524,11 +555,10 @@ The debug server now tells you how to reach it when you debug on a physical devi
 - **Toggling a rule in the Drift Advisor Rules sidebar errored out.** Clicking a rule (e.g. "no-primary-key") to mute it failed with "…is not a registered configuration" because the settings the extension reads and writes — `driftViewer.diagnostics.disabledRules`, `driftViewer.diagnostics.severityOverrides`, and `driftViewer.logVerbosity` — were never declared in the manifest, so VS Code refused to save them. All three are now registered, so muting/unmuting rules, severity overrides, and the Set Log Verbosity command write successfully.
 - **Repeated "no longer responding" popups while Wi-Fi debugging.** On a flaky link the debug server drops and reconnects over and over, and each cycle used to fire a "Drift debug server on port … is no longer responding" warning plus a "detected" toast on recovery — a steady stream of popups to dismiss. Now you get **at most one** "lost" warning per debug session: a brief blip that recovers within a short grace window produces no popup at all, the first sustained drop warns once, and after that the session stays silent no matter how many times the connection flaps. Starting a new debug session or running **Retry Discovery** re-arms the single warning. Disconnect detection is unchanged, so the sidebar/status still reflect the connection state in real time.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Publish pipeline runs only the affected tests, selected by import graph.** `scripts/modules/dart_build.py` `run_tests` diffs the working tree against the last release tag, builds the package's transitive import graph, and runs every `*_test.dart` whose dependency closure includes a changed file (resolving relative and `package:` imports, including multi-line conditional exports). This is the "outdated tests" set the editor's Test Explorer shows, computed without the editor — so a change to a core file with no same-named test still runs every test that imports it through any chain. A changed library file that no test reaches is logged as a genuine coverage gap. The only full-suite paths are unreadable git history and an explicit `PUBLISH_FULL_TESTS=1`; `PUBLISH_TEST_BASELINE=<rev>` overrides the diff baseline.
 
-</details>
 
 ---
 

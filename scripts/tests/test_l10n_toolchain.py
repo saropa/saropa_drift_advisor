@@ -208,6 +208,66 @@ class TestEngines(unittest.TestCase):
         self.assertIsInstance(engines.nllb_model_is_cached(), bool)
 
 
+class TestQwenEngine(unittest.TestCase):
+    """Tests for qwen_engine helpers that don't need a running Ollama."""
+
+    def setUp(self):
+        # Import here so the module-level import list stays unchanged.
+        from modules.l10n import qwen_engine
+        self._mod = qwen_engine
+
+    def test_keep_alive_default(self):
+        # Without the env var, should return the 5-minute default.
+        import os
+        os.environ.pop("SAROPA_QWEN_KEEP_ALIVE", None)
+        self.assertEqual(self._mod._keep_alive(), "5m")
+
+    def test_keep_alive_env_override(self):
+        # Env var overrides the default.
+        import os
+        os.environ["SAROPA_QWEN_KEEP_ALIVE"] = "15m"
+        try:
+            self.assertEqual(self._mod._keep_alive(), "15m")
+        finally:
+            os.environ.pop("SAROPA_QWEN_KEEP_ALIVE", None)
+
+    def test_keep_alive_blank_env_uses_default(self):
+        # A blank env var should fall back to the default.
+        import os
+        os.environ["SAROPA_QWEN_KEEP_ALIVE"] = "  "
+        try:
+            self.assertEqual(self._mod._keep_alive(), "5m")
+        finally:
+            os.environ.pop("SAROPA_QWEN_KEEP_ALIVE", None)
+
+    def test_keep_alive_invalid_env_uses_default(self):
+        # An invalid value should fall back to default with a warning.
+        import os
+        os.environ["SAROPA_QWEN_KEEP_ALIVE"] = "banana"
+        try:
+            self.assertEqual(self._mod._keep_alive(), "5m")
+        finally:
+            os.environ.pop("SAROPA_QWEN_KEEP_ALIVE", None)
+
+    def test_keep_alive_accepts_integer_seconds(self):
+        # Plain integer seconds (e.g. "300") is valid.
+        import os
+        os.environ["SAROPA_QWEN_KEEP_ALIVE"] = "300"
+        try:
+            self.assertEqual(self._mod._keep_alive(), "300")
+        finally:
+            os.environ.pop("SAROPA_QWEN_KEEP_ALIVE", None)
+
+    def test_unload_swallows_connection_error(self):
+        # unload() must not raise when Ollama is unreachable.
+        import os
+        os.environ["OLLAMA_HOST"] = "http://127.0.0.1:1"
+        try:
+            self._mod.unload()  # should not raise
+        finally:
+            os.environ.pop("OLLAMA_HOST", None)
+
+
 class TestAuditSync(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
