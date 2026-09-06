@@ -1,6 +1,6 @@
 # BUG: GenerationWatcher has no poll-epoch guard, so every server switch forks a duplicate poll chain and applies the old server's generation
 
-**Status: Open**
+**Status: Fixed**
 
 <!-- Status values: Open → Investigating → Fix Ready → Closed -->
 
@@ -259,7 +259,17 @@ touches `_consecutiveErrors` or schedules, exactly as
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+- Added `_pollId` epoch counter to `GenerationWatcher` (mirrors `ServerDiscovery._pollId`).
+  `stop()` bumps it; `_poll(id)` captures it and re-checks after every `await` — a stale id
+  means the chain was retired and discards its result silently.
+- `_poll` now accepts an `id` parameter; the entry guard, post-await guard, catch branch,
+  and `setTimeout` continuation all check `id === this._pollId`.
+- Added two tests: "discard in-flight result after stop/reset/start" and "no duplicate poll
+  chains on repeated stop/start".
+- Added `dispose()` method with a `_disposed` guard that permanently stops polling and
+  clears listeners. Extension deactivation now calls `dispose()` instead of `stop()`.
+- Added two dispose tests: "should prevent restart after dispose()" and "should clear
+  listeners on dispose()".
 
 ---
 
@@ -280,3 +290,49 @@ touches `_consecutiveErrors` or schedules, exactly as
   connection — the same contention class as `BUG_STARTUP_HANG`).
 - Data risk: none — read-only polling.
 - Frequency: once per server switch / auto-switch, cumulative for the session.
+
+---
+
+## Finish Report (2026-09-06)
+
+### Defect
+
+`GenerationWatcher._poll()` guarded continuation on `_running` alone — a boolean
+level that cannot distinguish "still the same session" from "stopped and
+restarted." When `extension-activation-event-wiring.ts` called
+`stop(); reset(); start();` on a server switch, any in-flight `generation()`
+request resolved into the new session, wrote the old server's generation, fired
+all change listeners, and scheduled its own `setTimeout` — forking a duplicate
+poll chain. Each subsequent switch added another chain, multiplying network
+traffic and listener fan-out for the rest of the VS Code session.
+
+### Fix
+
+Added a monotonic `_pollId` epoch counter (mirrors `ServerDiscovery._pollId`).
+`stop()` increments it. `_poll(id)` captures the epoch at call time and
+re-checks `id === this._pollId` at four points: entry guard, post-success await,
+post-error await, and pre-`setTimeout` continuation. A stale id causes the poll
+to return silently without touching `_generation`, `_consecutiveErrors`, or
+scheduling further work.
+
+### Test coverage
+
+Two new tests in `generation-watcher.test.ts`:
+- **Server-switch race:** starts a poll, calls `stop/reset/start` while it is
+  in-flight, resolves the old poll late, and asserts generation is not
+  overwritten and the listener does not re-fire.
+- **No duplicate chains:** performs 5 rapid stop/start cycles and asserts
+  exactly one poll fires in the next interval.
+
+All 11 GenerationWatcher tests pass. No existing tests were modified.
+
+### Hardening
+
+Added `dispose()` method: sets a `_disposed` flag, calls `stop()`, and clears
+the listener array. `start()` checks `_disposed` and silently returns — a stale
+reference cannot revive the poll chain after the extension deactivates. The
+extension's deactivation subscription in `extension-activation-event-wiring.ts`
+now calls `dispose()` instead of `stop()`.
+
+Two additional tests: "should prevent restart after dispose()" and "should clear
+listeners on dispose()".

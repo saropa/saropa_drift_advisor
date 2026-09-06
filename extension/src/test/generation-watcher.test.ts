@@ -18,7 +18,7 @@ describe('GenerationWatcher', () => {
   });
 
   afterEach(() => {
-    watcher.stop();
+    watcher.dispose();
     clock.restore();
     genStub.restore();
   });
@@ -129,5 +129,100 @@ describe('GenerationWatcher', () => {
     watcher.start();
     watcher.start();
     assert.strictEqual(genStub.callCount, 1, 'should only poll once');
+  });
+
+  it('should discard in-flight result after stop/reset/start (server-switch race)', async () => {
+    // Simulate the server-switch sequence: poll is in flight when
+    // stop(); reset(); start() runs synchronously.
+    let resolveOld!: (gen: number) => void;
+    // First call (old server): hangs until we resolve manually
+    genStub.onFirstCall().returns(new Promise<number>((r) => { resolveOld = r; }));
+    // Second call (new server after restart): resolves immediately
+    genStub.onSecondCall().resolves(99);
+
+    let fireCount = 0;
+    watcher.onDidChange(() => { fireCount++; });
+    watcher.start();
+    await flush();
+
+    // Server switch while old poll is in flight
+    watcher.stop();
+    watcher.reset();
+    watcher.start();
+    await flush();
+
+    // New-server poll resolves → fires listener with gen 99
+    assert.strictEqual(fireCount, 1, 'new-server poll should fire');
+    assert.strictEqual(watcher.generation, 99);
+
+    // Old-server poll resolves late — must be discarded
+    resolveOld(47);
+    await flush();
+
+    // Generation must stay at 99 (not overwritten to 47) and no extra listener fire
+    assert.strictEqual(fireCount, 1, 'old-server result must be discarded');
+    assert.strictEqual(watcher.generation, 99, 'generation must not revert to old server value');
+  });
+
+  it('should not fork duplicate poll chains on repeated stop/start', async () => {
+    // Each stop/start should produce exactly one active chain
+    genStub.resolves(1);
+
+    watcher.start();
+    await flush();
+
+    // Rapid stop/start cycles (simulating repeated server switches)
+    for (let i = 0; i < 5; i++) {
+      watcher.stop();
+      watcher.reset();
+      watcher.start();
+      await flush();
+    }
+
+    const countAfterSetup = genStub.callCount;
+    // Advance one poll interval — only one chain should fire
+    // BASE_POLL_MS is 1000 in the watcher module
+    clock.tick(1000);
+    await flush();
+
+    // Exactly one new poll call, not 5+ from forked chains
+    assert.strictEqual(
+      genStub.callCount - countAfterSetup,
+      1,
+      'only one poll chain should be active after repeated stop/start',
+    );
+  });
+
+  it('should prevent restart after dispose()', async () => {
+    genStub.resolves(1);
+
+    watcher.start();
+    await flush();
+
+    // dispose() should stop polling and prevent future start()
+    watcher.dispose();
+    const countAfterDispose = genStub.callCount;
+
+    // Attempt to restart — should be silently ignored
+    watcher.start();
+    clock.tick(5000);
+    await flush();
+
+    assert.strictEqual(
+      genStub.callCount,
+      countAfterDispose,
+      'start() after dispose() must not resume polling',
+    );
+  });
+
+  it('should clear listeners on dispose()', () => {
+    // Verify the listener array is emptied so disposed watchers don't hold
+    // references to callback closures (and their captured scopes).
+    watcher.onDidChange(() => { /* no-op */ });
+    watcher.onDidChange(() => { /* no-op */ });
+    assert.strictEqual((watcher as any)._listeners.length, 2);
+
+    watcher.dispose();
+    assert.strictEqual((watcher as any)._listeners.length, 0, 'dispose must clear all listeners');
   });
 });

@@ -222,5 +222,7 @@ export function wireEventListeners(
     d.diagnostics?.diagnosticManager.refresh().catch(() => {});
     if (d.providers && !d.getLightweight()) d.providers.refreshBadges().catch(() => {});
   }
-  d.context.subscriptions.push({ dispose: () => d.watcher.stop() });
+  // dispose() stops polling, bumps the epoch, and clears listeners so a stale
+  // reference cannot revive the poll chain after the extension deactivates.
+  d.context.subscriptions.push({ dispose: () => d.watcher.dispose() });
 }

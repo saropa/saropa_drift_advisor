@@ -85,6 +85,9 @@ browse source on
 - `actions.translate_pass()` calls `unload()` in its `finally` block.
 - `GenerationWatcher` now uses a monotonic `_pollId` epoch to retire in-flight
   polls on stop, preventing duplicate chains and stale-server generation writes.
+  Added `dispose()` method that permanently stops polling, bumps the epoch, and
+  clears listeners — the extension's deactivation subscription now calls
+  `dispose()` instead of `stop()` to prevent stale-reference restarts.
 - New shared `dart-source-reader.ts` module: `readSourceText()` reads file
   bytes via `fs.readFile` (with dirty-buffer fallback), `positionFromOffset()`
   computes line/character from raw text, and `DART_SOURCE_EXCLUDE_GLOB` is the

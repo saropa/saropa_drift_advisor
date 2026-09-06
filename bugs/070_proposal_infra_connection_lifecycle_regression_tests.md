@@ -31,7 +31,7 @@ including a `_loadSeq` race guard. Yet all four of the following passed CI:
 | Bug | Why the suite missed it |
 | --- | --- |
 | `infra_generation_longpoll_timeout_shorter_than_server.md` (fixed, archived to `plans/history/2026.09/20260902/`) | `generation-watcher.test.ts` stubs `client.generation` to resolve immediately, so the 8 s-vs-30 s timeout mismatch is invisible. No test asserts the `timeoutMs` an endpoint sends. |
-| `028_infra_generation_watcher_duplicate_poll_chain.md` | `generation-watcher.test.ts` has start/stop/backoff/dispose cases, but none calls `stop()` while a poll is awaiting. |
+| `028_infra_generation_watcher_duplicate_poll_chain.md` (fixed, archived to `plans/history/2026.09/20260906/`) | `generation-watcher.test.ts` has start/stop/backoff/dispose cases, but none calls `stop()` while a poll is awaiting. Fixed: `_pollId` epoch guard added; two new tests cover the race. |
 | `029_infra_discovery_resume_forks_second_scan_chain.md` | `server-discovery.test.ts` has `'should not run further scans while paused'` but never resumes mid-scan. |
 | `030_infra_server_manager_stale_active_after_dismissed_quickpick.md` | `server-manager.test.ts` covers "active dies, 1 remains" but never "active dies, 2+ remain, user dismisses". |
 | `027_infra_panel_webview_load_ignores_auth_and_http_status.md` | `panel.test.ts` stubs `fetch` to resolve OK; nothing asserts on request headers or a non-OK status. |

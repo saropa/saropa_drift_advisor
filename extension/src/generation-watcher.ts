@@ -21,6 +21,17 @@ export class GenerationWatcher {
   private _pollTimeout: ReturnType<typeof setTimeout> | undefined;
   private _log: IDiscoveryLog | undefined;
 
+  /**
+   * Monotonic polling-session id. stop() bumps it so an in-flight poll that
+   * resolves after a stop/start cycle (the server-switch race) sees a stale id
+   * and discards its result instead of forking a duplicate poll chain.
+   * Mirrors ServerDiscovery._pollId.
+   */
+  private _pollId = 0;
+
+  /** True after dispose() — prevents restart from stale references. */
+  private _disposed = false;
+
   constructor(client: DriftApiClient) {
     this._client = client;
   }
@@ -40,26 +51,39 @@ export class GenerationWatcher {
   }
 
   start(): void {
-    if (this._running) return;
+    // Prevent restart after dispose() — stale references must not revive polling
+    if (this._running || this._disposed) return;
     this._running = true;
-    this._poll();
+    // Capture current epoch so this chain retires if stop() is called
+    void this._poll(this._pollId);
   }
 
   stop(): void {
     this._running = false;
+    // Retire this polling session so any in-flight await discards its result
+    this._pollId++;
     if (this._pollTimeout !== undefined) {
       clearTimeout(this._pollTimeout);
       this._pollTimeout = undefined;
     }
   }
 
-  private async _poll(): Promise<void> {
-    if (!this._running) return;
+  /** Permanently stop polling and detach all listeners. */
+  dispose(): void {
+    this._disposed = true;
+    this.stop();
+    this._listeners = [];
+  }
+
+  private async _poll(id: number): Promise<void> {
+    // Stale session — a stop/start cycle retired this chain
+    if (!this._running || id !== this._pollId) return;
 
     let delay = BASE_POLL_MS;
     try {
       const gen = await this._client.generation(this._generation);
-      if (!this._running) return;
+      // Re-check after the await: stop() or a new start() may have bumped _pollId
+      if (!this._running || id !== this._pollId) return;
       this._consecutiveErrors = 0;
 
       if (gen !== this._generation) {
@@ -69,6 +93,8 @@ export class GenerationWatcher {
         }
       }
     } catch (err) {
+      // Superseded while awaiting — discard without touching error counters
+      if (!this._running || id !== this._pollId) return;
       this._consecutiveErrors++;
       delay = Math.min(BASE_POLL_MS * Math.pow(2, this._consecutiveErrors), MAX_BACKOFF_MS);
       if (this._consecutiveErrors === 1 || this._consecutiveErrors % 10 === 0) {
@@ -79,8 +105,9 @@ export class GenerationWatcher {
       }
     }
 
-    if (this._running) {
-      this._pollTimeout = setTimeout(() => this._poll(), delay);
+    // Only schedule continuation if this session is still current
+    if (this._running && id === this._pollId) {
+      this._pollTimeout = setTimeout(() => this._poll(id), delay);
     }
   }
 
