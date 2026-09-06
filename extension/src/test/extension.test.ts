@@ -164,7 +164,8 @@ describe('Extension activation', () => {
     // Connection telemetry (campaign candidate D): ConnectionTelemetry subscription (+1).
     // adb-forward supervision (campaign candidate E): AdbForwardSupervisor +
     //   onDidTerminateDebugSession stop-listener in bootstrapExtension (+2).
-    assert.strictEqual(subscriptions.length, 256, `expected 256 disposables, got ${subscriptions.length}`);
+    // +1 for DriftSourceLocatorCache (watcher-backed F12 locator cache).
+    assert.strictEqual(subscriptions.length, 257, `expected 257 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

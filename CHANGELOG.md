@@ -51,13 +51,11 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.3.2]
+
+Extension no longer opens every Dart file as a live document during source lookups, and server switches no longer fork duplicate poll chains. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.3.2/CHANGELOG.md)
 
 ### Fixed
-
-- Translation engine no longer holds the Qwen model resident for 30 minutes
-  after a run finishes; the model is explicitly unloaded when the translate pass
-  completes and the default keep-alive is reduced from 30 to 5 minutes.
 
 - **Switching servers no longer forks duplicate poll chains** — each server
   switch could leave an orphaned generation-poll loop running against the
@@ -67,19 +65,27 @@ browse source on
 
 ### Added
 
-- **`--dry-run` for translate mode** — `--run-mode translate --dry-run` shows
-  per-locale key and word counts plus the engine that would be used, without
-  loading models or making API calls. Useful for estimating time before a run.
-
 - **Dart source lookups no longer open every file as a TextDocument** —
   Go-to-Definition (F12), tree navigation, and badge refresh used to create a
   live document for every scanned `.dart` file, firing `onDidOpenTextDocument`
   into every other extension and promoting each file with the Dart analysis
   server. Now reads raw bytes instead, and the exclude glob skips generated
-  code, build output, and vendored packages.
+  code, build output, dot-prefixed directories (.fvm, .git, etc.), and
+  vendored packages.
 
-<details><summary><h3>Internal</h3></summary>
+- **Go-to-Definition results are now cached** — repeated F12 presses on the
+  same table or column name return instantly instead of re-walking the entire
+  workspace each time. A file-system watcher invalidates the cache when any
+  `.dart` file is created, changed, or deleted.
 
+### Internal
+
+- **`--dry-run` for translate mode** — `--run-mode translate --dry-run` shows
+  per-locale key and word counts plus the engine that would be used, without
+  loading models or making API calls. Useful for estimating time before a run.
+- Translation engine no longer holds the Qwen model resident for 30 minutes
+  after a run finishes; the model is explicitly unloaded when the translate pass
+  completes and the default keep-alive is reduced from 30 to 5 minutes.
 - Added `qwen_engine.unload()` — sends `keep_alive: 0` to Ollama to evict the
   model immediately rather than waiting for the timeout.
 - `keep_alive` is now configurable via `SAROPA_QWEN_KEEP_ALIVE` env var.
@@ -98,8 +104,6 @@ browse source on
   bytes via `fs.readFile` (with dirty-buffer fallback), `positionFromOffset()`
   computes line/character from raw text, and `DART_SOURCE_EXCLUDE_GLOB` is the
   single-source-of-truth exclude pattern for all bulk Dart scans.
-
-</details>
 
 ---
 

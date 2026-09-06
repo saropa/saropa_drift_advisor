@@ -10,6 +10,7 @@ import {
   findDriftColumnGetterLocation,
   findDriftTableClassLocation,
 } from './drift-source-locator';
+import { DriftSourceLocatorCache } from './drift-source-locator-cache';
 
 /**
  * VS Code DefinitionProvider that resolves SQL table/column names
@@ -21,8 +22,14 @@ export class DriftDefinitionProvider implements vscode.DefinitionProvider {
   private _schemaCache: TableMetadata[] | null = null;
   private _schemaCacheTime = 0;
   private static readonly CACHE_TTL_MS = 30_000;
+  private readonly _locatorCache: DriftSourceLocatorCache | undefined;
 
-  constructor(private readonly _client: DriftApiClient) {}
+  constructor(
+    private readonly _client: DriftApiClient,
+    locatorCache?: DriftSourceLocatorCache,
+  ) {
+    this._locatorCache = locatorCache;
+  }
 
   /** Clear cached schema metadata (e.g. on generation change). */
   clearCache(): void {
@@ -63,15 +70,24 @@ export class DriftDefinitionProvider implements vscode.DefinitionProvider {
     if (!classification) return null;
 
     if (classification.type === 'table') {
-      const tableResult = await findDriftTableClassLocation(wordInfo.word);
+      // Use the watcher-backed cache when available so repeated F12 presses
+      // don't re-walk the workspace each time.
+      const tableResult = this._locatorCache
+        ? await this._locatorCache.findTableClassLocation(wordInfo.word)
+        : await findDriftTableClassLocation(wordInfo.word);
       return tableResult.location;
     }
 
     if (classification.type === 'column' && classification.tableName) {
-      const result = await findDriftColumnGetterLocation(
-        wordInfo.word,
-        classification.tableName,
-      );
+      const result = this._locatorCache
+        ? await this._locatorCache.findColumnGetterLocation(
+            wordInfo.word,
+            classification.tableName,
+          )
+        : await findDriftColumnGetterLocation(
+            wordInfo.word,
+            classification.tableName,
+          );
       // Return exact getter location, or fall back to the table class so
       // F12 still navigates somewhere useful even when the getter pattern
       // doesn't match.

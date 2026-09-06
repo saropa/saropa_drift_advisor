@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { DriftApiClient } from '../api-client';
 import { TableNameMapper } from '../codelens/table-name-mapper';
+import { DART_SOURCE_EXCLUDE_GLOB, readSourceText } from '../dart-source-reader';
 
 const TABLE_CLASS_RE = /^\s*class\s+(\w+)\s+extends\s+Table\b/gm;
 
@@ -60,11 +61,13 @@ export async function buildTableFileMap(
   mapper: TableNameMapper,
 ): Promise<Map<string, string>> {
   const result = new Map<string, string>();
-  const uris = await vscode.workspace.findFiles('**/*.dart', '**/.*');
+  const uris = await vscode.workspace.findFiles(
+    '**/*.dart',
+    DART_SOURCE_EXCLUDE_GLOB,
+  );
 
   for (const uri of uris) {
-    const doc = await vscode.workspace.openTextDocument(uri);
-    const text = doc.getText();
+    const text = await readSourceText(uri);
     TABLE_CLASS_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = TABLE_CLASS_RE.exec(text)) !== null) {

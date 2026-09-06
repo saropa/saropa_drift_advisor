@@ -207,6 +207,9 @@ interface MockWorkspaceConfiguration {
 }
 
 export const workspace = {
+  // Empty by default; tests that need readSourceText to find an open dirty
+  // document can replace this array for the duration of the test.
+  textDocuments: [] as any[],
   getConfiguration: (_section?: string): MockWorkspaceConfiguration => ({
     get: <T>(key: string, defaultValue?: T): T | undefined => defaultValue,
     // Settings writes are accepted and dropped: the mock has no settings

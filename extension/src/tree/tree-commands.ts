@@ -17,6 +17,7 @@ import {
   openLocationOrNotify,
   type ColumnSearchResult,
 } from '../definition/drift-source-locator';
+import type { DriftSourceLocatorCache } from '../definition/drift-source-locator-cache';
 
 /** Register tree view commands including pin support. */
 export function registerTreeCommands(
@@ -27,6 +28,7 @@ export function registerTreeCommands(
   fkNavigator: FkNavigator,
   filterBridge: FilterBridge,
   serverManager: ServerManager,
+  locatorCache?: DriftSourceLocatorCache,
 ): void {
   const panelOptions = (): { vmOnly?: boolean } | undefined =>
     client.usingVmService && !serverManager.activeServer ? { vmOnly: true } : undefined;
@@ -88,7 +90,9 @@ export function registerTreeCommands(
               title: `Searching for table "${item.table.name}" in Dart sources…`,
               cancellable: false,
             },
-            () => findDriftTableClassLocation(item.table.name),
+            () => locatorCache
+              ? locatorCache.findTableClassLocation(item.table.name)
+              : findDriftTableClassLocation(item.table.name),
           );
           if (result.location) {
             await openLocationOrNotify(result.location, `table "${item.table.name}"`);
@@ -120,7 +124,9 @@ export function registerTreeCommands(
               title: `Searching for column "${item.column.name}" in Dart sources…`,
               cancellable: false,
             },
-            () => findDriftColumnGetterLocation(item.column.name, item.tableName),
+            () => locatorCache
+              ? locatorCache.findColumnGetterLocation(item.column.name, item.tableName)
+              : findDriftColumnGetterLocation(item.column.name, item.tableName),
           );
 
           if (result.location) {

@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { DriftApiClient } from '../api-client';
 import { snakeToPascal } from '../dart-names';
 import { DriftDefinitionProvider } from '../definition/drift-definition-provider';
+import { encodeUtf8 as encode } from './source-reader-test-helpers';
 
 // Re-import mock helpers for type access
 const vscodeMock = vscode as any;
@@ -29,7 +30,7 @@ describe('snakeToPascal()', () => {
 describe('DriftDefinitionProvider', () => {
   let fetchStub: sinon.SinonStub;
   let findFilesStub: sinon.SinonStub;
-  let openTextDocumentStub: sinon.SinonStub;
+  let fsReadFileStub: sinon.SinonStub;
   let client: DriftApiClient;
   let provider: DriftDefinitionProvider;
 
@@ -73,21 +74,6 @@ describe('DriftDefinitionProvider', () => {
     };
   }
 
-  function makeDartFileDocument(content: string): any {
-    return {
-      getText: () => content,
-      positionAt: (offset: number) => {
-        const before = content.substring(0, offset);
-        const lines = before.split('\n');
-        return new vscodeMock.Position(
-          lines.length - 1,
-          lines[lines.length - 1].length,
-        );
-      },
-      languageId: 'dart',
-    };
-  }
-
   const cancelToken = {
     isCancellationRequested: false,
     onCancellationRequested: () => ({ dispose: () => { /* no-op */ } }),
@@ -98,15 +84,16 @@ describe('DriftDefinitionProvider', () => {
     client = new DriftApiClient('127.0.0.1', 8642);
     provider = new DriftDefinitionProvider(client);
 
-    // Stub workspace methods
+    // Stub workspace methods — fs.readFile replaces openTextDocument for
+    // bulk scanning after the readSourceText migration.
     findFilesStub = sinon.stub(vscodeMock.workspace, 'findFiles');
-    openTextDocumentStub = sinon.stub(vscodeMock.workspace, 'openTextDocument');
+    fsReadFileStub = sinon.stub(vscodeMock.workspace.fs, 'readFile');
   });
 
   afterEach(() => {
     fetchStub.restore();
     findFilesStub.restore();
-    openTextDocumentStub.restore();
+    fsReadFileStub.restore();
     provider.clearCache();
   });
 
@@ -157,7 +144,7 @@ describe('DriftDefinitionProvider', () => {
       stubSchemaMetadata();
       const fileUri = vscodeMock.Uri.file('/project/lib/tables/users.dart');
       findFilesStub.resolves([fileUri]);
-      openTextDocumentStub.resolves(makeDartFileDocument(dartTableContent));
+      fsReadFileStub.resolves(encode(dartTableContent));
 
       const doc = makeDocument("  'SELECT name, email FROM users WHERE id = ?',");
       // cursor on 'u' of 'users' — position 31
@@ -174,7 +161,7 @@ describe('DriftDefinitionProvider', () => {
       stubSchemaMetadata();
       const fileUri = vscodeMock.Uri.file('/project/lib/tables/users.dart');
       findFilesStub.resolves([fileUri]);
-      openTextDocumentStub.resolves(makeDartFileDocument(dartTableContent));
+      fsReadFileStub.resolves(encode(dartTableContent));
 
       const doc = makeDocument("  'SELECT email FROM users WHERE id = ?',");
       // cursor on 'e' of 'email' — position 10
@@ -191,7 +178,7 @@ describe('DriftDefinitionProvider', () => {
       stubSchemaMetadata();
       const fileUri = vscodeMock.Uri.file('/project/lib/tables/users.dart');
       findFilesStub.resolves([fileUri]);
-      openTextDocumentStub.resolves(makeDartFileDocument(dartTableContent));
+      fsReadFileStub.resolves(encode(dartTableContent));
 
       const doc = makeDocument("  'SELECT created_at FROM users',");
       // cursor on 'created_at'
@@ -207,8 +194,8 @@ describe('DriftDefinitionProvider', () => {
       stubSchemaMetadata();
       const fileUri = vscodeMock.Uri.file('/project/lib/other.dart');
       findFilesStub.resolves([fileUri]);
-      openTextDocumentStub.resolves(
-        makeDartFileDocument('class Other extends StatelessWidget {}'),
+      fsReadFileStub.resolves(
+        encode('class Other extends StatelessWidget {}'),
       );
 
       const doc = makeDocument("  'SELECT * FROM users',");
@@ -230,7 +217,7 @@ describe('DriftDefinitionProvider', () => {
       ].join('\n');
       const fileUri = vscodeMock.Uri.file('/project/lib/tables/orders.dart');
       findFilesStub.resolves([fileUri]);
-      openTextDocumentStub.resolves(makeDartFileDocument(noGetterContent));
+      fsReadFileStub.resolves(encode(noGetterContent));
 
       const doc = makeDocument("  'SELECT user_id FROM orders',");
       // cursor on 'user_id' — position 10

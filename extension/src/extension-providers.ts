@@ -12,6 +12,7 @@ import { TableNameMapper } from './codelens/table-name-mapper';
 import type { IDiagnosticIssue } from './diagnostics/diagnostic-types';
 import { LogCaptureBridge } from './debug/log-capture-bridge';
 import { DriftDefinitionProvider } from './definition/drift-definition-provider';
+import { DriftSourceLocatorCache } from './definition/drift-source-locator-cache';
 import { DriftHoverProvider, HoverCache } from './hover/drift-hover-provider';
 import { DriftTaskProvider } from './tasks/drift-task-provider';
 import { HealthTerminalLinkProvider } from './tasks/health-link-provider';
@@ -39,6 +40,7 @@ export interface ProviderSetupResult {
   dbpProvider: DataBreakpointProvider;
   logBridge: LogCaptureBridge;
   toolsProvider: ToolsTreeProvider;
+  locatorCache: DriftSourceLocatorCache;
 }
 
 /**
@@ -90,7 +92,12 @@ export function setupProviders(
   });
   context.subscriptions.push(toolsView);
 
-  const definitionProvider = new DriftDefinitionProvider(client);
+  // Watcher-backed cache so repeated F12 presses don't re-walk the workspace
+  // each time. Invalidated automatically when any .dart file changes.
+  const locatorCache = new DriftSourceLocatorCache();
+  context.subscriptions.push(locatorCache);
+
+  const definitionProvider = new DriftDefinitionProvider(client, locatorCache);
   context.subscriptions.push(
     vscode.languages.registerDefinitionProvider(
       { language: 'dart', scheme: 'file' },
@@ -221,5 +228,6 @@ export function setupProviders(
     dbpProvider,
     logBridge,
     toolsProvider,
+    locatorCache,
   };
 }

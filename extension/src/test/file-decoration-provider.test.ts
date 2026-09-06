@@ -2,10 +2,13 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { DriftApiClient } from '../api-client';
+import { TableNameMapper } from '../codelens/table-name-mapper';
 import {
   DriftFileDecorationProvider,
+  buildTableFileMap,
   formatBadge,
 } from '../decorations/file-decoration-provider';
+import { encodeUtf8 as encode } from './source-reader-test-helpers';
 
 function apiResponse(tables: Array<{ name: string; rowCount: number }>): Response {
   const body = tables.map((t) => ({
@@ -232,5 +235,98 @@ describe('DriftFileDecorationProvider', () => {
         /connection refused/,
       );
     });
+  });
+});
+
+const vscodeMock = vscode as any;
+
+describe('buildTableFileMap()', () => {
+  let findFilesStub: sinon.SinonStub;
+  let fsReadFileStub: sinon.SinonStub;
+  let mapper: TableNameMapper;
+
+  beforeEach(() => {
+    findFilesStub = sinon.stub(vscodeMock.workspace, 'findFiles');
+    fsReadFileStub = sinon.stub(vscodeMock.workspace.fs, 'readFile');
+    mapper = new TableNameMapper();
+    // Register known server tables so resolve() returns non-null.
+    (mapper as any)._serverTables = ['users', 'chat_messages'];
+  });
+
+  afterEach(() => {
+    findFilesStub.restore();
+    fsReadFileStub.restore();
+  });
+
+  it('should not call openTextDocument during bulk scanning', async () => {
+    // Core assertion: bulk scans must never create TextDocuments.
+    const openDocStub = sinon.stub(vscodeMock.workspace, 'openTextDocument');
+    try {
+      const content = 'class Users extends Table {\n}\n';
+      const fileUri = vscodeMock.Uri.file('/lib/tables.dart');
+      findFilesStub.resolves([fileUri]);
+      fsReadFileStub.resolves(encode(content));
+
+      await buildTableFileMap(mapper);
+      assert.strictEqual(
+        openDocStub.callCount,
+        0,
+        'openTextDocument must not be called during bulk scanning',
+      );
+    } finally {
+      openDocStub.restore();
+    }
+  });
+
+  it('should use an exclude glob that skips generated Dart files and dot-dirs', async () => {
+    findFilesStub.resolves([]);
+    await buildTableFileMap(mapper);
+
+    const [, excludeGlob] = findFilesStub.firstCall.args;
+    assert.ok(
+      excludeGlob.includes('*.g.dart'),
+      `Exclude glob should skip .g.dart, got: ${excludeGlob}`,
+    );
+    assert.ok(
+      excludeGlob.includes('*.freezed.dart'),
+      `Exclude glob should skip .freezed.dart, got: ${excludeGlob}`,
+    );
+    assert.ok(
+      excludeGlob.includes('build'),
+      `Exclude glob should skip build/, got: ${excludeGlob}`,
+    );
+    // Blanket dot-dir exclusion: .fvm, .git, .dart_tool, .symlinks, etc.
+    assert.ok(
+      excludeGlob.includes('**/.*'),
+      `Exclude glob should skip dot-prefixed dirs, got: ${excludeGlob}`,
+    );
+  });
+
+  it('should map class names to SQL table names via the mapper', async () => {
+    const content = 'class Users extends Table {\n}\n';
+    const fileUri = vscodeMock.Uri.file('/lib/tables.dart');
+    findFilesStub.resolves([fileUri]);
+    fsReadFileStub.resolves(encode(content));
+
+    const result = await buildTableFileMap(mapper);
+    assert.strictEqual(result.get('users'), '/lib/tables.dart');
+  });
+
+  it('should find multiple table classes in a single file', async () => {
+    const content = [
+      'class Users extends Table {',
+      '  IntColumn get id => integer()();',
+      '}',
+      'class ChatMessages extends Table {',
+      '  TextColumn get body => text()();',
+      '}',
+    ].join('\n');
+    const fileUri = vscodeMock.Uri.file('/lib/tables.dart');
+    findFilesStub.resolves([fileUri]);
+    fsReadFileStub.resolves(encode(content));
+
+    const result = await buildTableFileMap(mapper);
+    assert.strictEqual(result.get('users'), '/lib/tables.dart');
+    assert.strictEqual(result.get('chat_messages'), '/lib/tables.dart');
   });
 });

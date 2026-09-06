@@ -5,13 +5,14 @@
 
 import * as vscode from 'vscode';
 import { escapeRegex, snakeToCamel, snakeToPascal } from '../dart-names';
+import {
+  DART_SOURCE_EXCLUDE_GLOB,
+  positionFromOffset,
+  readSourceText,
+} from '../dart-source-reader';
 
-/**
- * Glob that finds hand-written Dart files, excluding generated code and the
- * build directory which never contain user-authored table definitions.
- */
+/** Glob that finds all Dart files; paired with DART_SOURCE_EXCLUDE_GLOB. */
 const DART_SOURCE_GLOB = '**/*.dart';
-const DART_EXCLUDE_GLOB = '{**/build/**,**/*.g.dart,**/*.freezed.dart}';
 
 /**
  * Finds the `class FooTable extends ...Table` declaration for a SQL table name.
@@ -31,15 +32,14 @@ export async function findDriftTableClassLocation(
 
   const dartFiles = await vscode.workspace.findFiles(
     DART_SOURCE_GLOB,
-    DART_EXCLUDE_GLOB,
+    DART_SOURCE_EXCLUDE_GLOB,
   );
 
   for (const fileUri of dartFiles) {
-    const doc = await vscode.workspace.openTextDocument(fileUri);
-    const text = doc.getText();
+    const text = await readSourceText(fileUri);
     const match = pattern.exec(text);
     if (match) {
-      const pos = doc.positionAt(match.index);
+      const pos = positionFromOffset(text, match.index);
       return {
         location: new vscode.Location(fileUri, pos),
         filesSearched: dartFiles.length,
@@ -79,12 +79,11 @@ export async function findDriftColumnGetterLocation(
 
   const dartFiles = await vscode.workspace.findFiles(
     DART_SOURCE_GLOB,
-    DART_EXCLUDE_GLOB,
+    DART_SOURCE_EXCLUDE_GLOB,
   );
 
   for (const fileUri of dartFiles) {
-    const doc = await vscode.workspace.openTextDocument(fileUri);
-    const text = doc.getText();
+    const text = await readSourceText(fileUri);
 
     const classMatch = classPattern.exec(text);
     if (!classMatch) continue;
@@ -100,7 +99,7 @@ export async function findDriftColumnGetterLocation(
     const colPattern = new RegExp(`get\\s+(${names})\\s*=>`);
     const colMatch = colPattern.exec(text);
     if (colMatch) {
-      const pos = doc.positionAt(colMatch.index);
+      const pos = positionFromOffset(text, colMatch.index);
       return {
         location: new vscode.Location(fileUri, pos),
         tableClassFallback: null,
@@ -109,7 +108,7 @@ export async function findDriftColumnGetterLocation(
     }
 
     // Getter not found — return the table class as a fallback.
-    const classPos = doc.positionAt(classMatch.index);
+    const classPos = positionFromOffset(text, classMatch.index);
     return {
       location: null,
       tableClassFallback: new vscode.Location(fileUri, classPos),

@@ -86,7 +86,7 @@ export function registerFeatureModules(
   // Feature command modules — each is isolated so one failing module does not
   // block the others or the core debug/connection logic.
   const featureModules: Array<[string, () => void]> = [
-    ['tree', () => registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager)],
+    ['tree', () => registerTreeCommands(context, client, treeProvider, editingBridge, fkNavigator, filterBridge, serverManager, deps.locatorCache)],
     ['nav', () => registerNavCommands(context, client, diagnosticManager, editingBridge, fkNavigator, serverManager, discovery, filterBridge, connectionChannel, deps.refreshDriftConnectionUi)],
     ['mutationStream', () => registerMutationStreamCommands(context, client, editingBridge, fkNavigator, filterBridge)],
     [
