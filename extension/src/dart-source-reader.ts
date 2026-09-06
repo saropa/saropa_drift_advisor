@@ -65,3 +65,29 @@ export function positionFromOffset(
   const character = offset - lastNewline - 1;
   return new vscode.Position(line, character);
 }
+
+/** Default batch size for bounded-concurrency reads. */
+const DEFAULT_BATCH_SIZE = 20;
+
+/**
+ * Read multiple files with bounded concurrency. Processes URIs in batches
+ * of `batchSize` via Promise.all, preventing hundreds of simultaneous
+ * readFile calls from overwhelming the extension host's I/O.
+ */
+export async function readSourceTextsInBatches(
+  uris: vscode.Uri[],
+  batchSize: number = DEFAULT_BATCH_SIZE,
+): Promise<Array<{ uri: vscode.Uri; text: string }>> {
+  const results: Array<{ uri: vscode.Uri; text: string }> = [];
+  for (let i = 0; i < uris.length; i += batchSize) {
+    const batch = uris.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(async (uri) => ({
+        uri,
+        text: await readSourceText(uri),
+      })),
+    );
+    results.push(...batchResults);
+  }
+  return results;
+}

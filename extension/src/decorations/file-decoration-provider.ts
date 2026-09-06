@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { DriftApiClient } from '../api-client';
 import { TableNameMapper } from '../codelens/table-name-mapper';
-import { DART_SOURCE_EXCLUDE_GLOB, readSourceText } from '../dart-source-reader';
+import { DART_SOURCE_EXCLUDE_GLOB, readSourceTextsInBatches } from '../dart-source-reader';
 
 const TABLE_CLASS_RE = /^\s*class\s+(\w+)\s+extends\s+Table\b/gm;
 
@@ -66,8 +66,10 @@ export async function buildTableFileMap(
     DART_SOURCE_EXCLUDE_GLOB,
   );
 
-  for (const uri of uris) {
-    const text = await readSourceText(uri);
+  // Read files in bounded-concurrency batches (~20 at a time) instead of
+  // serially, to avoid overwhelming the I/O layer on large workspaces.
+  const fileTexts = await readSourceTextsInBatches(uris);
+  for (const { uri, text } of fileTexts) {
     TABLE_CLASS_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = TABLE_CLASS_RE.exec(text)) !== null) {

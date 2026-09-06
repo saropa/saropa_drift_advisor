@@ -8,6 +8,7 @@ import {
   DART_SOURCE_EXCLUDE_GLOB,
   positionFromOffset,
   readSourceText,
+  readSourceTextsInBatches,
 } from '../dart-source-reader';
 import { encodeUtf8 as encode } from './source-reader-test-helpers';
 
@@ -70,6 +71,20 @@ describe('positionFromOffset()', () => {
     assert.strictEqual(pos2.character, 1);
   });
 
+  it('should handle bare \\r (classic Mac) line endings', () => {
+    // Classic Mac used bare \r as line ending. positionFromOffset only counts
+    // \n, so bare \r is treated as a regular character — this matches VS Code's
+    // TextDocument.positionAt() behavior which also only splits on \n.
+    const text = 'ab\rcd\ref';
+    // No \n anywhere, so everything is line 0.
+    const pos = positionFromOffset(text, 3); // 'c'
+    assert.strictEqual(pos.line, 0);
+    assert.strictEqual(pos.character, 3);
+    const pos2 = positionFromOffset(text, 6); // 'e'
+    assert.strictEqual(pos2.line, 0);
+    assert.strictEqual(pos2.character, 6);
+  });
+
   it('should handle CRLF line endings correctly', () => {
     // Windows-style line endings: \r\n
     const text = 'ab\r\ncd\r\nef';
@@ -127,5 +142,60 @@ describe('readSourceText()', () => {
     } finally {
       vscodeMock.workspace.textDocuments = origDocs;
     }
+  });
+});
+
+describe('readSourceTextsInBatches()', () => {
+  let fsReadFileStub: sinon.SinonStub;
+
+  beforeEach(() => {
+    fsReadFileStub = sinon.stub(vscodeMock.workspace.fs, 'readFile');
+  });
+
+  afterEach(() => {
+    fsReadFileStub.restore();
+  });
+
+  it('should read all files and return uri+text pairs', async () => {
+    const uris = [
+      vscodeMock.Uri.file('/a.dart'),
+      vscodeMock.Uri.file('/b.dart'),
+    ];
+    fsReadFileStub.onFirstCall().resolves(encode('class A {}'));
+    fsReadFileStub.onSecondCall().resolves(encode('class B {}'));
+
+    const results = await readSourceTextsInBatches(uris);
+    assert.strictEqual(results.length, 2);
+    assert.strictEqual(results[0].text, 'class A {}');
+    assert.strictEqual(results[1].text, 'class B {}');
+  });
+
+  it('should respect batchSize and process in chunks', async () => {
+    // 5 files with batchSize 2 → 3 batches (2, 2, 1).
+    const uris = Array.from({ length: 5 }, (_, i) =>
+      vscodeMock.Uri.file(`/file${i}.dart`),
+    );
+    // Track concurrent reads to verify batching limits concurrency.
+    let inflight = 0;
+    let maxInflight = 0;
+    fsReadFileStub.callsFake(async () => {
+      inflight++;
+      if (inflight > maxInflight) { maxInflight = inflight; }
+      // Yield to let other batch members start.
+      await new Promise((r) => setTimeout(r, 0));
+      inflight--;
+      return encode('// file');
+    });
+
+    const results = await readSourceTextsInBatches(uris, 2);
+    assert.strictEqual(results.length, 5);
+    // Max concurrency should never exceed the batch size.
+    assert.ok(maxInflight <= 2, `maxInflight was ${maxInflight}, expected <= 2`);
+  });
+
+  it('should return empty array for empty input', async () => {
+    const results = await readSourceTextsInBatches([]);
+    assert.strictEqual(results.length, 0);
+    assert.strictEqual(fsReadFileStub.callCount, 0);
   });
 });

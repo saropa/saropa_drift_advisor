@@ -338,6 +338,20 @@ workspace. The cache invalidates when any `.dart` file is created, changed, or
 deleted. A manual `clearCache()` method is available for schema-refresh
 triggers.
 
+### Hardening pass 2
+
+- **Watcher-triggered invalidation testing:** Enhanced the VS Code mock's
+  `createFileSystemWatcher` to capture `onDidCreate`/`onDidChange`/`onDidDelete`
+  listener callbacks so tests can simulate file-system events. Added three tests
+  verifying cache invalidation on file create, change, and delete events.
+- **Bounded-concurrency bulk reads:** Added `readSourceTextsInBatches()` to
+  `dart-source-reader.ts` — processes URIs in batches of 20 via `Promise.all`
+  instead of serially awaiting each file. `buildTableFileMap` (badge refresh)
+  now uses this helper. The locator functions retain serial reads because their
+  early-return-on-match semantics mean batching would read files beyond the
+  match point; the `DriftSourceLocatorCache` already eliminates repeated walks.
+
 ### Test results
 
-3195 tests passing, 0 failures. Net +13 new tests.
+3205 tests passing, 0 failures. Net +6 new tests (3 watcher invalidation,
+3 bounded-concurrency batch reader).

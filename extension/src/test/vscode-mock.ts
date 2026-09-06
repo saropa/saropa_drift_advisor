@@ -151,6 +151,36 @@ export function fireActiveEditorChanged(e: any = window.activeTextEditor): void 
   }
 }
 
+// Most recently created file-system watcher — tests use this to simulate
+// create/change/delete events on the watcher the production code obtained.
+let lastCreatedWatcher: any = null;
+
+/** Test helper: return the most recently created FileSystemWatcher mock. */
+export function getLastCreatedWatcher(): any {
+  return lastCreatedWatcher;
+}
+
+/** Fire every `onDidCreate` listener on the most recent watcher. */
+export function fireWatcherCreate(uri: any = {}): void {
+  if (lastCreatedWatcher) {
+    for (const l of lastCreatedWatcher._createListeners) { l(uri); }
+  }
+}
+
+/** Fire every `onDidChange` listener on the most recent watcher. */
+export function fireWatcherChange(uri: any = {}): void {
+  if (lastCreatedWatcher) {
+    for (const l of lastCreatedWatcher._changeListeners) { l(uri); }
+  }
+}
+
+/** Fire every `onDidDelete` listener on the most recent watcher. */
+export function fireWatcherDelete(uri: any = {}): void {
+  if (lastCreatedWatcher) {
+    for (const l of lastCreatedWatcher._deleteListeners) { l(uri); }
+  }
+}
+
 const registeredCommands: Record<string, (...args: any[]) => any> = {};
 
 const contextValues: Record<string, unknown> = {};
@@ -246,12 +276,34 @@ export const workspace = {
     registeredTimelineProviders.push({ scheme, provider });
     return { dispose: () => { /* no-op */ } };
   },
-  createFileSystemWatcher: (_pattern: any) => ({
-    onDidCreate: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
-    onDidChange: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
-    onDidDelete: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
-    dispose: () => { /* no-op */ },
-  }),
+  createFileSystemWatcher: (_pattern: any) => {
+    // Capture listeners so tests can simulate file-system events via the
+    // exported fire* helpers below.
+    const createListeners: Array<(e: any) => void> = [];
+    const changeListeners: Array<(e: any) => void> = [];
+    const deleteListeners: Array<(e: any) => void> = [];
+    const watcher = {
+      onDidCreate: (listener: any) => {
+        createListeners.push(listener);
+        return { dispose: () => { const i = createListeners.indexOf(listener); if (i !== -1) createListeners.splice(i, 1); } };
+      },
+      onDidChange: (listener: any) => {
+        changeListeners.push(listener);
+        return { dispose: () => { const i = changeListeners.indexOf(listener); if (i !== -1) changeListeners.splice(i, 1); } };
+      },
+      onDidDelete: (listener: any) => {
+        deleteListeners.push(listener);
+        return { dispose: () => { const i = deleteListeners.indexOf(listener); if (i !== -1) deleteListeners.splice(i, 1); } };
+      },
+      dispose: () => { createListeners.length = 0; changeListeners.length = 0; deleteListeners.length = 0; },
+      // Exposed for test helpers — not part of the real VS Code API.
+      _createListeners: createListeners,
+      _changeListeners: changeListeners,
+      _deleteListeners: deleteListeners,
+    };
+    lastCreatedWatcher = watcher;
+    return watcher;
+  },
   // File writes are recorded in writtenFiles (vscode-mock-fs.ts) so tests can
   // inspect them; reads return empty and directory creation is a no-op.
   fs: {
@@ -368,6 +420,8 @@ export function resetMocks(): void {
   diagnosticsChangeListeners.length = 0;
   activeEditorChangeListeners.length = 0;
   selectionChangeListeners.length = 0;
+  // Clear the last watcher so stale listeners don't leak between tests.
+  lastCreatedWatcher = null;
   resetTextDocumentMocks();
   resetExtras();
   for (const key of Object.keys(registeredCommands)) {

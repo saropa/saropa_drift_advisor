@@ -104,6 +104,12 @@ Extension no longer opens every Dart file as a live document during source looku
   bytes via `fs.readFile` (with dirty-buffer fallback), `positionFromOffset()`
   computes line/character from raw text, and `DART_SOURCE_EXCLUDE_GLOB` is the
   single-source-of-truth exclude pattern for all bulk Dart scans.
+- **Bounded-concurrency bulk reads** — badge-refresh table-file scan now reads
+  Dart files in batches of 20 via `readSourceTextsInBatches()` instead of
+  serially awaiting each file, reducing wall-clock time on large workspaces.
+- Locator cache watcher-triggered invalidation is now tested end-to-end: the
+  VS Code mock's `createFileSystemWatcher` captures listener callbacks so
+  tests can simulate create/change/delete events and verify cache eviction.
 
 ---
 

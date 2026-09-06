@@ -6,6 +6,7 @@ import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { DriftSourceLocatorCache } from '../definition/drift-source-locator-cache';
 import { encodeUtf8 as encode } from './source-reader-test-helpers';
+import { fireWatcherChange, fireWatcherCreate, fireWatcherDelete } from './vscode-mock';
 
 const vscodeMock = vscode as any;
 
@@ -98,5 +99,50 @@ describe('DriftSourceLocatorCache', () => {
     await cache.findTableClassLocation('users');
     await cache.findTableClassLocation('orders');
     assert.strictEqual(findFilesStub.callCount, 2, 'Both should be cached');
+  });
+
+  it('should invalidate cache when a .dart file is created', async () => {
+    const fileUri = vscodeMock.Uri.file('/lib/tables.dart');
+    findFilesStub.resolves([fileUri]);
+    fsReadFileStub.resolves(encode(tableContent));
+
+    await cache.findTableClassLocation('users');
+    assert.strictEqual(findFilesStub.callCount, 1);
+
+    // Simulate a new .dart file being created in the workspace.
+    fireWatcherCreate(vscodeMock.Uri.file('/lib/new_table.dart'));
+
+    await cache.findTableClassLocation('users');
+    assert.strictEqual(findFilesStub.callCount, 2, 'Should re-walk after watcher create event');
+  });
+
+  it('should invalidate cache when a .dart file is changed', async () => {
+    const fileUri = vscodeMock.Uri.file('/lib/tables.dart');
+    findFilesStub.resolves([fileUri]);
+    fsReadFileStub.resolves(encode(tableContent));
+
+    await cache.findTableClassLocation('users');
+    assert.strictEqual(findFilesStub.callCount, 1);
+
+    // Simulate an existing .dart file being modified.
+    fireWatcherChange(fileUri);
+
+    await cache.findTableClassLocation('users');
+    assert.strictEqual(findFilesStub.callCount, 2, 'Should re-walk after watcher change event');
+  });
+
+  it('should invalidate cache when a .dart file is deleted', async () => {
+    const fileUri = vscodeMock.Uri.file('/lib/tables.dart');
+    findFilesStub.resolves([fileUri]);
+    fsReadFileStub.resolves(encode(tableContent));
+
+    await cache.findTableClassLocation('users');
+    assert.strictEqual(findFilesStub.callCount, 1);
+
+    // Simulate a .dart file being removed from the workspace.
+    fireWatcherDelete(fileUri);
+
+    await cache.findTableClassLocation('users');
+    assert.strictEqual(findFilesStub.callCount, 2, 'Should re-walk after watcher delete event');
   });
 });
