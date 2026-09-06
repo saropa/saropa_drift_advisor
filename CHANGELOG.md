@@ -110,6 +110,11 @@ Extension no longer opens every Dart file as a live document during source looku
 - Locator cache watcher-triggered invalidation is now tested end-to-end: the
   VS Code mock's `createFileSystemWatcher` captures listener callbacks so
   tests can simulate create/change/delete events and verify cache eviction.
+- **Architecture invariant test** — new test enforces that converted bulk-scan
+  sites stay clean and detects any new site that uses the anti-pattern without
+  being tracked, preventing silent regressions.
+- `positionFromOffset()` now clamps negative and past-end offsets to the valid
+  range instead of producing garbage positions from failed lookups.
 
 ---
 

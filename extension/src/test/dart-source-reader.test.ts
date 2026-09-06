@@ -85,6 +85,21 @@ describe('positionFromOffset()', () => {
     assert.strictEqual(pos2.character, 6);
   });
 
+  it('should clamp negative offset to line 0 character 0', () => {
+    // Callers may pass -1 from a failed indexOf — must not crash or wrap.
+    const pos = positionFromOffset('hello\nworld', -1);
+    assert.strictEqual(pos.line, 0);
+    assert.strictEqual(pos.character, 0);
+  });
+
+  it('should clamp offset past end of text to last position', () => {
+    const text = 'ab\ncd';
+    // text.length is 5, offset 999 should clamp to position at end.
+    const pos = positionFromOffset(text, 999);
+    assert.strictEqual(pos.line, 1);
+    assert.strictEqual(pos.character, 2);
+  });
+
   it('should handle CRLF line endings correctly', () => {
     // Windows-style line endings: \r\n
     const text = 'ab\r\ncd\r\nef';

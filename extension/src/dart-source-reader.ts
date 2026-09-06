@@ -50,19 +50,22 @@ export function positionFromOffset(
   text: string,
   offset: number,
 ): vscode.Position {
+  // Clamp to valid range — callers may pass -1 on not-found or past-end offsets.
+  const safeOffset = Math.max(0, Math.min(offset, text.length));
+
   // Count \n characters before the offset to derive the line number.
   // CRLF (\r\n) is handled correctly: the \r is a regular character that
   // doesn't affect line counting, and the character offset is measured from
   // the \n position, so the next line starts at \n + 1 regardless.
   let line = 0;
   let lastNewline = -1;
-  for (let i = 0; i < offset && i < text.length; i++) {
+  for (let i = 0; i < safeOffset; i++) {
     if (text[i] === '\n') {
       line++;
       lastNewline = i;
     }
   }
-  const character = offset - lastNewline - 1;
+  const character = safeOffset - lastNewline - 1;
   return new vscode.Position(line, character);
 }
 

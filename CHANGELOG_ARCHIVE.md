@@ -8,7 +8,7 @@ For newer and current changes see [CHANGELOG.md](./CHANGELOG.md).
 
 Internal code cleanup only — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.6/CHANGELOG.md)
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Modularized six extension source files that exceeded the line-count gate** (production cap 300 lines, test cap 500). Each original file stays the public entry point — importers and tests are unchanged — and the extracted logic moved to a sibling file following the existing `-helpers` / `-checks` split convention:
   - `saropa-lints-diagnostics.ts` (303) → pure report parsing/mapping (severity map, JSON parse, per-file diagnostic mapping, interfaces) moved to new `saropa-lints-report.ts`; the original re-exports them so the test imports still resolve.
@@ -19,7 +19,6 @@ Internal code cleanup only — no user-facing change. [log](https://github.com/s
   - `test/data-quality-provider.test.ts` (512) → the shared `createContext` fixture moved to new `test/data-quality-test-helpers.ts`, and the `provideCodeActions` suite moved to new `test/data-quality-provider-actions.test.ts`.
   - Verified: `tsc --noEmit` clean and the full test suite (2905 tests) passes.
 
-</details>
 
 ---
 
@@ -31,14 +30,13 @@ A quick fix to stop the debug server from printing its startup banner twice in y
 
 - **Duplicate "DRIFT DEBUG SERVER" startup banner.** When `DriftDebugServer.start()` was called twice in quick succession (or concurrently), both calls bound the same port and printed the startup banner, so the banner appeared twice in the logs. The "already running" check now also covers a start that is still in flight, so only one banner is ever printed.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Re-entrancy guard in `_DriftDebugServerImpl.start`.** The running-state guard tested `_server`, which is assigned only after the awaits in `start` (`loadPersistedSnapshots`, `HttpServer.bind`). A second concurrent/rapid `start()` passed the guard while the first was still binding; with `shared: true` (SO_REUSEPORT) both binds succeeded and both printed the banner. Added a synchronous `bool _starting` flag set before the first await and cleared in a `finally`; the start body moved to a private `_startInternal` so the flag is cleared on every exit path (return, throw, or successful bind). File: `lib/src/drift_debug_server_io.dart`.
 - **Dependency upgrades (Dependabot).** TypeScript `5.9.3` → `6.0.3` (root and `extension/`); `sass` `1.99.0` → `1.101.0` (root); `js-yaml` `4.1.1` → `4.2.0` (`extension/`); `mocha` `11.3.0` → `11.7.6` (`extension/`); CI `actions/checkout` `6` → `7`. TypeScript 6 (a major version) was confirmed to type-check both the extension (`tsc -p ./`) and the root web bundle (`tsconfig.web.json`) with zero errors, and the extension `compile` step (`tsc` + NLS verify + NLS coverage) passes on it. Dev/build dependencies only — no change to shipped runtime behavior.
 - **`@types/vscode` kept at `^1.115.0`.** Dependabot's group bump raised it to `^1.125.0`, but `vsce package` rejects `@types/vscode` newer than `engines.vscode` (`^1.115.0`) — the type definitions must not promise APIs beyond the minimum supported VS Code. Pinned back to match the engine so the extension stays installable on VS Code 1.115+.
 - **Publish pipeline now pre-checks `@types/vscode` vs `engines.vscode`.** Added a "VS Code API compatibility" quality step (`scripts/modules/ext_build.py::check_engines_vscode_compat`, wired into Step 7 of the extension pipeline) so a future `@types/vscode` bump that exceeds `engines.vscode` fails fast with an actionable message instead of blowing up at the `vsce package` step deep in the run.
 
-</details>
 
 ---
 
@@ -55,12 +53,11 @@ Snapshots, branches, hovers, and the lineage/impact tools now work against datab
 
 - **`driftViewer.diagnostics.userDataTables` setting.** List the tables whose live debug rows are not representative of production (user/demo data, or static reference tables that load lazily). Null-rate and unused-column analysis is skipped for them.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Null-rate false-positive suppression (`BUG_data_quality_null_checker_false_positives`).** `data-quality-provider.ts` `_checkHighNullRates` now skips (a) whole tables in `config.userDataTables` (FP-1, unrepresentative live data) and (b) null-by-design columns via `_isNullByDesign` (FP-2): columns declared `.withDefault(...)` / `.clientDefault(...)`, `.autoIncrement()`, or nullable with a `*_at` / `*_phonetic` name suffix. The Dart parser now captures defaults — new optional `IDartColumn.hasDefault` set from `HAS_DEFAULT_RE` in `dart-parser.ts`. New config plumbing: optional `IDiagnosticConfig.userDataTables`, read in `diagnostic-config.ts`, contributed as `driftViewer.diagnostics.userDataTables` (array) in `package.json` + `package.nls.json` (regenerated `nls-coverage-data.ts`, 250 keys). Test helper `createDartFile` accepts per-column declaration overrides (`MockColumnSpec`); added parser tests for `hasDefault` and provider tests for both FP classes plus over-suppression guards (non-nullable `*_at` and a plain high-null column on a representative table still report). Full suite 2905 passing.
 - **rowid-free SQL helpers.** Two new helpers under `extension/src/sql/`: `samplingOrderBy(pkColumns, descending?)` returns an `ORDER BY` over the declared PK (always valid, including for `WITHOUT ROWID` tables, which SQLite requires to declare a PK) or an empty clause when no PK exists; `rowKeyColumn(columns)` picks a row-identity column preferring the PK, then a literal `id` column (the PowerSync table-view case), then `rowid` only as a last resort. Applied to the sampling sweeps (`timeline/snapshot-store.ts`, `branching/branch-manager.ts`, `timeline/snapshot-commands.ts`, `hover/drift-hover-provider.ts`) and to the keyed-operation sites (`lineage/*`, `impact/*`, `global-search/global-search-engine.ts`, `mutation-stream/mutation-stream-panel.ts`, `constraint-wizard/constraint-validator.ts`, `narrator/narrator-commands.ts`). The hover preview now fetches schema metadata before its data read so the order clause can use the PK. Added `test/sampling-order.test.ts`, `test/row-key.test.ts`, and a rowid-less-sweep regression test in `test/snapshot-store.test.ts` that asserts no emitted sweep references `rowid`; full suite 2897 passing.
 
-</details>
 
 A fix so the new Rules sidebar can't error out while the extension is reloading. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.3/CHANGELOG.md)
 
@@ -68,11 +65,10 @@ A fix so the new Rules sidebar can't error out while the extension is reloading.
 
 - **"No view is registered with id: driftViewer.rules" on activation.** The Drift Advisor Rules view used an eager registration call that throws if the editor hasn't re-read the extension manifest yet (which happens right after a reload), and that error could interrupt the rest of diagnostics setup. The view now registers with the tolerant API that never throws and simply wires up once the view is available.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Rules view registration hardened.** `extension-diagnostics.ts` now calls `vscode.window.registerTreeDataProvider('driftViewer.rules', …)` instead of `createTreeView`. `createTreeView` resolves the view eagerly and throws "No view is registered with id" when the loaded manifest lacks the contribution (JS reloaded before `package.json` was re-read), which aborted the remaining provider/command registrations in `setupDiagnostics`. `registerTreeDataProvider` does not validate the id at call time and the `TreeView` handle was unused. Added `registerTreeDataProvider` to the `vscode` test mock (`vscode-mock.ts`); full suite 2883 passing.
 
-</details>
 
 ---
 
@@ -91,7 +87,7 @@ Columns that are entirely empty are now called out separately from merely sparse
 - **A "Disable rule" quick fix on data-quality warnings.** High-null-rate, unused-column, and data-skew diagnostics now offer a lightbulb action to disable the rule, the same as the naming, best-practice, runtime, and compliance categories — no more hand-editing settings.
 - **Saropa Lints findings now show in the Problems panel.** A new "Run Saropa Lints (Publish to Problems)" command runs the scanner and surfaces every finding as a real diagnostic — inline squiggles and Problems-panel entries you can click through — instead of only a text dump in an Output channel. A companion "Clear Saropa Lints Problems" command removes them. The original Output-channel command is unchanged.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Saropa Lints diagnostics ingestion.** New `SaropaLintsDiagnostics` (`extension/src/saropa-lints-diagnostics.ts`) owns a dedicated `saropa-lints` diagnostic collection. It runs `dart run saropa_lints scan . --format json` (the scanner's existing stable v1 JSON report — no saropa_lints change needed), parses stdout tolerantly (slices first `{`..last `}` to survive `dart run` build chatter), and maps each finding to a `vscode.Diagnostic`: `filePath`→Uri (relative paths resolved against the workspace root), 1-based line/column→0-based range, analyzer `severity` name→`DiagnosticSeverity` (case-insensitive, unknown→Information), `ruleName`→code, `correctionMessage` appended to the message. Exit code 1 (findings present) is treated as success, not failure; only a missing/invalid report is an error. Deliberately on-demand (not in the auto-refresh provider pipeline — a full analyzer scan is too costly per refresh) with its own collection (saropa_lints rules are toggled in the consumer's `analysis_options.yaml`, not via the advisor's `disabledRules`). Wired two commands in `saropa-lints-commands.ts` (`runSaropaLintsDiagnostics`, `clearSaropaLintsDiagnostics`) alongside the existing text-dump command; pure parse/map functions unit-tested in `saropa-lints-diagnostics.test.ts`; activation disposable count updated to 232.
 - **Severity reclassification (13 codes Warning → Information).** Flipped `defaultSeverity` in the codes registry and the matching inline `severity:` at each emit site (the inline value overrides the registry default in `DiagnosticManager`, so both had to move). Codes: `high-null-rate`, `unused-column`, `data-skew` (data-quality-provider); `full-table-scan`, `slow-query-pattern`, `n-plus-one`, `unindexed-where-clause`, `unindexed-join` (performance-codes + slow-query/n-plus-one/query-pattern checkers); `missing-fk-index`, `anomaly` (schema-codes + index/anomaly checkers); `text-pk`, `cascade-risk`, `duplicate-index` (best-practice-codes + pk-checker). `slow-query-pattern` and `n-plus-one` previously escalated to Warning when pinned to a known call site — that escalation was removed (pin location still selected, severity now always Information). `anomaly` keeps Error for server-flagged integrity defects (which map to `orphaned-fk`). Updated four severity assertions in the provider tests.
@@ -100,7 +96,6 @@ Columns that are entirely empty are now called out separately from merely sparse
 - **Data-quality "Disable rule" code action.** `DataQualityProvider.provideCodeActions` now prepends the shared `driftViewer.disableDiagnosticRule` action for every data-quality code.
 - **Tests.** Split coverage (100% → `unused-column`, 94% → `high-null-rate`) and the new disable-rule action in `data-quality-provider.test.ts`; column-exclusion suppress/sibling-not-suppressed cases in `diagnostic-manager.test.ts`; `columnExclusions` added to the shared provider test-context config builders.
 
-</details>
 
 ---
 
@@ -117,14 +112,13 @@ Database views now show up alongside tables, there's a dedicated Views screen fo
 - **Views now appear in the sidebar, schema, and column pickers.** The table list only ever queried base tables, so databases that expose their schema through views — PowerSync, for example, stores rows as JSON and fronts them with views — looked empty even though the data was there. Views are now listed everywhere tables are, with their columns resolved the same way.
 - **Querying a view no longer shows "undefined" in every cell.** The SQL Notebook expected result rows in one shape but received them in another, so column headers were correct while every value rendered as the literal text "undefined". Results now display their real values, on both the live-app and HTTP connections.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Views included in the table-discovery query.** `ServerConstants.sqlTableNames` now selects `type IN ('table','view')` instead of `type='table'`. `PRAGMA table_info` resolves view columns identically, so the sidebar tree, schema metadata, and SQL field pickers populate without further change; write paths return empty for views (correct read-only behavior). GitHub issue #32 (`lib/src/server/server_constants.dart`).
 - **Result rows normalized to the columnar contract in both transport adapters.** The server returns object-rows (`{col: value}`), but every extension consumer (notebook renderer, `zipRow`, CSV/JSON export, watch/snapshot/diff) indexes rows positionally against a `columns` array. The VM-service adapter derived `columns` but left rows as objects — so the notebook read `row[0]` on an object and rendered `String(undefined)` — and the HTTP adapter returned the raw payload with no `columns` at all. A shared `objectRowsToColumnar` helper now converts both to `{columns, rows[][]}`. Test fixtures that stubbed the never-emitted columnar response shape were moved to the real object-row shape. GitHub issue #32 (`extension/src/shared-utils.ts`, `extension/src/transport/vm-service-api.ts`, `extension/src/api-client-http-query.ts`).
 - **New Views screen (web viewer).** `GET /api/views` returns `[{name, sql}]` from `sqlite_master` (new `SchemaHandler.getViewsList` + `sqlViewDefinitions`); the `views-screen.ts` tab renders the list, highlights each view's DDL, and runs a capped `SELECT` through the read-only `/api/sql` path for the output. New tab registration (`state.ts`), panel markup + toolbar button (`html_content.dart`), styles (`_views-screen.scss`), themed tab accents, and l10n keys (`strings-web-views.ts`). GitHub issue #32.
 - **Migration preview new-table lookup made view-inclusive.** `CompareHandler._migrationNewTables` still filtered its single-object `sqlite_master` lookup to `type='table'`, so once the table list began including views a view-backed "new" object returned no CREATE statement and was silently dropped from the generated DDL (and `compare_handler_test` got empty `migrationSql`). The lookup now selects `type IN ('table','view')` to match `getTableNames`. GitHub issue #32 (`lib/src/server/compare_handler.dart`).
 
-</details>
 
 ---
 
@@ -132,13 +126,12 @@ Database views now show up alongside tables, there's a dedicated Views screen fo
 
 Maintenance-only: the publish pipeline now offers **Retry** as the default action whenever a git step fails. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.5/CHANGELOG.md)
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Git failure prompts in the publish pipeline now offer Retry (default), Skip, Abort** instead of just Skip/Abort. The common cause of a failed commit here is a husky pre-commit hook (`dart format` / saropa_lints) that rewrites a staged file and fails the first attempt; a bare Enter now re-runs the step. For commits, retry restarts from `git add` so the hook's reformatted files get re-staged. Tag creation and tag push use separate retry loops so retrying a push never tries to recreate an existing tag. EOF / Ctrl+C maps to Abort so a closed stdin cannot loop forever (`scripts/modules/git_ops.py`, `scripts/modules/display.py`).
 - **Fixed a publish-pipeline ordering bug that shipped a drifted version constant.** The pipeline synced `ServerConstants.packageVersion` to pubspec.yaml *before* the version/CHANGELOG validation step could raise pubspec to the CHANGELOG's max version, so the constant could lag one release behind (pubspec `4.0.5`, constant `4.0.4`). `version_sync_test` then failed `flutter test` on `main` and on every dependabot PR branched from it, turning CI permanently red. The constant is now re-synced *after* version validation, and the lagging constant was corrected to `4.0.5` (`scripts/modules/pipeline.py`, `lib/src/server/server_constants.dart`).
 - **CI Analyze step no longer fails on advisory `info`-level lints.** Both workflows now run `flutter analyze --fatal-warnings` instead of `--fatal-infos`. `saropa_lints` is a caret dependency with no committed lockfile, so CI resolves whatever version is newest at run time; a new saropa_lints minor adding an info-level rule would otherwise red Analyze on every PR — including unrelated dependency bumps — for non-blocking noise. Warnings and errors still fail the build, and the full saropa_lints quality pass still runs in `scripts/publish.py` before any release (`.github/workflows/main.yaml`, `.github/workflows/publish.yml`).
 
-</details>
 
 ---
 
@@ -183,7 +176,7 @@ The web viewer's Home tab is easier to read and to navigate: a plain-language ov
 
 - **Removed the "Tables panel" / "History panel" switches from the Home tab.** They duplicated the sidebar's own show/hide control; toggle the sidebar from its own chrome instead.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - Home tab (`assets/web/home-screen.ts`, `_home-screen.scss`, `state.ts`, `html_content.dart`): removed the sidebar-toggle markup, styles, and the `_syncHomeSidebarToggles` window hook (its three guarded callers in `sidebar-panels.ts`, `toolbar.ts`, `app.js` deleted). Added per-tool `color` to `HOME_LAUNCHERS`/`HOME_EXTRAS` (driven into a `--tool-accent` CSS custom property), a `HOME_SEARCH_KEYWORDS` synonym dictionary, a per-card token search index with a per-token substring/fuzzy-subsequence matcher, and runtime-populated title/lead/search strings via new `viewer.nav.home.*` l10n keys. Loosened grid gap and card padding.
 - Ask-in-English panel (bug `plans/history/2026.06/2026.06.18/BUG_Microphone_button_not_work.md`, items 1–7):
@@ -220,11 +213,10 @@ Connecting the advisor to a running app no longer risks freezing the app at laun
 
 - **The advisor's diagnostics no longer freeze the app's startup.** When the extension connected to a launching app, it immediately ran heavy whole-database scans — per-column NULL-rate aggregates over every table plus a full timeline snapshot — over the app's single live database connection. Stacked onto the app's own startup queries, they serialized on that one connection and stalled the app's main thread long enough to drop hundreds of frames and lock the screen. These scans now wait out a short grace period after connect so the app's launch finishes first, and the NULL-rate scan skips very large tables (their per-column stats remain available on demand via "Profile Column").
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - Deferred the connect-time heavy sweep (row counts, NULL-rate diagnostics, timeline auto-capture) behind a startup grace window shared by the connect handler and the schema-watcher's initial post-connect poll, deduped through one timer; added a `MAX_ROWS_FOR_NULL_SCAN` cap in `DataQualityProvider`. Updated the activation disposable-count assertion for the new timer-cleanup disposable.
 
-</details>
 
 ---
 
@@ -248,7 +240,7 @@ Big schemas are easier to read now: a sidebar toggle groups related tables toget
 - **The Table Preview widget now shows column headers and cell values.** It expected positional rows and a separate column list, but the server returns rows as objects keyed by column name (and omits the column list over HTTP), so the preview rendered with no headers and blank cells. It now derives columns from the row data and fills the cells.
 - **Foreign-key navigator, filter bar, in-grid edit buttons, and the SQL Notebook EXPLAIN badges now follow the editor theme.** The FK navigator overlay, the filter Save/Delete buttons, the in-grid delete/add-row buttons, and the SQL Notebook query-plan badges hardcoded fixed colors that washed out or clashed in light and high-contrast themes. The data-grid overlays (which live in the table viewer, not a themed panel) now use the editor's own theme variables; the SQL Notebook badges use the shared status tokens. The transient connecting/error screen also follows the theme instead of a fixed gray.
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Fixed the publish workflow failing at `dart pub publish --dry-run` with exit code 65.** A new top-level `docs/launch/` directory tripped pub's "rename top-level docs to doc" layout warning, and the dry-run treats any warning as a failure. Excluded `docs/` via `.pubignore`.
 - **Trimmed the published package from bloat (~2 MB archive).** Because pub ignores `.gitignore` once a `.pubignore` exists, `.gitignore`'d directories (`build/`, generated `doc/api/`) plus developer-only directories (`bugs/`, `plans/`, `reports/`, `scripts/`, `tool/`) were being bundled. All are now listed in `.pubignore`; consumers do not need them at runtime.
@@ -257,7 +249,6 @@ Big schemas are easier to read now: a sidebar toggle groups related tables toget
 - **Repointed the design-token style-guide citations at their real source.** The `§` references in `design-tokens.ts` and `report-css.ts` cited `docs/design/SAROPA_DASHBOARD_STYLE_GUIDE.md`, a path that does not resolve in this repo — the guide is the shared cross-project source of truth and lives in the saropa_lints repo. The comments now point at the resolvable GitHub URL so the references are no longer dangling.
 - **Extended the design-token migration to the second status-color cluster the first pass missed.** The initial token migration converted the fourteen panels that shared one hex set (`#22c55e`/`#ef4444`/…). A separate group of panels hardcoded a different palette — Bootstrap-style `#28a745`/`#dc3545`/`#e0a800` and fixed dark backgrounds — and so still ignored the editor theme. Converted those bare status hexes to the semantic tokens (`--status-good`/`--status-bad`/`--accent-warning`/`--accent-info`) and their `rgba()` tints to `color-mix` across query-cost, explain, schema-diff, time-travel, snapshot-diff, drift-health, commit-timeline, mutation-stream, profiler, er-diagram, constraint-wizard, isar-gen, branching, seeder, suite-notes, and the filter/editing bridge scripts. The standalone schema-docs export now adopts the brand fallback palette (with dark-mode support) like the report export. Theme-bound `var(--vscode-*, #hex)` fallbacks and intentionally-fixed colors (SQL syntax highlighting, the standalone ER-diagram SVG export) were left as-is. `tsc` clean; full mocha suite (2851) passing.
 
-</details>
 
 ---
 
@@ -266,11 +257,10 @@ Big schemas are easier to read now: a sidebar toggle groups related tables toget
 Housekeeping release — a behind-the-scenes security update to a build tool, with no changes to how the package or extension behaves for you. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.0.1/CHANGELOG.md)
 
 <!-- cspell:ignore GHSA-gv7w-rqvm-qjhr -->
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Bumped esbuild to 0.28.1** (from 0.28.0) to clear advisory [GHSA-gv7w-rqvm-qjhr](https://github.com/advisories/GHSA-gv7w-rqvm-qjhr) — the esbuild Deno module wrote downloaded native binaries to disk without SHA-256 integrity verification, allowing RCE when `NPM_CONFIG_REGISTRY` is attacker-controlled. The exploit path is Deno-only (`lib/deno/mod.ts`); this project builds via Node (`node esbuild.config.mjs`), so it was not exposed, but the floor is raised to the patched release regardless. esbuild is a devDependency (web-viewer bundle build only) and ships in no released artifact.
 
-</details>
 
 ---
 
@@ -342,7 +332,6 @@ The debug server is now private by default: it binds to your machine only (127.0
 - **Robust persisted-data handling.** Importing a corrupted snippet file now fails with a clear message instead of throwing; a corrupted saved performance-baseline value no longer breaks the panel on load; and snapshot/branch row-diffing no longer mis-pairs rows whose primary key differs only by null-ness or type (e.g. `null` vs `""`, `1` vs `"1"`).
 - **Naming-compliance config is stricter.** A typo'd naming convention in `.drift-rules.json` now fails closed (the rule is enforced as not-matching) instead of silently marking every name compliant, and a JSON array is rejected as an invalid config object.
 
-</details>
 
 ---
 
@@ -362,7 +351,6 @@ Publish tooling now runs the runtime translation audit and points you at the com
 - **Clearer local-install label in publish** — the publish "Local Install" step's `Installed locally: code vX` line read as if it had just installed the new build, when it actually reports the EXTENSION version ALREADY installed in the editor (install happens at the later prompt). It also read as the editor's own version. Relabeled to `Currently installed drift-viewer: code vX` (and `drift-viewer not currently installed in VS Code or Cursor.`), naming the extension so the version can't be mistaken for VS Code's. `scripts/modules/pipeline.py`.
 - **Publish "Proceed?" prompts default to yes** — both the Dart-only and full (`all`) publish confirmation prompts now default to yes, so pressing Enter at `Proceed with publish?` proceeds instead of aborting. `scripts/publish.py`.
 
-</details>
 
 The web viewer's toolbar can now show labels: click any empty space in the toolbar row to switch between icon-only buttons and icons with a short word in a dim box. Your choice is remembered.
 
@@ -431,7 +419,6 @@ The web viewer's toolbar can now show labels: click any empty space in the toolb
 - **Per-row normalization in perf regression detection (A3)** — closes Suggestion #2 from `BUG_perf_regression_false_positives_from_data_quality_probes.md`, deferred from the 2026-04-21 `isInternal` fix. `IPerfBaseline` gained an optional `avgRowCount` (rolling EMA, same 20-sample cap as duration); `PerfBaselineStore.record()` takes an optional third `rowCount` arg so all existing two-arg callers and tests are unchanged. `aggregateQueries` sums result rows per normalized key; `detectRegressions` divides by row count on both sides when both are positive and the baseline has a tracked count, else falls back to the raw ratio; `IRegressionResult` exposes `currentRowCount`/`baselineRowCount`/`rowCountNormalized`; `recordSessionBaselines` and `recordDvrQueriesIntoPerfBaselines` thread the count through. Six new cases in `perf-baseline-store.test.ts`. Finish report appended to the archived bug under `plans/history/2026.04/2026.04.21/`.
 - **Reclassify the IDE-only capabilities note as a guide** — the former `plans/74-ide-only-capabilities.md` carried no build work; it only records that go-to-definition, code actions, and data breakpoints are intentionally IDE-only (not website parity gaps). Moved it to `plans/guides/IDE_ONLY_CAPABILITIES.md`, dropped the feature-number/plan framing, and rewrote it as a reference doc: an editor-surface-vs-website table explaining why each is out of reach for the read-only viewer, plus per-capability reopening criteria. Historical references (the archived `GAP_FIT_PLAN.md`, prior changelog entry) keep the old path.
 
-</details>
 
 Paste a query and see it as a diagram: the web viewer's query builder can now turn a `SELECT` you've typed (or pasted) into the multi-table visual graph.
 
@@ -444,7 +431,6 @@ Paste a query and see it as a diagram: the web viewer's query builder can now tu
 
 - **Single source of truth for query-builder SQL (Feature 21, Phase 1)** — the visual query builder's SQL rendering, validation, literal escaping, WHERE-operator lists, and flat-`SELECT` importer were previously hand-synced between the extension (`sql-renderer.ts`, `sql-import*.ts`) and the web bundle (`query-builder-sql.ts`, `query-builder-import.ts`), so the two could silently diverge and emit different SQL for the same model. Extracted them into self-contained, dependency-free `query-builder-core*.ts` modules (`-core` render/validate/literal, `-core-ops` operator lists, `-core-parse` string primitives, `-core-import` + `-core-import-clauses` parser) that compile into both the extension (tsc) and the web bundle (esbuild). The extension's `sql-renderer.ts`/`sql-import.ts` and the web's `query-builder-sql.ts`/`query-builder-import.ts` are now thin adapters re-exporting or delegating to the shared core; the importer injects a per-surface table factory so the extension keeps its initials aliases + canvas `position` and the web keeps `tN` aliases. Deleted the five now-redundant `sql-import-{utils,from-joins,select-list,where,group-order}.ts` helpers. The shared validator also adds the JOIN-reachability check the web had but the extension lacked (a disconnected table now reports an error instead of producing an un-runnable cross-join SELECT). All 2677 extension tests pass; web typecheck/build clean; an import→render→import→render stability check confirms identical re-rendered SQL.
 
-</details>
 
 ---
 
@@ -476,7 +462,6 @@ Two new ways to work with your data over time: a **Time Travel** slider to scrub
 - **Connection reliability Phase 1 — single connection-state authority** — introduced `connection-state.ts` (`ConnectionStateMachine` plus a pure `computeConnectionPhase` / `deriveConnectionContexts` model) as the one place that owns the connection truth and the sole writer of the `driftViewer.serverConnected` and `driftViewer.databaseTreeEmpty` context keys. `isDriftUiConnected`, `buildConnectionPresentation`, and the connection-UI refresh funnel now derive "transport up" from that single model instead of each recomputing their own boolean, so the two long-standing contradictions — "connected but no data" and "disconnected but server running" — are no longer representable. The Database tree exposes a `hasLiveSchema` signal feeding the machine. New `connection-state.test.ts` enumerates all 16 signal combinations and drives the machine through the full disconnected → connecting → connected → offline lifecycle, asserting the flags can never disagree. No behavior change to the tree's always-return-rows workaround. (First structural phase of `plans/connection-reliability-ongoing.md`.)
 - **Archive the website-vs-extension gap analysis; split remaining work into per-feature plans** — the parity sweep is complete (all high-impact and quick-win gaps closed on both surfaces), so `plans/GAP_FIT_PLAN.md` moved to `plans/history/2026.06/2026.06.10/` with a short stub left in place. The handful of still-open rows were lifted into standalone, individually trackable plans rather than buried in the archived tables: `71-website-dart-schema-scanning.md` (§5), `72-website-multiple-snapshots.md` (§8), `73-website-bulk-index-creation.md` (§11), and `74-ide-only-capabilities.md` — which reclassifies go-to-definition, code actions, and data breakpoints as intentionally IDE-only rather than unresolved parity gaps. The doc-maintenance backlog (evidence coverage, classification cleanup, parity release gate) retires with the archive.
 
-</details>
 
 ---
 
@@ -493,7 +478,6 @@ Spots leftover tables that physically sit in your SQLite file but your Drift sch
 
 - **Timeline auto-capture: coalesce write bursts into one re-dump** — an open timeline previously re-scanned every physical table (schema metadata + a per-table `SELECT`, a thousand-plus queries) on every detected DB write, and the old leading-edge guard fired that scan on the *first* write of a burst — the worst moment, mid write-storm — while silently dropping the rest, which could leave the panel stale on the final committed write. `SnapshotStore.requestCapture` now applies a trailing-edge debounce: writes within a quiet window (new `driftViewer.timeline.captureDebounceMs`, default 200 ms) reset the timer, so one re-dump runs after the burst settles, reflecting the coalesced final state, and the coalesced count is logged as `timeline: re-dump (coalesced K writes)` (`extension/src/timeline/snapshot-store.ts`, `extension/src/extension-providers.ts`, `extension/src/extension-activation-final.ts`, `extension/package.json`)
 
-</details>
 
 ---
 
@@ -523,7 +507,6 @@ The startup banner now shows the exact `adb forward` command and the real bound 
 - **Lint hygiene** — appended `--` rationales to `// ignore_for_file` and `// ignore` directives in `lib/src/drift_debug_server_io.dart` to satisfy `document_analyzer_ignore_rationale`
 - **Doc headers on flagged-complexity methods** — added concise `///` headers on `_isTextAffinity` (`lib/src/server/cell_update_handler.dart`), `_classifySql` / `_parseTableName` / `_record` (`lib/src/query_recorder.dart`), `_recordEvent` / `_extractWhereClause` (`lib/src/server/mutation_tracker.dart`), and `_migrationColumnMap` (`lib/src/server/compare_handler.dart`) so static-analysis complexity reports surface intent alongside the metric
 
-</details>
 
 ---
 
@@ -562,7 +545,6 @@ Query Replay DVR is now available in the extension and server API, so you can re
 - **Query builder import** — `extension/src/query-builder/sql-import.ts` parses `FROM`/`JOIN`/`WHERE`/`GROUP BY`/`ORDER BY`/`LIMIT` segments using successive clause boundaries so `LIMIT` is not swallowed into `WHERE` or the `FROM` clause; covered by `extension/src/test/sql-import.test.ts` with renderer round-trips
 - **Web query builder SQL layer** — `assets/web/query-builder-sql.ts` mirrors extension `sql-renderer` validation/rendering (join connectivity, `GROUP BY` / aggregate rules) so the browser preview matches execution; `npm run typecheck:web` covers the new modules
 
-</details>
 
 ---
 
@@ -575,7 +557,6 @@ Publish-pipeline bug report refreshed (no change to the shipped Dart package or 
 
 - **`bugs/PROBABLE_marketplace_failure_blocks_open_vsx_publish.md`** — verified against `scripts/modules/ext_publish.py` (`_run_publish_steps`): added line-level citations for the Marketplace failure path that returns before Step 14 (Open VSX), tightened repro steps, and replaced a Windows-only `rg` example with repo-root commands
 
-</details>
 
 ---
 
@@ -595,7 +576,6 @@ No more bogus "potential outlier" warnings on `lastModified` / `last_seen` style
 - **`error_logger.dart`: `// ignore: avoid_print` directives now carry rationales** — the analyzer's `document_ignores` rule was flagging three bare `// ignore: avoid_print` lines in `lib/src/error_logger.dart` (lines 68, 116, 119) as info-level diagnostics. Each directive now appends ` -- intentional console output so logs/errors/stack traces are visible without DevTools`, so future readers see why `print` is deliberate here (structured `developer.log` alone is invisible in the standard Flutter console)
 - **Legacy `linter/` module deleted** — `extension/src/linter/schema-diagnostics.ts`, `extension/src/linter/issue-mapper.ts`, and their test files have been removed. `SchemaDiagnostics` and `DriftCodeActionProvider` are gone; `ProviderSetupResult.linter` is gone; `IDebugCommandDeps.linter` is now `diagnosticManager: DiagnosticManager`; `registerNavCommands` takes `DiagnosticManager` instead. Callers that previously invoked `linter.refresh()` / `linter.clear()` now dispatch to `DiagnosticManager`, which was already being called next to every legacy-linter call site. Disposable count in `extension.test.ts` updated from 199 → 197 (the `drift-linter` DiagnosticCollection and its `DriftCodeActionProvider` registration are the two that went away; the unified `drift-advisor` collection still lives and is owned by `DiagnosticManager`). `CommandRegistrationDeps.diagnosticManager` is a `Partial<DiagnosticSetupResult>` so the `setupDiagnostics`-throws resilience test still passes: when diagnostics failed, command handlers see a no-op fallback (`refresh → resolved promise`, `clear → noop`) rather than crashing
 
-</details>
 
 ---
 
@@ -638,7 +618,6 @@ No more spurious "14 query regression(s) detected" warnings at the end of every 
 - **Lint cleanup: `prefer_return_await` + `depend_on_referenced_packages`** — removed redundant `Future<T>.value(...)` wrappers in two `async` branches of `vm_service_bridge.dart` (the async function already wraps the return value, so the explicit wrapper both added noise and tripped the lint); converted four self-referential `package:saropa_drift_advisor/...` imports inside `lib/` to relative paths in `drift_debug_server_io.dart`, `server/import_handler.dart`, `server/router.dart`, and `server/session_handler.dart` (a package cannot list itself in its own pubspec dependencies, so the self-import tripped `depend_on_referenced_packages`)
 - **Lint cleanup: `avoid_null_assertion` on regex group access in `server_context.dart`** — replaced `match.group(1)!` / `match.group(2)!` in `_parseCallerFrame` with `?? ''` fallbacks, and gated the file check on `file.isEmpty`. The regex literal guarantees both groups are non-null on a successful match today, so behavior is unchanged; the fallback removes a silent crash site if the pattern is ever edited. Related upstream bug filed against `saropa_lints` (`avoid_null_assertion_false_positive_regex_match_group.md`) — the rule should recognize `RegExpMatch.group(N)!` as a safe pattern.
 
-</details>
 
 ---
 
@@ -655,7 +634,6 @@ Removed the noisy "Drift server not reachable" diagnostic that stuck around when
 - **Publish script: vsce login limited to 3 attempts** — when the Marketplace credential store is unavailable, the script now prompts for the PAT up to 3 times and passes it non-interactively, instead of letting `vsce login` re-prompt indefinitely
 - **Removed connection-error diagnostic path** — deleted `connection-checker.ts`, the `connection-error` code, the `'connection-error'` event type, `RuntimeEventStore.hasRecentConnectionError`, `RuntimeProvider.recordConnectionError`, and the connection-error Quick Fix actions (Retry Connection / Don't Show / Open Settings). Tests updated.
 
-</details>
 
 ---
 
@@ -679,7 +657,6 @@ Added a real security policy so vulnerabilities can be reported privately throug
 <summary>Maintenance</summary>
 - **SECURITY.md** — replaced GitHub default template with a real security policy: private reporting via GitHub Security Advisories, response timeline commitments, scope definition, and coordinated disclosure terms
 
-</details>
 
 ---
 
@@ -709,12 +686,11 @@ Brand-new Settings panel for persistent preferences, a right-side History sideba
 - **Hamburger menu — sliding toggle switches** — Sidebar visibility and PII Mask now use sliding boolean switches instead of text-swapping buttons and checkboxes
 - **Hamburger menu — layout polish** — section headings use a smaller font with tighter bottom padding; a divider separates Mask from Share for clearer visual grouping
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Upgraded `saropa_lints`** from `^11.1.0` to `^12.0.1`; `dart_style`, `analyzer`, and related packages remain pinned below their latest versions because `analyzer ^12.0.0` conflicts with the Flutter SDK's `meta` constraint
 - **Pre-commit Dart format gate** — added `dart format --set-exit-if-changed .` to the Husky pre-commit hook so formatting issues are caught locally before they reach CI; mirrors the GitHub Actions format check step
 
-</details>
 
 ---
 
@@ -790,12 +766,11 @@ All ten toolbar buttons and the floating action button are now a single hamburge
 - **Smart field substitution in templates** — all templates (except COUNT) now substitute selected fields for `*`, not just the "SELECT columns" template
 - **Explain button removed** — replaced by automatic query plan analysis; the separate Explain button is no longer needed
 
-<details><summary>Maintenance</summary>
+### Internal
 
 - **Modularized `tools.ts` (850 lines) into 3 files** — `tools-compare.ts` (snapshot, compare, migration preview), `tools-analytics.ts` (index suggestions, size analytics, anomaly detection), and `tools-import.ts` (CSV/JSON/TSV import); each file has its own imports and no shared private state
 - **Modularized `_theme-effects.scss` (482 lines) into 3 files** — `_theme-showcase.scss` (showcase glassmorphism effects), `_theme-midnight.scss` (midnight aurora/glow effects), and a slim `_theme-effects.scss` (shared entrance animations + reduced-motion override)
 
-</details>
 
 ---
 
@@ -849,7 +824,6 @@ Schema tab no longer gets stuck on "Loading…", "Ask in English" stops crashing
 
 - **README screenshots** — added 10 feature screenshots (Tables, Table Data, Schema, Index, Size, Perf, Health, Import, Ask in English, Light Mode) in an HTML grid with captions; renamed files from random hashes to descriptive names; added Screenshots link to TOC
 
-</details>
 
 ---
 
@@ -870,7 +844,6 @@ Stale tables no longer carry over when you switch Flutter projects, and empty da
 - **Test coverage** — added tests verifying extracted helpers compose correctly into webview script output
 - **Test coverage** — 22 contract tests for server-origin storage clearing: state constant, persistence function wiring, key targeting, UI-preference preservation, call ordering in app.js, and bundle integration
 
-</details>
 
 ---
 
@@ -905,7 +878,6 @@ Fixed stale data after switching servers, restored broken heartbeat and polling 
 - **SCSS modularization** — `style.scss` decomposed from 2184 lines to 28-line import hub with 17 feature partials; migrated from deprecated `@import` to `@use`
 - **Connection diagnostic logging** — all connection state transitions, poll cycles, heartbeat, and keep-alive events now emit `[SDA]` prefixed console.log entries for browser dev tools tracing
 
-</details>
 
 ---
 
@@ -983,7 +955,6 @@ Fixed the changelog — 2.17.2 had accidentally overwritten the 2.17.1 entry. Bo
 
 - **Publish pipeline: store propagation polling** — After publishing, the pipeline now polls pub.dev, VS Code Marketplace, and/or Open VSX APIs until the new version is visible (30 s interval, 10 min max). Timeout is non-fatal
 
-</details>
 
 ---
 
@@ -1073,7 +1044,6 @@ Dashboard tab renamed for clarity, and web UI assets now load reliably on Flutte
 
 • **Error logger dual output** — `DriftDebugErrorLogger` log and error callbacks now call both `developer.log()` and `print()`, and log exact file paths probed with existence and byte counts.
 
-</details>
 
 ---
 
@@ -1176,7 +1146,6 @@ Stops false-positive slow-query warnings from internal analytics, fixes connecti
 
 • **Asset MIME mismatch fix** — `_sendWebAsset` no longer sends HTTP 200 with `text/plain` when file-read fails; failures fall through to a clean 404 so `onerror` CDN fallback fires. `_resolvePackageRootPath` validates that the resolved root contains web assets before accepting it.
 
-</details>
 
 ---
 
@@ -1207,7 +1176,6 @@ Fixes several broken commands and stuck webviews, and removes duplicate Quick Ac
 
 • **Example app upgraded** — The example's landing screen now displays a compact status header with server state and URL, a table overview with row counts, and a recent-posts list.
 
-</details>
 
 ---
 
@@ -1268,7 +1236,6 @@ Fixes a batch of reliability issues — stuck Database tree, broken mutation tra
 
 • **`doc/API.md` — Run SQL from links** — Documents the web viewer `GET /?sql=` deep link alongside `POST /api/sql`, with query-parameter reference and stable anchor IDs.
 
-</details>
 
 ---
 
@@ -1377,7 +1344,6 @@ Faster disconnect detection, batch apply for pending cell edits with foreign-key
 
 • **VM Service batch apply + health** — `ext.saropa.drift.applyEditsBatch` and `getHealth` now mirror HTTP endpoint capabilities.
 
-</details>
 
 ---
 
@@ -1404,7 +1370,6 @@ Fixes web UI failing on Flutter emulators and Schema Search getting stuck on loa
 
 • **Schema Search registered before command wiring** — `WebviewViewProvider` is now created in `setupProviders` instead of inside `registerAllCommands`, preventing permanent loading indicators if command registration fails.
 
-</details>
 
 ---
 
@@ -1427,7 +1392,6 @@ More reliable connection UI and Schema Search, plus web UI no longer errors duri
 
 • **Publish script: version sync** — Dart analysis now auto-syncs `server_constants.dart` with `pubspec.yaml` version before format/tests.
 
-</details>
 
 ---
 
@@ -1464,7 +1428,6 @@ Mutation Stream with column-value filtering, merged issues API for Saropa Lints 
 
 • **Log Capture integration internals** — Session-end flow deduplicated; shared helpers exported from bridge module.
 
-</details>
 
 ---
 
@@ -1541,7 +1504,6 @@ Table tabs, self-contained Search tab, collapsible sidebar, ~97% query spam redu
 
 • **Troubleshooting panel message routing** — Webview button actions now surface rejected command promises.
 
-</details>
 
 ---
 
