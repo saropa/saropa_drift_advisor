@@ -270,6 +270,12 @@ touches `_consecutiveErrors` or schedules, exactly as
   clears listeners. Extension deactivation now calls `dispose()` instead of `stop()`.
 - Added two dispose tests: "should prevent restart after dispose()" and "should clear
   listeners on dispose()".
+- `stop()` now aborts the in-flight HTTP request via `AbortController`. The signal is
+  threaded through `DriftApiClient.generation()` → `httpGeneration()` → `fetchWithTimeout()`.
+- `AbortError` is silently discarded in the catch branch (not counted as a consecutive error).
+- Listener iteration now uses a snapshot (`_listeners.slice()`) so a listener calling
+  `stop()` mid-iteration cannot corrupt the loop.
+- Added two hardening tests: "should not count AbortError" and "listener calls stop()".
 
 ---
 
@@ -336,3 +342,23 @@ now calls `dispose()` instead of `stop()`.
 
 Two additional tests: "should prevent restart after dispose()" and "should clear
 listeners on dispose()".
+
+### Abort-on-stop
+
+`stop()` now aborts the in-flight HTTP request via `AbortController` so the
+network connection is freed immediately instead of waiting up to 30 s for the
+server's long-poll timeout. The signal is threaded through
+`DriftApiClient.generation()` → `httpGeneration()` → `fetchWithTimeout()`,
+which already supported an external `signal` via `FetchWithTimeoutInit`.
+
+`AbortError` in the catch branch is silently discarded — it is an intentional
+cancellation, not a server failure, so it must not increment
+`_consecutiveErrors` or trigger backoff.
+
+Listener iteration now uses `this._listeners.slice()` so a listener that calls
+`stop()` mid-iteration cannot corrupt the loop or skip subsequent listeners.
+
+Two additional tests: "should not count AbortError as a consecutive error" and
+"should not corrupt listener iteration when a listener calls stop()".
+
+All 13 GenerationWatcher tests pass.

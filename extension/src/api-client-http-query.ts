@@ -11,18 +11,21 @@ import { fetchWithRetry, fetchWithTimeout, LONG_POLL_TIMEOUT_MS } from './transp
 import type { ApiHeaders } from './api-client-http';
 import { objectRowsToColumnar } from './shared-utils';
 
-/** Generation poll. */
+/** Generation poll. Accepts an optional AbortSignal so the caller can cancel
+ *  in-flight long-polls (e.g. on server switch) without waiting for the
+ *  server's 30 s long-poll timeout to expire. */
 export async function httpGeneration(
   baseUrl: string,
   headers: ApiHeaders,
   since: number,
+  signal?: AbortSignal,
 ): Promise<number> {
   // /api/generation blocks up to ServerConstants.longPollTimeout (30 s)
   // before answering; use the long-poll timeout so an idle response is
   // not aborted by the default 8 s limit.
   const resp = await fetchWithTimeout(
     `${baseUrl}/api/generation?since=${since}`,
-    { headers, timeoutMs: LONG_POLL_TIMEOUT_MS },
+    { headers, timeoutMs: LONG_POLL_TIMEOUT_MS, signal },
   );
   if (!resp.ok) throw new Error(`Generation poll failed: ${resp.status}`);
   const data = (await resp.json()) as { generation: number };

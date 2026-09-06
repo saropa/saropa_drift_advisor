@@ -104,9 +104,9 @@ export class DriftApiClient extends DriftApiClientBase {
     return http.httpTableFkMeta(this._baseUrl, this._headers(), tableName);
   }
 
-  async generation(since: number): Promise<number> {
+  async generation(since: number, signal?: AbortSignal): Promise<number> {
     if (this._vmClient?.connected) return this._vmClient.getGeneration();
-    return http.httpGeneration(this._baseUrl, this._headers(), since);
+    return http.httpGeneration(this._baseUrl, this._headers(), since, signal);
   }
 
   async mutations(since: number): Promise<IMutationStreamResponse> {

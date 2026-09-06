@@ -225,4 +225,41 @@ describe('GenerationWatcher', () => {
     watcher.dispose();
     assert.strictEqual((watcher as any)._listeners.length, 0, 'dispose must clear all listeners');
   });
+
+  it('should not count AbortError as a consecutive error', async () => {
+    // Simulate stop() aborting an in-flight request: the catch branch should
+    // silently discard AbortError without incrementing _consecutiveErrors.
+    const abortErr = new DOMException('The operation was aborted.', 'AbortError');
+    genStub.onFirstCall().rejects(abortErr);
+    genStub.onSecondCall().resolves(1);
+
+    watcher.start();
+    await flush();
+
+    // AbortError should not have bumped the error counter
+    assert.strictEqual(
+      (watcher as any)._consecutiveErrors,
+      0,
+      'AbortError must not count as a consecutive error',
+    );
+  });
+
+  it('should not corrupt listener iteration when a listener calls stop()', async () => {
+    // A listener that calls stop() mid-iteration must not prevent subsequent
+    // listeners from firing — the snapshot protects the loop.
+    genStub.resolves(1);
+
+    const order: number[] = [];
+    watcher.onDidChange(() => {
+      order.push(1);
+      // Calling stop() mid-iteration would previously have cleared _running
+      // and could corrupt the poll state; with the snapshot, listener 2 still fires.
+      watcher.stop();
+    });
+    watcher.onDidChange(() => { order.push(2); });
+    watcher.start();
+    await flush();
+
+    assert.deepStrictEqual(order, [1, 2], 'all listeners must fire even if one calls stop()');
+  });
 });

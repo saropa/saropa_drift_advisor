@@ -59,16 +59,17 @@ browse source on
   after a run finishes; the model is explicitly unloaded when the translate pass
   completes and the default keep-alive is reduced from 30 to 5 minutes.
 
+- **Switching servers no longer forks duplicate poll chains** — each server
+  switch could leave an orphaned generation-poll loop running against the
+  previous server, progressively multiplying network traffic and tree refreshes
+  for the rest of the session. Stopping now also cancels the in-flight HTTP
+  request immediately instead of waiting for the server's long-poll timeout.
+
 ### Added
 
 - **`--dry-run` for translate mode** — `--run-mode translate --dry-run` shows
   per-locale key and word counts plus the engine that would be used, without
   loading models or making API calls. Useful for estimating time before a run.
-
-- **Switching servers no longer forks duplicate poll chains** — each server
-  switch could leave an orphaned generation-poll loop running against the
-  previous server, progressively multiplying network traffic and tree refreshes
-  for the rest of the session.
 
 - **Dart source lookups no longer open every file as a TextDocument** —
   Go-to-Definition (F12), tree navigation, and badge refresh used to create a
@@ -88,6 +89,11 @@ browse source on
   Added `dispose()` method that permanently stops polling, bumps the epoch, and
   clears listeners — the extension's deactivation subscription now calls
   `dispose()` instead of `stop()` to prevent stale-reference restarts.
+- `stop()` now aborts the in-flight generation HTTP request via `AbortController`
+  so the network connection is freed immediately on server switch instead of
+  waiting up to 30 s for the long-poll to expire. `AbortError` is silently
+  discarded (not counted as a consecutive error). Listener iteration uses a
+  snapshot so a listener calling `stop()` mid-iteration cannot corrupt the loop.
 - New shared `dart-source-reader.ts` module: `readSourceText()` reads file
   bytes via `fs.readFile` (with dirty-buffer fallback), `positionFromOffset()`
   computes line/character from raw text, and `DART_SOURCE_EXCLUDE_GLOB` is the

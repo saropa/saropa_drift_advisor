@@ -32,6 +32,10 @@ export class GenerationWatcher {
   /** True after dispose() — prevents restart from stale references. */
   private _disposed = false;
 
+  /** Aborts the in-flight HTTP request on stop() so the network connection is
+   *  freed immediately instead of waiting for the server's long-poll timeout. */
+  private _abortController: AbortController | undefined;
+
   constructor(client: DriftApiClient) {
     this._client = client;
   }
@@ -62,6 +66,12 @@ export class GenerationWatcher {
     this._running = false;
     // Retire this polling session so any in-flight await discards its result
     this._pollId++;
+    // Cancel the in-flight HTTP request immediately so the network connection
+    // is freed instead of waiting for the server's 30 s long-poll timeout.
+    if (this._abortController) {
+      this._abortController.abort();
+      this._abortController = undefined;
+    }
     if (this._pollTimeout !== undefined) {
       clearTimeout(this._pollTimeout);
       this._pollTimeout = undefined;
@@ -81,18 +91,30 @@ export class GenerationWatcher {
 
     let delay = BASE_POLL_MS;
     try {
-      const gen = await this._client.generation(this._generation);
+      // Fresh controller per request so stop() can abort the in-flight fetch
+      this._abortController = new AbortController();
+      const gen = await this._client.generation(
+        this._generation,
+        this._abortController.signal,
+      );
+      this._abortController = undefined;
       // Re-check after the await: stop() or a new start() may have bumped _pollId
       if (!this._running || id !== this._pollId) return;
       this._consecutiveErrors = 0;
 
       if (gen !== this._generation) {
         this._generation = gen;
-        for (const listener of this._listeners) {
+        // Snapshot the array so a listener calling stop() mid-iteration
+        // doesn't corrupt the loop or skip subsequent listeners.
+        const snapshot = this._listeners.slice();
+        for (const listener of snapshot) {
           try { listener(); } catch { /* swallow — listener errors must not corrupt poll state */ }
         }
       }
     } catch (err) {
+      this._abortController = undefined;
+      // Intentional abort from stop() — not a server error, don't count it
+      if (err instanceof Error && err.name === 'AbortError') return;
       // Superseded while awaiting — discard without touching error counters
       if (!this._running || id !== this._pollId) return;
       this._consecutiveErrors++;
