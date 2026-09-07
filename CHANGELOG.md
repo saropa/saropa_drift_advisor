@@ -77,6 +77,35 @@ A SQL box now lives in the sidebar, so quick queries no longer need the full not
   repopulate the text box; clear the list in one click. History persists per
   workspace and survives editor restarts.
 
+### Fixed
+
+- **FTS5 shadow tables no longer flagged as extra** — tables like `notes_fts_data`
+  are now recognized as engine-owned when 3+ FTS shadow siblings exist alongside
+  the parent virtual table, preventing false positives on user tables whose name
+  happens to share a prefix (e.g. `user_data`).
+- **DateTime column type respects build.yaml** — `store_date_time_values_as_text`
+  is now read from `build.yaml` at diagnostic time, so `DateTimeColumn` maps to
+  TEXT when the Drift option is enabled instead of always reporting INTEGER.
+- **Data-skew threshold adapts to table count** — an adaptive formula replaces
+  the fixed 50% threshold, and engine-owned tables are excluded from the
+  denominator so their rows no longer inflate the baseline.
+- **Anomaly checker reads structured fields first** — `anomaly.table` and
+  `anomaly.column` are preferred over regex extraction from the message string,
+  with the regex retained as a fallback.
+- **Raw SQL bind parameters no longer misidentified** — `$`, `:`, and `@`
+  prefixed parameters are tokenized as their own kind, and `${...}` Dart
+  interpolations are blanked so embedded identifiers don't trigger
+  unknown-column diagnostics.
+- **Files with raw SQL calls are no longer skipped** — `customSelect` and
+  `customStatement` calls now qualify a file for diagnostics even when it
+  declares no Drift table classes.
+- **Named column overrides no longer flagged as mismatches** — columns using
+  `.named('...')` set `hasNamedOverride`, and the naming provider skips the
+  getter-table-mismatch check when the override is present.
+- **Keywords inside SQL literals no longer trigger false positives** — the
+  SQL validator now masks string literals and quoted identifiers before
+  checking for mutation keywords and stacked-statement semicolons.
+
 ---
 
 ## [4.3.2]
