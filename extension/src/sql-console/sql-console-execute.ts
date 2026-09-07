@@ -21,7 +21,7 @@ import * as vscode from 'vscode';
 
 import { DriftApiClient } from '../api-client';
 import { t } from '../l10n';
-import type { SqlClassification } from '../sql/sql-classifier';
+import { maskCommentsAndLiterals, type SqlClassification } from '../sql/sql-classifier';
 import { formatSingleCell, isSingleCell, rowsToCsv } from './sql-console-output';
 
 /**
@@ -71,13 +71,19 @@ function errorText(err: unknown): string {
  * a wrong-looking guess in a destructive confirmation would be worse than none.
  */
 function targetTable(sql: string): string | undefined {
+  // Mask comments and quoted runs BEFORE regex extraction — the classifier
+  // already decided this is a mutation using the masked form, but the table-name
+  // regexes run a second, independent scan. Without masking, a table name inside
+  // a comment (`UPDATE /* real_table */ other_table ...`) or a string literal
+  // could match before the actual target. This was a review finding (2026-09-07).
+  const masked = maskCommentsAndLiterals(sql);
   const patterns = [
     /\bupdate\s+(?:or\s+\w+\s+)?["'`[]?([\w$]+)/i, // UPDATE [OR REPLACE] t
     /\bdelete\s+from\s+["'`[]?([\w$]+)/i, // DELETE FROM t
     /\binto\s+["'`[]?([\w$]+)/i, // INSERT/REPLACE INTO t
   ];
   for (const pattern of patterns) {
-    const match = pattern.exec(sql);
+    const match = pattern.exec(masked);
     if (match) return match[1];
   }
   return undefined;

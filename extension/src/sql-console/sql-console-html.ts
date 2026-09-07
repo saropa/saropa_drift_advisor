@@ -57,6 +57,9 @@ function buildL10nBlob(): string {
       warning: t('panel.sqlConsole.severity.warning'),
       error: t('panel.sqlConsole.severity.error'),
     },
+    // History section chrome — resolved here so the webview script carries no English.
+    historyClear: t('panel.sqlConsole.history.clear'),
+    historyEmpty: t('panel.sqlConsole.history.empty'),
   };
   // `</` inside a JSON string would close the surrounding <script> element early;
   // escaping the slash keeps the literal inert without changing its parsed value.
@@ -96,6 +99,16 @@ export function getSqlConsoleHtml(confirmDestructive: boolean): string {
 
   <!-- Every execute writes here, so no action ever completes silently. -->
   <div id="output">${esc(t('panel.sqlConsole.status.ready'))}</div>
+
+  <!-- Collapsible query history. The summary count and list items are populated
+       by the script from extension messages — the HTML starts empty because the
+       persisted history has not arrived yet. -->
+  <details id="history-panel">
+    <summary id="history-summary">${esc(t('panel.sqlConsole.history.label', '0'))}</summary>
+    <ul id="history-list"></ul>
+    <a id="history-clear" href="javascript:void(0)">${esc(t('panel.sqlConsole.history.clear'))}</a>
+    <div id="history-empty">${esc(t('panel.sqlConsole.history.empty'))}</div>
+  </details>
 </div>
 <script nonce="__CSP_NONCE__">
   ${getSqlConsoleJs(buildL10nBlob())}

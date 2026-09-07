@@ -87,23 +87,21 @@ const READ_ONLY_FORBIDDEN = new Set<string>([
   'REINDEX',
 ]);
 
-// Keywords forbidden inside a data mutation. Mirrors
-// `SqlValidator.isSingleDataMutationSql`. REPLACE is deliberately absent: it is
-// legal DML both as a leading verb (`REPLACE INTO`) and as a conflict clause
-// (`INSERT OR REPLACE INTO`), and the single-statement guard already prevents a
-// second write being stacked behind it.
-const MUTATION_FORBIDDEN = new Set<string>([
-  'CREATE',
-  'DROP',
-  'ALTER',
-  'ATTACH',
-  'DETACH',
-  'PRAGMA',
-  'VACUUM',
-  'ANALYZE',
-  'REINDEX',
-  'TRUNCATE',
-]);
+// The four DML verbs that are legal mutations — used both to derive
+// MUTATION_FORBIDDEN (set subtraction) and at the classifySql call site to
+// distinguish "malformed mutation" from "forbidden statement". Declared before
+// MUTATION_FORBIDDEN because it depends on this.
+const DML_VERBS = new Set<string>(['INSERT', 'UPDATE', 'DELETE', 'REPLACE']);
+
+// Keywords forbidden inside a data mutation. Derived from READ_ONLY_FORBIDDEN
+// minus the four DML verbs so a new keyword added to the read-only set
+// automatically propagates here — a review finding (2026-09-07) showed the two
+// hand-maintained sets had drifted-apart potential. REPLACE is deliberately
+// absent: it is legal DML both as a leading verb (`REPLACE INTO`) and as a
+// conflict clause (`INSERT OR REPLACE INTO`).
+const MUTATION_FORBIDDEN = new Set<string>(
+  [...READ_ONLY_FORBIDDEN].filter((kw) => !DML_VERBS.has(kw)),
+);
 
 // Leading-verb shapes accepted as a single data mutation. Ported verbatim from
 // the hoisted patterns in sql_validator.dart, including the deliberate absence
@@ -115,11 +113,9 @@ const REPLACE_PATTERN = /^REPLACE\s+INTO\b/;
 const UPDATE_PATTERN = /^UPDATE\s+(OR\s+(REPLACE|IGNORE|ABORT|ROLLBACK|FAIL)\s+)?/;
 const DELETE_PATTERN = /^DELETE\s+FROM\b/;
 
-// Leading verbs that mean "the user is trying to write data". Used to choose
-// between `malformedMutation` (they meant a write but got the syntax wrong) and
-// `forbiddenStatement` (they asked for something never allowed at all) — a much
-// more useful hint than collapsing both into one message.
-const MUTATION_VERBS = new Set<string>(['INSERT', 'UPDATE', 'DELETE', 'REPLACE']);
+// Alias for readability at the call site in classifySql — DML_VERBS is also
+// used to distinguish "malformed mutation" from "forbidden statement".
+const MUTATION_VERBS = DML_VERBS;
 
 // Requires ANY whitespace after the verb, not a literal space. A query formatted
 // as `SELECT\n  id, ...` is normal pretty-printer output and perfectly valid;
@@ -338,16 +334,30 @@ function containsForbiddenWord(upper: string, forbidden: Set<string>): boolean {
   return false;
 }
 
-/** Builds a classification, deriving `executable` from `kind` in one place. */
+/**
+ * Builds a classification, deriving BOTH `severity` and `executable` from
+ * `kind` in one place. Both are deterministic: empty/forbidden -> error,
+ * readOnly -> info, mutation -> warning; executable = readOnly | mutation.
+ * Callers no longer pass severity, which eliminates the risk of a contradictory
+ * kind/severity pair drifting in over time (review finding, 2026-09-07).
+ */
 function classification(
   kind: SqlKind,
-  severity: SqlSeverity,
   reason: string,
   verb: string,
 ): SqlClassification {
+  // Severity is fully derivable from kind — there is no case where the two
+  // should disagree, so computing it here prevents a future caller from passing
+  // a contradictory pair.
+  const severityMap: Record<SqlKind, SqlSeverity> = {
+    empty: 'error',
+    forbidden: 'error',
+    readOnly: 'info',
+    mutation: 'warning',
+  };
   return {
     kind,
-    severity,
+    severity: severityMap[kind],
     reason,
     verb,
     // Single source of truth for the executable rule from the plan contract:
@@ -371,13 +381,12 @@ export function classifySql(sql: string): SqlClassification {
       // Blank, whitespace-only, comment-only, or bare `;`: nothing to run. Kept
       // distinct from `forbidden` so the UI can stay quiet (no scary error
       // wording) while the box is simply not filled in yet.
-      return classification('empty', 'error', 'sqlConsole.reason.empty', '');
+      return classification('empty', 'sqlConsole.reason.empty', '');
     }
     // Multi-statement. The verb is still reported so the tooltip can say which
     // statement the user started with.
     return classification(
       'forbidden',
-      'error',
       'sqlConsole.reason.multiStatement',
       leadingVerb(result.core),
     );
@@ -394,16 +403,11 @@ export function classifySql(sql: string): SqlClassification {
     // for a query that then fails server-side, which is the exact round trip
     // this classifier exists to prevent.
     if (containsForbiddenWord(upper, READ_ONLY_FORBIDDEN)) {
-      return classification(
-        'forbidden',
-        'error',
-        'sqlConsole.reason.forbiddenKeyword',
-        verb,
-      );
+      return classification('forbidden', 'sqlConsole.reason.forbiddenKeyword', verb);
     }
     // The only case with an empty reason, per the plan contract: nothing to
     // warn about, so there is no hint text to translate.
-    return classification('readOnly', 'info', '', verb);
+    return classification('readOnly', '', verb);
   }
 
   // --- Mutation path: INSERT / UPDATE / DELETE / REPLACE --------------------
@@ -417,42 +421,22 @@ export function classifySql(sql: string): SqlClassification {
     // Ported from isSingleDataMutationSql: DDL/utility keywords stacked into an
     // otherwise well-formed mutation are rejected by /api/edits/apply.
     if (containsForbiddenWord(upper, MUTATION_FORBIDDEN)) {
-      return classification(
-        'forbidden',
-        'error',
-        'sqlConsole.reason.forbiddenKeyword',
-        verb,
-      );
+      return classification('forbidden', 'sqlConsole.reason.forbiddenKeyword', verb);
     }
     // Warning, not error: this is legal and executable, but it changes data, so
     // package C gates it behind the confirm-destructive prompt.
-    return classification(
-      'mutation',
-      'warning',
-      'sqlConsole.reason.mutation',
-      verb,
-    );
+    return classification('mutation', 'sqlConsole.reason.mutation', verb);
   }
 
   // A write verb whose required clause is missing (`INSERT t VALUES ...`,
   // `DELETE t`). Separated from the generic forbidden case because the useful
   // hint is "fix the syntax", not "this is not allowed".
   if (MUTATION_VERBS.has(verb)) {
-    return classification(
-      'forbidden',
-      'error',
-      'sqlConsole.reason.malformedMutation',
-      verb,
-    );
+    return classification('forbidden', 'sqlConsole.reason.malformedMutation', verb);
   }
 
   // Everything else: DDL (CREATE/ALTER/DROP/TRUNCATE), ATTACH/DETACH/PRAGMA/
   // VACUUM/ANALYZE/REINDEX, and any unrecognized leading token. Neither server
   // endpoint accepts these, so Execute stays disabled.
-  return classification(
-    'forbidden',
-    'error',
-    'sqlConsole.reason.forbiddenStatement',
-    verb,
-  );
+  return classification('forbidden', 'sqlConsole.reason.forbiddenStatement', verb);
 }

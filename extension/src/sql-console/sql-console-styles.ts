@@ -102,5 +102,48 @@ export function getSqlConsoleCss(): string {
     color: var(--accent-warning, var(--vscode-editorWarning-foreground));
     border: 1px solid var(--accent-warning, var(--vscode-editorWarning-foreground));
   }
+
+  /* --- Query history --- */
+  /* Collapsible section at the bottom of the console. Styled as a subdued
+     complement to the primary execute flow above, not a competing surface. */
+  #history-panel {
+    font-size: 0.9em;
+    color: var(--vscode-descriptionForeground);
+  }
+  #history-panel summary {
+    cursor: pointer; user-select: none;
+    list-style: revert; /* keep the disclosure triangle */
+  }
+  #history-panel summary:hover {
+    color: var(--vscode-foreground);
+  }
+  /* Clickable query items — cursor pointer and hover highlight tell the user
+     these are interactive, not just a log. */
+  #history-list {
+    list-style: none; margin: 4px 0 0 0; padding: 0;
+  }
+  #history-list li {
+    padding: 3px 6px; cursor: pointer; border-radius: 3px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: var(--vscode-editor-font-size, 12px);
+    /* Single-line truncation with ellipsis — queries can be arbitrarily long
+       and the sidebar is ~300px wide. */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #history-list li:hover {
+    background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+    color: var(--vscode-foreground);
+  }
+  /* "Clear" link styled as a small action, not a prominent button. */
+  #history-clear {
+    display: inline-block; margin-top: 4px;
+    cursor: pointer; color: var(--vscode-textLink-foreground);
+    text-decoration: none; font-size: 0.9em;
+  }
+  #history-clear:hover { text-decoration: underline; }
+  #history-empty {
+    margin-top: 4px; font-style: italic;
+    color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
+  }
 `;
 }

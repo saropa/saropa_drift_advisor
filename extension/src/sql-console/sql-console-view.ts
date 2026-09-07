@@ -31,6 +31,12 @@ import { getSqlConsoleHtml } from './sql-console-html';
 const CONFIG_SECTION = 'driftViewer.sqlConsole';
 const CONFIRM_DESTRUCTIVE_KEY = 'confirmDestructive';
 
+/** workspaceState key for the per-workspace query history array. */
+const HISTORY_STATE_KEY = 'sqlConsole.history';
+
+/** Maximum number of queries to keep in the history ring. */
+const HISTORY_CAP = 20;
+
 /** Fully qualified form, for `affectsConfiguration` and `update()`. */
 const CONFIRM_DESTRUCTIVE_SETTING = `${CONFIG_SECTION}.${CONFIRM_DESTRUCTIVE_KEY}`;
 
@@ -113,6 +119,10 @@ export class SqlConsoleViewProvider implements vscode.WebviewViewProvider {
       this._context.subscriptions,
     );
 
+    // Send the persisted history so the list is populated on first render,
+    // before the user has executed anything in this session.
+    this._postHistory();
+
     // A disposed-and-rebuilt view starts from a fresh DOM, so drop the stale
     // handle rather than posting into a dead webview.
     webviewView.onDidDispose(
@@ -140,6 +150,9 @@ export class SqlConsoleViewProvider implements vscode.WebviewViewProvider {
         break;
       case 'setConfirmDestructive':
         void this._setConfirmDestructive(message.value === true);
+        break;
+      case 'clearHistory':
+        void this._clearHistory();
         break;
       default:
         // Deliberately silent: an unrecognized message is a version mismatch
@@ -169,10 +182,61 @@ export class SqlConsoleViewProvider implements vscode.WebviewViewProvider {
    * The webview's copy can be stale (a keystroke that landed inside the debounce
    * window), and the difference between the two verdicts is the difference between
    * a read and a write.
+   *
+   * Records the query in history BEFORE executing, for any executable statement.
+   * This matches the convention of most SQL tools — the attempt is what matters,
+   * not the outcome, so a query that the server rejects is still recallable.
    */
   private async _execute(sql: string): Promise<void> {
     const classification = classifySql(sql);
+    // Record before executing so the user can recall even failed queries.
+    if (classification.executable) {
+      void this._addToHistory(sql);
+    }
     await executeConsoleStatement(sql, classification, readConfirmDestructive(), this._post);
+  }
+
+  // --- Query history ---------------------------------------------------
+
+  /** Reads the persisted history array from workspace state. */
+  private _readHistory(): string[] {
+    return this._context.workspaceState.get<string[]>(HISTORY_STATE_KEY, []);
+  }
+
+  /**
+   * Posts the current history array to the webview with a pre-localized summary
+   * label, so the script never carries its own English.
+   */
+  private _postHistory(): void {
+    const items = this._readHistory();
+    this._post({
+      type: 'history',
+      items,
+      // The label carries the count already interpolated by the host's `t()`.
+      label: t('panel.sqlConsole.history.label', items.length),
+    });
+  }
+
+  /**
+   * Adds a query to the front of the history ring. Deduplicates by removing
+   * an earlier occurrence of the same text before prepending — running the same
+   * SELECT twice should move it to the top, not double it.
+   */
+  private async _addToHistory(sql: string): Promise<void> {
+    const trimmed = sql.trim();
+    if (!trimmed) return;
+    let history = this._readHistory().filter((entry) => entry !== trimmed);
+    history.unshift(trimmed);
+    // Cap at HISTORY_CAP to bound storage growth.
+    if (history.length > HISTORY_CAP) history = history.slice(0, HISTORY_CAP);
+    await this._context.workspaceState.update(HISTORY_STATE_KEY, history);
+    this._postHistory();
+  }
+
+  /** Clears the persisted history and notifies the webview. */
+  private async _clearHistory(): Promise<void> {
+    await this._context.workspaceState.update(HISTORY_STATE_KEY, []);
+    this._postHistory();
   }
 
   /**

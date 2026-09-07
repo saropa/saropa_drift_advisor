@@ -111,4 +111,10 @@ export const stringsPanelSqlConsole: Record<string, string> = {
   'panel.sqlConsole.confirm.messageNoTable':
     'Run this {0}? It changes stored data and cannot be undone from the extension.',
   'panel.sqlConsole.confirm.execute': 'Execute',
+
+  // --- Query history (collapsible list below the output area) ---
+  // {0} = number of saved queries. Always shown, even at zero.
+  'panel.sqlConsole.history.label': 'History ({0})',
+  'panel.sqlConsole.history.clear': 'Clear',
+  'panel.sqlConsole.history.empty': 'No queries yet.',
 };
