@@ -51,9 +51,9 @@ browse source on
 
 ---
 
-## [Unreleased]
+## [4.4.0]
 
-A SQL box now lives in the sidebar, so quick queries no longer need the full notebook panel. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+A SQL box now lives in the sidebar, so quick queries no longer need the full notebook panel. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.4.0/CHANGELOG.md)
 
 ### Added
 
