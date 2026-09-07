@@ -355,3 +355,87 @@ No date in the header.
 - Autocomplete/schema-aware suggestions in the sidebar box (the Notebook
   panel already has this; whether the sidebar gets it depends on open
   question 3).
+
+## Finish Report (2026-09-07)
+
+### Change
+
+A sidebar SQL console (`driftViewer.sqlConsole`) was added to the VS Code
+extension as the codebase's first `WebviewViewProvider`. The sidebar section
+renders a SQL text box, an Execute button, a live validation icon strip, and a
+"Warn before destructive changes" checkbox backed by the new
+`driftViewer.sqlConsole.confirmDestructive` setting (default `true`).
+
+### Components
+
+1. **SQL classifier** (`extension/src/sql/sql-classifier.ts`) — a TypeScript
+   port of the server-side `SqlValidator` masking state machine
+   (`lib/src/server/sql_validator.dart`). Classifies input as `readOnly`,
+   `mutation`, `forbidden`, or `empty` with severity icons and l10n-keyed
+   reason strings. The classifier is UI hinting only; the server remains the
+   sole enforcement authority.
+2. **CSV output** (`extension/src/sql-console/sql-console-output.ts`) —
+   `rowsToCsv`, `isSingleCell`, `formatSingleCell`. NULL renders as an empty
+   unquoted field, empty-string as `""`, BLOBs as `<N bytes>`. Single-cell
+   results (strictly 1×1) display inline; everything else opens as a virtual
+   CSV document beside the editor.
+3. **Webview provider** (`extension/src/sql-console/sql-console-view.ts`) —
+   the `WebviewViewProvider`, registered in activation phase 5 under
+   `runPhase` so a registration failure cannot abort activation.
+4. **Execute flow** (`extension/src/sql-console/sql-console-execute.ts`) —
+   reads route to `DriftApiClient.sql()`; mutations check
+   `health.writeEnabled` (explanatory message if disabled, never silent), then
+   prompt via `showWarningMessage({modal: true})` when the checkbox is on,
+   then call `applyEditsBatch([sql])`. Split from the view to hold the
+   ~300-line file-size ceiling.
+5. **Manifest and NLS** — `package.json` gains the `webview`-typed view
+   (gated behind `driftViewer.isDriftProject` like its siblings) and the
+   boolean setting. Two NLS keys added to `package.nls.json`; key naming
+   follows house convention (`view.sqlConsole.name`,
+   `config.sqlConsole.confirmDestructive.description`).
+
+### Tests
+
+- `sql-classifier.test.ts`: 31 tests covering all four kinds, masking traps
+  (the `SELECT 'a -- b' ; DROP TABLE t --` audit case), multi-line SELECTs,
+  leading whitespace/comments, case insensitivity, `WITH...SELECT`, mutation
+  verbs with and without required clauses, and a guard asserting every
+  non-empty `reason` matches the l10n key pattern.
+- `sql-console-output.test.ts`: 25 tests covering quoting triggers, NULL vs
+  empty-string distinction, BLOB placeholders, header-only results,
+  single-cell threshold, and unicode passthrough.
+- `extension.test.ts`: disposable-count assertion updated from 257 to 259.
+- Full suite: 3263 passing, 0 failing.
+
+### Code review findings (medium)
+
+Four PLAUSIBLE simplification findings, no correctness bugs:
+
+1. Write-gate logic (`ensureWritesEnabled`) duplicates `editing-commands.ts` —
+   structurally identical but routes feedback differently (webview post vs.
+   direct `showErrorMessage`), so not trivially extractable. Documented in
+   comments.
+2. `severity` on `SqlClassification` is derivable from `kind` and should not
+   be a separate argument to the internal `classification()` helper.
+3. `READ_ONLY_FORBIDDEN` and `MUTATION_FORBIDDEN` keyword sets share 10/14
+   entries; a shared base set would make the subset relationship enforceable.
+4. `createConsoleClient()` duplicates the config-to-client factory from two
+   other files.
+
+Items 2 and 3 are worth addressing in a follow-up; items 1 and 4 are
+codebase-wide patterns that predate this feature.
+
+### Not verified
+
+The six-case manual checklist (§ Verification in this file) requires a
+connected Drift debug server and was not run — no server was available. The
+test suite proves logic correctness; end-to-end wiring is unverified.
+
+### Known follow-up
+
+`DriftApiClient.sql()` drops the server's `truncated` flag during
+normalization (`api-client-http-query.ts:111-112`). The console infers
+truncation from a row count at the cap (`maxSqlResultRows`), which over-warns
+on an exactly-cap result. The clean fix is forwarding `truncated` through
+`httpSql`, left for a follow-up since `api-client.ts` is shared with other
+consumers.

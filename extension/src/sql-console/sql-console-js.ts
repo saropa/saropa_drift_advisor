@@ -43,6 +43,10 @@ export function getSqlConsoleJs(l10nJson: string): string {
   var validation = document.getElementById('validation');
   var confirmBox = document.getElementById('confirm-destructive');
   var output = document.getElementById('output');
+  var historySummary = document.getElementById('history-summary');
+  var historyList = document.getElementById('history-list');
+  var historyClearBtn = document.getElementById('history-clear');
+  var historyEmpty = document.getElementById('history-empty');
 
   // Execute is gated by TWO independent conditions, tracked separately so that
   // finishing a query does not accidentally re-enable a button that validation
@@ -108,6 +112,49 @@ export function getSqlConsoleJs(l10nJson: string): string {
     validation.appendChild(text);
   }
 
+  /** Max display length for a history item before truncation. */
+  var HISTORY_TRUNCATE = 60;
+
+  /**
+   * Rebuilds the history list from the extension's authoritative array.
+   * Most-recent-first order is the extension's responsibility; the webview
+   * renders whatever it receives.
+   */
+  function renderHistory(items) {
+    historyList.textContent = '';
+    // Update the summary count so the user sees how many entries exist without
+    // expanding. The l10n template is not available here — the extension sends
+    // the pre-formatted summary label instead (see 'history' message handler).
+    historySummary.textContent = items._label || ('History (' + items.length + ')');
+    // Toggle clear link and empty-state message.
+    historyClearBtn.hidden = items.length === 0;
+    historyEmpty.hidden = items.length > 0;
+
+    for (var i = 0; i < items.length; i++) {
+      var li = document.createElement('li');
+      // Collapse whitespace for display — a multi-line query should still be
+      // readable in a single-line list item.
+      var display = items[i].replace(/\\s+/g, ' ').trim();
+      if (display.length > HISTORY_TRUNCATE) {
+        display = display.substring(0, HISTORY_TRUNCATE) + '\\u2026';
+      }
+      li.textContent = display;
+      li.title = items[i];
+      // Closure captures the full query text so clicking recalls the whole
+      // thing, not the truncated display form.
+      li.addEventListener('click', (function (fullSql) {
+        return function () {
+          input.value = fullSql;
+          // Re-trigger validation so the icon strip and Execute button agree
+          // with the recalled query immediately.
+          clearTimeout(debounceTimer);
+          requestValidation();
+        };
+      })(items[i]));
+      historyList.appendChild(li);
+    }
+  }
+
   // --- Extension -> webview messages ---
   window.addEventListener('message', function (event) {
     var msg = event.data || {};
@@ -137,6 +184,15 @@ export function getSqlConsoleJs(l10nJson: string): string {
         // Pushed on render and whenever the setting changes elsewhere (Settings
         // UI, another window), so the checkbox never shows a stale value.
         confirmBox.checked = msg.value === true;
+        break;
+      case 'history':
+        // The extension sends the full list after every change and on initial
+        // resolve, so the webview never manages its own copy.
+        var items = msg.items || [];
+        // Attach the pre-localized summary label so renderHistory can use it
+        // without carrying its own English.
+        items._label = msg.label || '';
+        renderHistory(items);
         break;
     }
   });
@@ -176,6 +232,12 @@ export function getSqlConsoleJs(l10nJson: string): string {
 
   confirmBox.addEventListener('change', function () {
     vscode.postMessage({ type: 'setConfirmDestructive', value: confirmBox.checked });
+  });
+
+  // Clear history — the extension wipes the persisted array and pushes an
+  // empty list back, so the webview never manages its own copy.
+  historyClearBtn.addEventListener('click', function () {
+    vscode.postMessage({ type: 'clearHistory' });
   });
 
   // --- Init ---

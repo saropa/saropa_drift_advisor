@@ -72,6 +72,10 @@ A SQL box now lives in the sidebar, so quick queries no longer need the full not
   (on by default). SELECT statements never prompt, however complex they are.
   When the connected app runs without write support, the console explains that
   rather than failing silently. A clipped result set is always announced.
+- **Query history remembers the last 20 statements** — a collapsible History
+  panel below the output area lists previously executed SQL. Click any entry to
+  repopulate the text box; clear the list in one click. History persists per
+  workspace and survives editor restarts.
 
 ---
 
