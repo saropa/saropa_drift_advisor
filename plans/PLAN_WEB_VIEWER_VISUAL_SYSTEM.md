@@ -1,8 +1,8 @@
-# 82 — Web viewer visual system: semantic tokens, contrast, animation cost, button base, print
+# Web viewer visual system: semantic tokens, contrast, animation cost, button base, print
 
 **Status: Open** (2026-09-02). Not started. Source: master web-developer review of the browser viewer, 2026-09-02.
 
-Self-contained: a sub-agent needs only this file, the repo, and the skills named below. Siblings: `plans/81-web-viewer-ux-core.md`, `plans/83-web-viewer-accessibility-and-i18n.md`. Bugs tracked separately: `bugs/081` (icon font offline fallback), `bugs/082` (`--mono` typo).
+Self-contained: a sub-agent needs only this file, the repo, and the skills named below. Siblings: `plans/PLAN_WEB_VIEWER_UX_CORE.md`, `plans/PLAN_WEB_VIEWER_ACCESSIBILITY_AND_I18N.md`. Bugs tracked separately (already-closed bug numbers, historical): `bugs/081` (icon font offline fallback), `bugs/082` (`--mono` typo).
 
 ---
 

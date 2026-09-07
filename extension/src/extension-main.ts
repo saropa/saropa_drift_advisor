@@ -13,7 +13,7 @@
  *   1  Bootstrap (client, discovery, watcher, serverManager)
  *   2  About commands (zero-dependency sidebar icons)
  *   3  Schema cache + cached client
- *   4  Providers (tree, tools, codeLens, hover, linter, etc.)
+ *   4  Providers (tree, tools, codeLens, hover, linter, SQL Console view, etc.)
  *   5  Intelligence engines (schema, query)
  *   6  Diagnostics
  *   7  Editing (change tracker, FK navigator, pending edits)
@@ -42,10 +42,11 @@ import { createDriftAdvisorApi } from './log-capture-api';
 import { ts, runPhase } from './extension-phase-utils';
 import { setupFinalPhases } from './extension-activation-final';
 import { createBulkState } from './storage/bulk-state-factory';
+// SQL Console sidebar view — the extension's first WebviewViewProvider
+// (every other sidebar view is a TreeDataProvider). See plan 84.
+import { SqlConsoleViewProvider } from './sql-console/sql-console-view';
 
-// ---------------------------------------------------------------------------
-// Public entry point
-// ---------------------------------------------------------------------------
+// --- Public entry point ---
 /**
  * Extension activation. Creates an output channel first, then delegates to
  * {@link _activateInner} for phased setup. The outer try/catch is a safety
@@ -190,6 +191,33 @@ function _activateInner(
     // command registration fails.
     registerRefreshTreeCommand(context, result.treeProvider);
     return result;
+  }));
+
+  // -----------------------------------------------------------------------
+  // Phase 4 (providers, continued): SQL Console sidebar webview view.
+  //
+  // Belongs to the providers phase because it is a view provider like the
+  // trees registered above — but it is the first WebviewViewProvider in the
+  // extension, so it gets its own runPhase rather than being folded into
+  // setupProviders(): a failure constructing or registering the webview view
+  // must not take the tree providers (or activation) down with it. runPhase
+  // swallows and logs the error so later phases still run, honoring the
+  // "activate() never re-throws" contract at the top of this file.
+  //
+  // The provider only needs the extension context — it resolves its client,
+  // configuration, and l10n lazily when the view is first shown — so it has
+  // no dependency on the providers phase having succeeded.
+  track(runPhase('sql-console', channel, () => {
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(
+        SqlConsoleViewProvider.viewType,
+        new SqlConsoleViewProvider(context),
+      ),
+    );
+    // runPhase reports failure as `undefined`, and track() counts a phase as
+    // succeeded only when the result is not `undefined` — so return a value
+    // even though registration itself produces nothing useful.
+    return true;
   }));
 
   // Package status monitor — lightweight, independent of providers.

@@ -33,6 +33,7 @@ import { stringsPanelTools } from './l10n/strings-panel-tools';
 import { stringsPanelNotes } from './l10n/strings-panel-notes';
 import { stringsPanelRules } from './l10n/strings-panel-rules';
 import { stringsPanelHub } from './l10n/strings-panel-hub';
+import { stringsPanelSqlConsole } from './l10n/strings-panel-sql-console';
 
 /**
  * Every host English registry, merged into one lookup. Explicit list (not a glob)
@@ -53,6 +54,8 @@ const HOST_STRING_REGISTRIES: Array<Record<string, string>> = [
   stringsPanelNotes,
   stringsPanelRules,
   stringsPanelHub,
+  // Sidebar SQL console + the shared classifier's reason strings (plan 84).
+  stringsPanelSqlConsole,
 ];
 
 /** Merged symbolic-key → English map. */

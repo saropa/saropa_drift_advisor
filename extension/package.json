@@ -66,6 +66,13 @@
           "when": "driftViewer.isDriftProject"
         },
         {
+          "id": "driftViewer.sqlConsole",
+          "name": "%view.sqlConsole.name%",
+          "icon": "$(database)",
+          "type": "webview",
+          "when": "driftViewer.isDriftProject"
+        },
+        {
           "id": "driftViewer.databaseExplorer",
           "name": "%view.databaseExplorer.name%",
           "icon": "media/icon-activitybar.svg",
@@ -1656,6 +1663,11 @@
           "minimum": 0,
           "maximum": 1,
           "description": "%config.seeder.nullProbability.description%"
+        },
+        "driftViewer.sqlConsole.confirmDestructive": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.sqlConsole.confirmDestructive.description%"
         },
         "driftViewer.sqlNotebook.maxHistory": {
           "type": "number",

@@ -4,7 +4,7 @@
 
 Created: 2026-09-02
 Type: UX improvement
-Related plan: `plans/28-pii-anonymizer.md` (roadmap priority 1, Wow 5→6)
+Related plan: `plans/deferred/PLAN_PII_ANONYMIZER.md` (roadmap priority 1, Wow 5→6)
 
 ---
 
@@ -58,7 +58,7 @@ explicitly intended to be "shared via Slack, attached to bug reports, archived" 
 raw value inlined; `driftViewer.shareSession` produces a URL; `driftViewer.exportDataset` writes a
 dataset file. None can mask.
 
-This is also the cheapest first slice of `plans/28-pii-anonymizer.md` (roadmap priority 1, currently
+This is also the cheapest first slice of `plans/deferred/PLAN_PII_ANONYMIZER.md` (roadmap priority 1, currently
 "client-side masking shipped; server side + extension anonymizer unbuilt"): it needs no Dart change
 and no new endpoint.
 

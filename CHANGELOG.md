@@ -51,6 +51,30 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+A SQL box now lives in the sidebar, so quick queries no longer need the full notebook panel. [log](https://github.com/saropa/saropa_drift_advisor/blob/main/CHANGELOG.md)
+
+### Added
+
+- **Run SQL straight from the sidebar** — a new SQL Console section sits under
+  the toolbox with a statement box and an Execute button, for quick lookups
+  that did not justify opening the full notebook panel. Results open beside the
+  editor as CSV, except a single-value result, which appears inline in the
+  sidebar itself.
+- **Statements are checked as they are typed** — an icon beside the box reports
+  whether the statement reads, writes, or will be refused, and names the reason
+  in plain language before anything is sent. Execute stays disabled for a
+  statement the server would reject, so a bad query costs nothing to discover.
+- **Writes ask first, reads never do** — INSERT, UPDATE, DELETE, and REPLACE
+  prompt for confirmation before running, controlled by a checkbox in the
+  section and by the new `driftViewer.sqlConsole.confirmDestructive` setting
+  (on by default). SELECT statements never prompt, however complex they are.
+  When the connected app runs without write support, the console explains that
+  rather than failing silently. A clipped result set is always announced.
+
+---
+
 ## [4.3.2]
 
 Extension no longer opens every Dart file as a live document during source lookups, and server switches no longer fork duplicate poll chains. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.3.2/CHANGELOG.md)

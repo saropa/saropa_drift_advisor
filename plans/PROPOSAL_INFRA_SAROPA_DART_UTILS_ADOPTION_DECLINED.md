@@ -143,7 +143,7 @@ The status quo. `lib/src/` uses `dart:core`, `dart:io`, and `dart:convert` only,
 
 - **Vendor (copy) individual functions from `saropa_dart_utils` into `lib/src/`.** Rejected on the evidence above: there is nothing in `lib/src/` to replace. The `grep` for hand-rolled case conversion, and the single `*_utils.dart` file, are the whole surface. Copying code to solve a problem that does not exist adds a silent divergence risk for no gain.
 - **Port the TypeScript helpers to consume a Dart utility via a subprocess.** Not seriously considered; noted only to close it off. `extension/src/dart-names.ts` is 28 lines of string handling on a hot path (it runs per table, per column, during navigation and codegen). Shelling out to Dart to lower-case a string is not a trade anyone should make.
-- **Share the naming logic across the three Saropa extensions as an npm package.** This is a real idea, but it is a *TypeScript* idea and has nothing to do with `saropa_dart_utils`. It is covered separately in `bugs/067_proposal_infra_publish_canonical_table_to_dart_name_mapping.md`, which documents an actual behavioral divergence between this repo's `snakeToCamel` and the Saropa Lints extension's `toCamelCase`.
+- **Share the naming logic across the three Saropa extensions as an npm package.** This is a real idea, but it is a *TypeScript* idea and has nothing to do with `saropa_dart_utils`. It is covered separately in `plans/PROPOSAL_INFRA_PUBLISH_CANONICAL_TABLE_TO_DART_NAME_MAPPING.md`, which documents an actual behavioral divergence between this repo's `snakeToCamel` and the Saropa Lints extension's `toCamelCase`.
 
 ---
 

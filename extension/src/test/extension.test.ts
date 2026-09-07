@@ -165,7 +165,13 @@ describe('Extension activation', () => {
     // adb-forward supervision (campaign candidate E): AdbForwardSupervisor +
     //   onDidTerminateDebugSession stop-listener in bootstrapExtension (+2).
     // +1 for DriftSourceLocatorCache (watcher-backed F12 locator cache).
-    assert.strictEqual(subscriptions.length, 257, `expected 257 disposables, got ${subscriptions.length}`);
+    // Sidebar SQL console: registerWebviewViewProvider in the providers phase,
+    //   plus the provider's own onDidChangeConfiguration listener that keeps the
+    //   "warn before destructive changes" checkbox in sync when the setting is
+    //   changed elsewhere (+2). The listener is constructed once with the
+    //   provider, NOT per resolveWebviewView, so re-expanding the sidebar
+    //   section does not accumulate listeners.
+    assert.strictEqual(subscriptions.length, 259, `expected 259 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

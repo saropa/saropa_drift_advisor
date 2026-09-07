@@ -1,4 +1,4 @@
-# Feature 35: Multi-Server Federation
+# Multi-Server Federation
 
 ## What It Does
 

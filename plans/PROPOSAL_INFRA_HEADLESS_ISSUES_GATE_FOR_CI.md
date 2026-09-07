@@ -159,7 +159,7 @@ Absent config must be exit 0, matching `quality_gate.dart`'s "Missing file or em
 ## Edge Cases
 
 1. **Mirror file absent** — needs discussion, and it is the important one. `quality_gate.dart` exits 2 on a missing report. For Advisor, absence is the *normal* state on a machine that has never run the app in debug, so a hard failure would break every CI job that merely has the config file. Proposed: exit 0 with a clear "no mirror found — Advisor findings not evaluated" line, and a `--require-report` flag for teams that want absence to be a failure.
-2. **Stale mirror** — should flag. The mirror can be days old. The envelope carries `generatedAt`, and once the per-diagnostic `commitSha` defect is fixed (see `bugs/050_infra_diagnostics_mirror_commitsha_not_per_diagnostic.md`) it will carry the capture commit too. A `--max-age` and a "captured at a different commit than HEAD" warning are both cheap and both necessary, or the gate will confidently pass on data from last week.
+2. **Stale mirror** — should flag. The mirror can be days old. The envelope carries `generatedAt`, and once the per-diagnostic `commitSha` defect is fixed (see `bugs/BUG_INFRA_DIAGNOSTICS_MIRROR_COMMITSHA_NOT_PER_DIAGNOSTIC.md`) it will carry the capture commit too. A `--max-age` and a "captured at a different commit than HEAD" warning are both cheap and both necessary, or the gate will confidently pass on data from last week.
 3. **Higher `schemaVersion`** — should flag. Refuse a higher major and exit 2 rather than mis-count, consistent with the envelope's stated compatibility contract.
 4. **Adding a runtime dependency for YAML parsing** — blocked. `pubspec.yaml` declares zero runtime dependencies by explicit policy (see Alternatives).
 5. **Baseline / "only new issues"** — should pass initially. Deliberately out of scope for v1; `saropa_lints` has a whole `baseline/` subsystem for it, and duplicating that here before the basic gate exists is premature.
@@ -204,7 +204,7 @@ Open question for the owner before any work starts: **Dart executable with JSON 
 
 <!-- Fill in when work begins -->
 
-Sequencing note: the `commitSha` placement bug (`bugs/050_infra_diagnostics_mirror_commitsha_not_per_diagnostic.md`) should land first, since edge case 2 depends on reading a usable capture commit out of the mirror.
+Sequencing note: the `commitSha` placement bug (`bugs/BUG_INFRA_DIAGNOSTICS_MIRROR_COMMITSHA_NOT_PER_DIAGNOSTIC.md`) should land first, since edge case 2 depends on reading a usable capture commit out of the mirror.
 
 ---
 
