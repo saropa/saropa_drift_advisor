@@ -7,6 +7,7 @@ import type {
 } from '../diagnostic-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
 import type { IDartColumn } from '../../schema-diff/dart-schema';
+import { isEngineOwnedTable } from '../checkers/table-checker';
 
 /**
  * Data-quality checks split out of DataQualityProvider so the SQL probing and
@@ -94,12 +95,20 @@ export function checkDataSkew(
   // should not drive a share statistic. Mirrors checkHighNullRates.
   const userDataTables = ctx.config.userDataTables ?? new Set<string>();
 
+  // All DB table names for FTS shadow detection — isFtsShadowTable needs
+  // the full set to find parent virtual tables and count siblings.
+  const allDbTableNames = new Set(tableSizes.map((t) => t.table));
+
   // Filter excluded tables from the denominator so their rows don't
-  // dilute the percentages of the remaining tables. Without this, a
-  // 5000-row excluded table would make a 4500-row dominant table look
-  // like only 45% instead of the 90% it actually represents.
+  // dilute the percentages of the remaining tables. Excludes:
+  // - user-configured data tables (unrepresentative debug data)
+  // - sqlite_* internal tables (sqlite_sequence, sqlite_stat1, etc.)
+  // - engine-owned tables (android_metadata, FTS shadow tables)
   const includedTables = tableSizes.filter(
-    (t) => !userDataTables.has(t.table),
+    (t) =>
+      !userDataTables.has(t.table) &&
+      !t.table.startsWith('sqlite_') &&
+      !isEngineOwnedTable(t.table, allDbTableNames),
   );
 
   // A single table is 100% by definition — not skew.

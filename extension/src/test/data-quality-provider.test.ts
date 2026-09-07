@@ -201,6 +201,57 @@ describe('DataQualityProvider', () => {
       assert.ok(!issue, 'Should not report balanced data');
     });
 
+    it('should exclude engine-owned tables from data-skew denominator', async () => {
+      // FTS5 shadow tables and sqlite_* internal tables should not inflate
+      // the table count or total rows in the skew calculation. Without
+      // this exclusion, 5 shadow tables with 15k rows would mask genuine
+      // skew in user tables by diluting the denominator.
+      const ftsNames = [
+        'notes_fts', 'notes_fts_data', 'notes_fts_idx',
+        'notes_fts_content', 'notes_fts_docsize', 'notes_fts_config',
+      ];
+      const ctx = createContext({
+        dartFiles: [
+          createDartFile('notes', ['id', 'body']),
+          ...Array.from({ length: 9 }, (_, i) => createDartFile(`t${i}`, ['id'])),
+        ],
+        tables: [
+          { name: 'notes', columns: [{ name: 'id', type: 'INTEGER', pk: true }], rowCount: 9000 },
+          ...Array.from({ length: 9 }, (_, i) => ({
+            name: `t${i}`,
+            columns: [{ name: 'id', type: 'INTEGER', pk: true }],
+            rowCount: 111,
+          })),
+        ],
+        sizeAnalytics: {
+          tables: [
+            { table: 'notes', rowCount: 9000, columnCount: 2, indexCount: 1, indexes: [] },
+            ...Array.from({ length: 9 }, (_, i) => ({
+              table: `t${i}`, rowCount: 111, columnCount: 1, indexCount: 1, indexes: [] as string[],
+            })),
+            // FTS5 shadow tables — should be excluded from skew calculation
+            ...ftsNames.map((n) => ({
+              table: n, rowCount: 3000, columnCount: 1, indexCount: 0, indexes: [] as string[],
+            })),
+            // sqlite internal table — should also be excluded
+            { table: 'sqlite_sequence', rowCount: 10, columnCount: 2, indexCount: 0, indexes: [] as string[] },
+            // android_metadata — platform-owned, should be excluded
+            { table: 'android_metadata', rowCount: 1, columnCount: 1, indexCount: 0, indexes: [] as string[] },
+          ],
+        },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      // Skew should still fire on 'notes' — its 9000 rows dominate the
+      // 10 user tables (9000 + 9*111 = 9999, notes = 90%). Without the
+      // exclusion filter, the 6 FTS tables + sqlite_sequence would push
+      // totalRows to ~28k and table count to 18, masking the skew.
+      const issue = issues.find((i) => i.code === 'data-skew');
+      assert.ok(issue, 'Should detect skew after excluding engine-owned tables');
+      assert.ok(issue.message.includes('notes'));
+    });
+
     it('should report high-null-rate for columns with >50% nulls', async () => {
       const ctx = createContext({
         dartFiles: [createDartFile('users', ['id', 'bio'])],
