@@ -166,7 +166,7 @@ and a windowed body that renders only the visible slice plus a small overscan, b
 
 - **Cap the page size at 200.** Cheapest fix, but removes a legitimate capability and does nothing for the 10,000-row SQL result path.
 - **Patch the DOM incrementally instead of replacing `innerHTML`.** Would help the toggle cases but not the initial 1000-row cost, and introduces diffing complexity in a codebase that deliberately uses string building.
-- **Pull in a grid library.** Rejected on blast radius — `bugs/044_proposal_infra_web_bundle_size_minify_and_sqlite_only_formatter.md` documents that the bundle is already 1.14 MB and inlined into every page response; adding a grid dependency moves in the wrong direction.
+- **Pull in a grid library.** Rejected on blast radius — `plans/PROPOSAL_INFRA_WEB_BUNDLE_SIZE_MINIFY_AND_SQLITE_ONLY_FORMATTER.md` documents that the bundle is already 1.14 MB and inlined into every page response; adding a grid dependency moves in the wrong direction.
 - **`content-visibility: auto` on rows.** A one-line CSS change that lets the browser skip layout for off-screen rows. It does **not** reduce element count or the string-build cost, but it is nearly free and worth measuring first as a stopgap.
 
 ---
@@ -194,7 +194,7 @@ Suggested order, cheapest and least risky first:
 4. **Windowing**, gated behind a row-count threshold, and only after the search-index rework in edge case 2.
 5. Land `plans/history/2026.09/20260903/036_web_viewer_row_filter_double_render_per_keystroke.md` first — it removes a 2x multiplier on all of the above for one deleted line.
 
-Every step needs `npm run build:js` to reach users, and there is currently no gate enforcing that (`bugs/015_infra_bundle_js_has_no_staleness_gate.md`), nor any gate running the viewer tests (`bugs/016_infra_web_typecheck_and_tests_never_gated.md`).
+Every step needs `npm run build:js` to reach users, and there is currently no gate enforcing that (`bugs/BUG_INFRA_BUNDLE_JS_HAS_NO_STALENESS_GATE.md`), nor any gate running the viewer tests (`bugs/BUG_INFRA_WEB_TYPECHECK_AND_TESTS_NEVER_GATED.md`).
 
 ---
 

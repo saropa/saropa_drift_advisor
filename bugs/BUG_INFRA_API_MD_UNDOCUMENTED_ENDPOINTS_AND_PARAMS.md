@@ -246,7 +246,7 @@ grep -c "slowThresholdMs" lib/src/server/performance_handler.dart   # 5
 ## Impact
 
 - **Who is affected:** third-party integrators and the sibling-extension consumers the README points at `doc/API.md`.
-- **What is blocked:** discovering the threshold parameter (which is the fix path for `bugs/033_infra_slow_query_threshold_default_mismatch.md`) and the per-snapshot compare route.
+- **What is blocked:** discovering the threshold parameter (which is the fix path for `bugs/BUG_INFRA_SLOW_QUERY_THRESHOLD_DEFAULT_MISMATCH.md`) and the per-snapshot compare route.
 - **Data risk:** none.
 - **Frequency:** continuous.
 

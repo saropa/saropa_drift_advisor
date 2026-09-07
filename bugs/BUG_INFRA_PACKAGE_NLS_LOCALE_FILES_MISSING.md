@@ -148,7 +148,7 @@ Three localization surfaces; the manifest is the only one with no locale files a
 | Surface | Locale files | Count |
 |---|---|---|
 | Web viewer | `assets/web/l10n/web.<locale>.json` | 10 |
-| Extension host runtime | `l10n/bundle.l10n.<locale>.json` | 10 (not packaged — see `bugs/014_infra_extension_l10n_bundles_not_packaged.md`) |
+| Extension host runtime | `l10n/bundle.l10n.<locale>.json` | 10 (not packaged — see `bugs/BUG_INFRA_EXTENSION_L10N_BUNDLES_NOT_PACKAGED.md`) |
 | Extension manifest | `extension/package.nls.<locale>.json` | **0** |
 
 ---
@@ -232,4 +232,4 @@ Two independent gaps compound:
    ```
 
 2. Add a manifest-NLS target to the l10n pipeline (`scripts/modules/l10n/bundles.py`) that emits `extension/package.nls.<locale>.json` for the same ten locales, keyed by the `package.nls.json` key (not by English value, unlike the host bundle).
-3. Do this together with `bugs/014_infra_extension_l10n_bundles_not_packaged.md` — a user who sees translated settings but English notifications is worse off than one who sees consistent English.
+3. Do this together with `bugs/BUG_INFRA_EXTENSION_L10N_BUNDLES_NOT_PACKAGED.md` — a user who sees translated settings but English notifications is worse off than one who sees consistent English.

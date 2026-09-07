@@ -1,4 +1,4 @@
-# Plan 15/28: PII Masking & Data Anonymizer
+# PII Masking & Data Anonymizer
 
 This document merges **BUG-015** (no PII masking in web UI/exports) and **Feature 28** (PII anonymizer for export). Together they cover: (1) safe viewing—mask PII in the UI and exports; (2) safe sharing—anonymize the dataset and export fake data.
 

@@ -272,4 +272,4 @@ The threshold is a request-time parameter on the server but a client-side consta
    and read the setting once in `api-client.ts:190-191`, covering both the HTTP and VM Service branches.
 2. Add the same parameter to `VmServiceClient.getPerformance()` so transport choice does not change results.
 3. Reconcile the defaults to one number. `ServerConstants` is the established home for shared thresholds; publish it in the `/api/health` payload or hardcode the same value in `extension/package.json`, `assets/web/settings.ts:142` and `query-intelligence.ts:90`, with a comment naming the canonical source.
-4. Document the parameter in `doc/API.md` — it is currently undocumented; see `bugs/064_infra_api_md_undocumented_endpoints_and_params.md`.
+4. Document the parameter in `doc/API.md` — it is currently undocumented; see `bugs/BUG_INFRA_API_MD_UNDOCUMENTED_ENDPOINTS_AND_PARAMS.md`.

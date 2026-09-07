@@ -1,8 +1,8 @@
-# 81 — Web viewer UX core: keyboard, sorting, dialogs, navigation state, error surfacing
+# Web viewer UX core: keyboard, sorting, dialogs, navigation state, error surfacing
 
 **Status: Open** (2026-09-02). Not started. Source: master web-developer review of the browser viewer, 2026-09-02.
 
-This plan is self-contained. A sub-agent implementing any task below needs only this file, the repo, and the skills named in "Ground rules". Sibling plans: `plans/82-web-viewer-visual-system.md` (CSS/design tokens) and `plans/83-web-viewer-accessibility-and-i18n.md` (ARIA, keyboard semantics, shell strings). Bugs filed separately and NOT duplicated here: `bugs/075` (title typo), `bugs/080` (pagination params), `bugs/081` (icon font offline), `bugs/082` (`--mono` typo), `bugs/083` (dead navigate-away setting), `bugs/084` (nested interactive controls), `bugs/036` (row-filter double render), `bugs/073` (grid virtualization).
+This plan is self-contained. A sub-agent implementing any task below needs only this file, the repo, and the skills named in "Ground rules". Sibling plans: `plans/PLAN_WEB_VIEWER_VISUAL_SYSTEM.md` (CSS/design tokens) and `plans/PLAN_WEB_VIEWER_ACCESSIBILITY_AND_I18N.md` (ARIA, keyboard semantics, shell strings). Bugs filed separately and NOT duplicated here (already-closed bug numbers are historical references, filed before the `bugs/` rename to `BUG_*` naming): `bugs/075` (title typo), `bugs/080` (pagination params), `bugs/081` (icon font offline), `bugs/082` (`--mono` typo), `bugs/083` (dead navigate-away setting), `bugs/084` (nested interactive controls), `bugs/036` (row-filter double render), `plans/PROPOSAL_UX_DATA_GRID_VIRTUALIZATION_AND_RENDER_COST.md` (grid virtualization).
 
 ---
 
@@ -10,7 +10,7 @@ This plan is self-contained. A sub-agent implementing any task below needs only 
 
 - Load skills `drift-advisor-architecture-contract`, `drift-advisor-change-control`, `drift-advisor-testing-and-validation` before editing.
 - Surface: `assets/web/*.ts` + `assets/web/app.js` (source), `lib/src/server/html_content.dart` (shell). `assets/web/bundle.js` is **generated and committed** — after any TS change run `npm run build:js` from the repo root and commit the bundle. `assets/web/style.css` is generated from SCSS via `npm run build:style`; never edit it.
-- Gates that actually run: `npm run typecheck:web` (tsc, no emit) and `npm run test:web` (`node --test assets/web/test/**/*.test.mjs`). Neither is wired into husky or CI (`bugs/016`), so run them by hand and paste the output in the finish report. Dart shell tests: `flutter test test/html_content_test.dart --no-pub` (background).
+- Gates that actually run: `npm run typecheck:web` (tsc, no emit) and `npm run test:web` (`node --test assets/web/test/**/*.test.mjs`). Neither is wired into husky or CI (`bugs/BUG_INFRA_WEB_TYPECHECK_AND_TESTS_NEVER_GATED.md`), so run them by hand and paste the output in the finish report. Dart shell tests: `flutter test test/html_content_test.dart --no-pub` (background).
 - Every function, condition, and bug fix gets a comment explaining WHY. Uncommented code is unfinished.
 - New user-visible strings go through `vt('key')` in `assets/web/l10n/strings-web-*.ts`; never literal English at the call site.
 - `esc()` from `assets/web/utils.ts` on every server-derived value that reaches `innerHTML`.

@@ -201,4 +201,4 @@ The three gate surfaces (husky, CI, publish) were each built around one tree —
 
 2. Add a `has_staged '^assets/web/.*\.(ts|js|mjs)$'` branch to `.husky/pre-commit` that runs `npm run typecheck:web` and `npm run test:web`, mirroring the existing extension branch's structure and error messaging.
 3. Add both to `scripts/publish.py`'s quality phase (a `web_build.py` module beside `ext_build.py`), so a release cannot be cut on a red viewer.
-4. Pair with `bugs/015_infra_bundle_js_has_no_staleness_gate.md` — the same steps should also verify the committed bundle, so one Node job covers all three web gates.
+4. Pair with `bugs/BUG_INFRA_BUNDLE_JS_HAS_NO_STALENESS_GATE.md` — the same steps should also verify the committed bundle, so one Node job covers all three web gates.

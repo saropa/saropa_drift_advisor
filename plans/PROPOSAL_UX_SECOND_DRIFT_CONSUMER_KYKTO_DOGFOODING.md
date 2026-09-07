@@ -94,7 +94,7 @@ Concretely, the questions this answers:
 
 ### Should pass (correct)
 
-Kykto's `main.dart` gains a debug-gated `startDriftViewer` call in the shape Contacts already uses, plus the `staticTables` and `writeQuery` arguments Contacts is missing (see `bugs/066_proposal_ux_contacts_startdriftviewer_wiring_gaps.md`) — so the second consumer is wired correctly from day one rather than inheriting the first consumer's gaps.
+Kykto's `main.dart` gains a debug-gated `startDriftViewer` call in the shape Contacts already uses, plus the `staticTables` and `writeQuery` arguments Contacts is missing (see `plans/PROPOSAL_UX_CONTACTS_STARTDRIFTVIEWER_WIRING_GAPS.md`) — so the second consumer is wired correctly from day one rather than inheriting the first consumer's gaps.
 
 ---
 

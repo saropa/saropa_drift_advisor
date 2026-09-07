@@ -1,4 +1,4 @@
-# Feature 59: AI Schema Reviewer
+# AI Schema Reviewer
 
 ## Relationship to Feature 66 (Drift Refactoring Engine)
 

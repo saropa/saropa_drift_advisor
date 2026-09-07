@@ -1,8 +1,8 @@
-# 83 — Web viewer accessibility and i18n: landmarks, names, live regions, keyboard patterns, shell strings
+# Web viewer accessibility and i18n: landmarks, names, live regions, keyboard patterns, shell strings
 
 **Status: Open** (2026-09-02). Not started. Source: master web-developer review of the browser viewer, 2026-09-02.
 
-Self-contained: a sub-agent needs only this file, the repo, and the skills named below. Siblings: `plans/81-web-viewer-ux-core.md` (A3 builds the shared modal this plan's C4 relies on; A7 adds `disabled` to offline controls) and `plans/82-web-viewer-visual-system.md` (B2 contrast, B3 reduced-motion). Bugs tracked separately and NOT duplicated here: `bugs/075` (title typo), `bugs/081` (icon font offline — its label fallback needs C2's `aria-label`s), `bugs/084` (nested interactive controls in tabs and table list).
+Self-contained: a sub-agent needs only this file, the repo, and the skills named below. Siblings: `plans/PLAN_WEB_VIEWER_UX_CORE.md` (A3 builds the shared modal this plan's C4 relies on; A7 adds `disabled` to offline controls) and `plans/PLAN_WEB_VIEWER_VISUAL_SYSTEM.md` (B2 contrast, B3 reduced-motion). Bugs tracked separately and NOT duplicated here (already-closed bug numbers are historical references, filed before the `bugs/` rename to `BUG_*`/`PROPOSAL_*` naming): `bugs/075` (title typo), `bugs/081` (icon font offline — its label fallback needs C2's `aria-label`s), `bugs/084` (nested interactive controls in tabs and table list).
 
 ---
 
@@ -11,7 +11,7 @@ Self-contained: a sub-agent needs only this file, the repo, and the skills named
 - Load `drift-advisor-architecture-contract`, `drift-advisor-change-control`, `drift-advisor-docs-and-writing` (section 7, the l10n rule), `drift-advisor-testing-and-validation`.
 - Surfaces: the shell `lib/src/server/html_content.dart` (Dart string, served by the debug server), behavior `assets/web/*.ts` + `assets/web/app.js`, strings `assets/web/l10n/strings-web-*.ts` (bundled English registry; `vt('key', ...args)` from `assets/web/l10n.ts`), translated overlays `assets/web/l10n/web.<locale>.json` (ten locales: de es fr it ja ko pt-br ru zh-cn zh-tw).
 - `assets/web/bundle.js` is generated and committed: `npm run build:js` after any TS change, commit the bundle. `style.css` likewise via `npm run build:style`.
-- Gates to run by hand (none are in husky/CI, `bugs/016`): `npm run typecheck:web`, `npm run test:web`, and `flutter test test/html_content_test.dart --no-pub` (background) for shell assertions.
+- Gates to run by hand (none are in husky/CI, `bugs/BUG_INFRA_WEB_TYPECHECK_AND_TESTS_NEVER_GATED.md`): `npm run typecheck:web`, `npm run test:web`, and `flutter test test/html_content_test.dart --no-pub` (background) for shell assertions.
 - Every function, condition, and fix gets a WHY comment. New strings go through `vt()`. `esc()` on every server-derived value in `innerHTML`.
 - Accessibility claims are verified with the browser's Accessibility pane (Chromium DevTools → Elements → Accessibility) and one screen reader pass (NVDA on Windows). Name what was checked in the finish report.
 - CHANGELOG `[Unreleased]` `### Improved` entry per task, no dates, referencing this file.

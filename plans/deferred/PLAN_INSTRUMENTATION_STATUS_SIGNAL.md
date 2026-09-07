@@ -1,4 +1,4 @@
-# 62 — Instrumentation status signal ("app timing wired?" indicator)
+# Instrumentation status signal ("app timing wired?" indicator)
 
 Status: proposed (design only; no code yet)
 Origin: handoff reflection on Feature 61 (app query-timing ingest,

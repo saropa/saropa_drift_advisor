@@ -1,32 +1,39 @@
 # Issue Report Guide
 
-<!-- Formerly bugs/BUG_REPORT_GUIDE.md — renamed 2026-09-02 ref-exempt: historical -->
+<!-- Formerly bugs/BUG_REPORT_GUIDE.md, then bugs/ISSUE_REPORT_GUIDE.md — file naming convention overhauled 2026-09-07 ref-exempt: historical -->
 
-How to file, investigate, and close bugs and feature requests in `saropa_drift_advisor`.
+How to file, investigate, and close bugs in `saropa_drift_advisor`. Feature
+requests are a separate document type — see "Feature requests live in
+plans/" below.
 
-**False positives are in scope.** If a diagnostic flags code that is correct (or the diagnostic is clearly wrong), file it here under `bugs/` using the [False positive](#false-positive) naming pattern and the [bug report template](#bug-report-template). Downstream repos can link to the issue file once filed; the fix lives in `saropa_drift_advisor`.
+**False positives are bugs.** If a diagnostic flags code that is correct (or the diagnostic is clearly wrong), file it here under `bugs/` using the [False positive](#false-positive) naming pattern and the [bug report template](#bug-report-template). Downstream repos can link to the issue file once filed; the fix lives in `saropa_drift_advisor`.
 
-**Feature requests are in scope.** New diagnostic proposals, UX improvements, extension features, infrastructure improvements, and tooling enhancements belong here under `bugs/` using the [Feature request](#feature-request) naming pattern and the [feature request template](#feature-request-template).
+**Feature requests live in `plans/`, not `bugs/`.** A feature request is a proposal for future work, not a defect report — it belongs alongside implementation plans. File it as `plans/PROPOSAL_<DESCRIPTION>.md` using the [feature request template](#feature-request-template). Do not create it under `bugs/`.
 
 ---
 
 ## File Naming
 
+**Bugs** (`bugs/`): every file is a real defect — a diagnostic misfiring, a crash, a wrong fix, an infra problem that actually happened. Prefix every filename `BUG_`, then a `SCREAMING_SNAKE_CASE` description. No feature/proposal content belongs here.
+
 | Type | Pattern | Example |
 |------|---------|---------|
-| False positive | `diagnostic_name_false_positive_description.md` | `schema_divergence_false_positive_datetime_text.md` |
-| False negative | `diagnostic_name_false_negative_description.md` | `missing_column_false_negative_view_alias.md` |
-| Crash / error | `diagnostic_name_crash_description.md` | `snapshot_diff_crash_null_schema.md` |
-| Quick fix bug | `diagnostic_name_fix_description.md` | `add_column_fix_wrong_type_mapping.md` |
-| Infrastructure | `infra_description.md` | `infra_server_startup_timeout.md` |
-| New diagnostic proposal | `proposal_diagnostic_name.md` | `proposal_detect_missing_index.md` |
-| Quick fix request | `proposal_fix_diagnostic_name_description.md` | `proposal_fix_schema_divergence_add_migration.md` |
-| Tooling / infra request | `proposal_infra_description.md` | `proposal_infra_cli_export_json.md` |
-| UX / extension request | `proposal_ux_description.md` | `proposal_ux_inline_diff_view.md` |
+| False positive | `BUG_<DIAGNOSTIC_NAME>_FALSE_POSITIVE_<DESCRIPTION>.md` | `BUG_SCHEMA_DIVERGENCE_FALSE_POSITIVE_DATETIME_TEXT.md` |
+| False negative | `BUG_<DIAGNOSTIC_NAME>_FALSE_NEGATIVE_<DESCRIPTION>.md` | `BUG_MISSING_COLUMN_FALSE_NEGATIVE_VIEW_ALIAS.md` |
+| Crash / error | `BUG_<DIAGNOSTIC_NAME>_CRASH_<DESCRIPTION>.md` | `BUG_SNAPSHOT_DIFF_CRASH_NULL_SCHEMA.md` |
+| Quick fix bug | `BUG_<DIAGNOSTIC_NAME>_FIX_<DESCRIPTION>.md` | `BUG_ADD_COLUMN_FIX_WRONG_TYPE_MAPPING.md` |
+| Infrastructure | `BUG_INFRA_<DESCRIPTION>.md` | `BUG_INFRA_SERVER_STARTUP_TIMEOUT.md` |
 
-Every feature request — new diagnostic, quick fix, tooling, or UX — uses a `proposal_*` prefix. There is no separate `feature_*` pattern; pick the row above that matches the request's kind.
+**Feature requests** (`plans/`): a proposal for work not yet built. Prefix every filename `PROPOSAL_`, then a `SCREAMING_SNAKE_CASE` description. Related proposals share a common leading segment (e.g. `PROPOSAL_UX_...` for extension/UX requests, `PROPOSAL_INFRA_...` for tooling/infra requests) so siblings sort together.
 
-Use lowercase with underscores. Check existing files before creating.
+| Type | Pattern | Example |
+|------|---------|---------|
+| New diagnostic proposal | `PROPOSAL_<DIAGNOSTIC_NAME>.md` | `PROPOSAL_DETECT_MISSING_INDEX.md` |
+| Quick fix request | `PROPOSAL_FIX_<DIAGNOSTIC_NAME>_<DESCRIPTION>.md` | `PROPOSAL_FIX_SCHEMA_DIVERGENCE_ADD_MIGRATION.md` |
+| Tooling / infra request | `PROPOSAL_INFRA_<DESCRIPTION>.md` | `PROPOSAL_INFRA_CLI_EXPORT_JSON.md` |
+| UX / extension request | `PROPOSAL_UX_<DESCRIPTION>.md` | `PROPOSAL_UX_INLINE_DIFF_VIEW.md` |
+
+No numeric IDs in either scheme — the description is the identity. Check existing files before creating (`ls bugs/`, `ls plans/PROPOSAL_*.md`) to avoid duplicates.
 
 ---
 
@@ -257,7 +264,7 @@ The goal: someone else can copy-paste your example and see the bug within 60 sec
 
 ## Feature Request Template
 
-Copy the block below into a new file.
+**File this under `plans/`, not `bugs/`** — see "Feature requests live in plans/" above. Copy the block below into a new `plans/PROPOSAL_<DESCRIPTION>.md` file.
 
 ````markdown
 # PROPOSAL: Short, Specific Title
@@ -343,7 +350,7 @@ Example of what the diagnostic should NOT flag
 
 The diagnostic fires on correct code or valid schema.
 
-**How to report:** Create `bugs/diagnostic_name_false_positive_<description>.md`, copy the [Bug Report Template](#bug-report-template), and complete **Steps to Reproduce** plus **Attribution Evidence** (grep).
+**How to report:** Create `bugs/BUG_<DIAGNOSTIC_NAME>_FALSE_POSITIVE_<DESCRIPTION>.md`, copy the [Bug Report Template](#bug-report-template), and complete **Steps to Reproduce** plus **Attribution Evidence** (grep).
 
 **Investigation focus:**
 - What pattern does the diagnostic fail to recognize as valid?
@@ -393,7 +400,7 @@ A diagnostic or operation causes the extension to hang or consume excessive reso
 
 A diagnostic that does not exist yet.
 
-**How to report:** Create `bugs/proposal_diagnostic_name.md`, copy the [Feature Request Template](#feature-request-template), and complete **Detection / Behavior** with examples. <!-- ref-exempt: template example -->
+**How to report:** Create `plans/PROPOSAL_<DIAGNOSTIC_NAME>.md`, copy the [Feature Request Template](#feature-request-template), and complete **Detection / Behavior** with examples. <!-- ref-exempt: template example -->
 
 **Evaluation criteria:**
 - Does the diagnostic catch real drift issues or enforce a meaningful quality bar?
@@ -412,13 +419,13 @@ A new automated fix for an existing diagnostic, or an improvement to an existing
 
 Improvements to the VS Code extension UI, interactions, or developer experience.
 
-**How to report:** Create `bugs/proposal_ux_description.md` and describe the current behavior, desired behavior, and motivation. <!-- ref-exempt: template example -->
+**How to report:** Create `plans/PROPOSAL_UX_<DESCRIPTION>.md` and describe the current behavior, desired behavior, and motivation. <!-- ref-exempt: template example -->
 
 ### Tooling / Infrastructure Request
 
 Improvements to the server, CLI, build pipeline, test harness, or other infrastructure.
 
-**How to report:** Create `bugs/proposal_infra_description.md` and describe the current behavior, desired behavior, and motivation. <!-- ref-exempt: template example -->
+**How to report:** Create `plans/PROPOSAL_INFRA_<DESCRIPTION>.md` and describe the current behavior, desired behavior, and motivation. <!-- ref-exempt: template example -->
 
 ---
 
@@ -517,17 +524,17 @@ Closed              ← merged, verified, file moved to history
 
 ### Moving to History
 
-When an issue is closed (or a proposal is declined), `git mv` its file into the shared history root — the same `plans/history/` tree the `/finish` workflow archives closed plans into, not a separate `bugs/history/`:
+When a bug is closed (or a proposal is declined), `git mv` its file into the shared history root — the same `plans/history/` tree the `/finish` workflow archives closed plans into, not a separate `bugs/history/`:
 
 ```
-bugs/diagnostic_name_false_positive_description.md                    ref-exempt: template
-  → plans/history/YYYY.MM/YYYYMMDD/diagnostic_name_false_positive_description.md
+bugs/BUG_DIAGNOSTIC_NAME_FALSE_POSITIVE_DESCRIPTION.md                ref-exempt: template
+  → plans/history/YYYY.MM/YYYYMMDD/BUG_DIAGNOSTIC_NAME_FALSE_POSITIVE_DESCRIPTION.md
 
-bugs/proposal_diagnostic_name.md                                      ref-exempt: template
-  → plans/history/YYYY.MM/YYYYMMDD/proposal_diagnostic_name.md
+plans/PROPOSAL_DIAGNOSTIC_NAME.md                                     ref-exempt: template
+  → plans/history/YYYY.MM/YYYYMMDD/PROPOSAL_DIAGNOSTIC_NAME.md
 ```
 
-Use the date the issue was closed. Create the `YYYY.MM/YYYYMMDD` folders if they do not exist. Grep and repoint any `bugs/<file>.md` references (CHANGELOG, other issue files) to the new path in the same commit.
+Use the date the issue was closed. Create the `YYYY.MM/YYYYMMDD` folders if they do not exist. Grep and repoint any `bugs/<file>.md` or `plans/<file>.md` references (CHANGELOG, other issue/plan files) to the new path in the same commit.
 
 ---
 
@@ -546,7 +553,7 @@ Use the date the issue was closed. Create the `YYYY.MM/YYYYMMDD` folders if they
 
 - Reference bugs from commits: `fix: description (diagnostic_name false positive)`
 - Reference proposals from commits: `feat: description (proposal_name)`
-- Reference issues from docs: `[issue file](bugs/diagnostic_name_false_positive_description.md)` or `[proposal](bugs/proposal_diagnostic_name.md)` <!-- ref-exempt: template example -->
+- Reference issues from docs: `[issue file](bugs/BUG_DIAGNOSTIC_NAME_FALSE_POSITIVE_DESCRIPTION.md)` or `[proposal](plans/PROPOSAL_DIAGNOSTIC_NAME.md)` <!-- ref-exempt: template example -->
 - Reference related history: `Related: plans/history/YYYY.MM/YYYYMMDD/filename.md`
 
 ---
@@ -556,5 +563,5 @@ Use the date the issue was closed. Create the `YYYY.MM/YYYYMMDD` folders if they
 Do not log project-specific findings or proposals directly in this guide.
 
 - This file is process documentation only.
-- Every concrete bug or feature request must live in a separate file under `bugs/` using the naming rules above.
+- Every concrete bug must live in a separate `BUG_*` file under `bugs/`; every feature request must live in a separate `PROPOSAL_*` file under `plans/` — using the naming rules above.
 - If you discover this happened again, move the content into dedicated issue files immediately and leave only this policy note.
