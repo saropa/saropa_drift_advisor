@@ -16,15 +16,20 @@ export function checkAnomalies(
   dartFiles: IDartFileInfo[],
 ): void {
   for (const anomaly of anomalies) {
-    // Anomaly messages from the Dart server are shaped as
-    // `<table>.<column>: …` (e.g. "contact_points.last_modified:
-    // Potential outlier …"). We need both halves — the table to
-    // find the right Dart file, and the column to land on the
-    // getter line rather than the class header.
+    // Prefer the structured `table` and `column` fields the server
+    // sends as first-class payload properties — they're always
+    // correct and present on every anomaly kind (including
+    // `duplicate_rows`, whose message has no `table.column` dot
+    // pair). Fall back to regex extraction from the message only
+    // when the structured fields are absent (older servers).
     const match = anomaly.message.match(/(\w+)\.(\w+)/);
-    if (!match) continue;
-
-    const [, tableName, columnName] = match;
+    const tableName = anomaly.table ?? match?.[1];
+    // columnName is intentionally optional — table-scoped anomalies
+    // (e.g. duplicate_rows) have no column, and the downstream
+    // fallback chain (`dartColumn?.line ?? dartTable?.line ?? 0`)
+    // already handles a missing column by landing on the class line.
+    const columnName = anomaly.column ?? match?.[2];
+    if (!tableName) continue;
     const dartFile = findDartFileForTable(dartFiles, tableName);
     if (!dartFile) continue;
 
@@ -33,26 +38,18 @@ export function checkAnomalies(
     );
 
     // Prefer the column-declaration line when the anomaly names
-    // a specific column (every anomaly type currently emitted —
-    // potential_outlier, null_values, empty_strings,
-    // orphaned_fk — is column-scoped). Falls back to the class
-    // declaration line when the column can't be resolved
-    // (synthetic column names, `.named()` overrides we haven't
-    // parsed, or camelCase vs snake_case edge cases).
-    //
-    // This also half-owns the de-duplication with the legacy
-    // linter/ pipeline: that path used to emit anomalies at the
-    // column line under its own `drift-linter` collection while
-    // this path emitted them at the class line under
-    // `drift-advisor`, producing the two-owners / two-lines
-    // duplicate reported in
-    // bugs/anomaly_false_positive_tight_timestamp_range.md. ref-exempt: deleted. The
-    // legacy path has since stopped emitting anomalies, so the
-    // single remaining diagnostic lives here and at the
-    // column-getter span the user expects.
-    const dartColumn = dartTable?.columns.find(
-      (c) => c.sqlName.toLowerCase() === columnName.toLowerCase(),
-    );
+    // a specific column (potential_outlier, null_values,
+    // empty_strings, orphaned_fk are column-scoped). Falls back
+    // to the class declaration line when the column can't be
+    // resolved (synthetic column names, `.named()` overrides we
+    // haven't parsed, camelCase vs snake_case edge cases) or when
+    // the anomaly is table-scoped (e.g. duplicate_rows) and has
+    // no column at all.
+    const dartColumn = columnName
+      ? dartTable?.columns.find(
+          (c) => c.sqlName.toLowerCase() === columnName.toLowerCase(),
+        )
+      : undefined;
     const line = dartColumn?.line ?? dartTable?.line ?? 0;
 
     // Server 'error' anomalies are real integrity defects (orphaned FK) and
@@ -65,12 +62,16 @@ export function checkAnomalies(
         ? vscode.DiagnosticSeverity.Error
         : vscode.DiagnosticSeverity.Information;
 
+    // Attach structured table/column so downstream consumers
+    // (diagnostic-apply.ts per-table exclusions, log-capture
+    // exports) can match without re-parsing the message string.
     issues.push({
       code,
       message: anomaly.message,
       fileUri: dartFile.uri,
       range: new vscode.Range(line, 0, line, 999),
       severity,
+      data: { table: tableName, column: columnName },
     });
   }
 }

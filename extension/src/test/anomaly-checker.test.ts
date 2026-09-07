@@ -106,20 +106,58 @@ describe('checkAnomalies', () => {
     assert.strictEqual(issues[0].code, 'orphaned-fk');
   });
 
-  it('skips anomalies whose message has no `table.column` pattern', () => {
-    // duplicate_rows messages are table-scoped and have no dot
-    // form — the prior behavior was to drop them silently
-    // (no Dart location to attach to). This test pins that
-    // behavior so a future widening of the regex doesn't start
-    // attaching table-scoped anomalies to arbitrary columns.
-    const file = createDartFile('contact_points', ['id']);
+  it('table-scoped anomaly with `table` field lands on the class line, not a column getter', () => {
+    // duplicate_rows is table-scoped — the server sends
+    // `anomaly.table` but no `anomaly.column`. The diagnostic
+    // must land on the class declaration (line 5), NOT on a
+    // column getter. This guards against the regex-widening
+    // concern the previous "skip" test documented: structured
+    // fields route correctly without touching the regex.
+    const file = createDartFile('contact_points', ['id', 'name']);
     const issues: IDiagnosticIssue[] = [];
     const anomalies: Anomaly[] = [
-      { message: '2 duplicate row(s) in contact_points', severity: 'warning' },
+      {
+        message: '2 duplicate row(s) in contact_points',
+        severity: 'warning',
+        table: 'contact_points',
+      },
     ];
 
     checkAnomalies(issues, anomalies, [file]);
 
-    assert.strictEqual(issues.length, 0);
+    assert.strictEqual(issues.length, 1, 'table-scoped anomaly must not be dropped');
+    assert.strictEqual(
+      issues[0].range.start.line,
+      5,
+      'should land on class header (line 5), not any column getter',
+    );
+  });
+
+  it('duplicate_rows anomaly with `table` field is NOT dropped', () => {
+    // Regression guard for BUG_ANOMALY_FALSE_NEGATIVE_DUPLICATE_ROWS:
+    // the old regex-only path dropped duplicate_rows because its
+    // message ("4 duplicate row(s) in tags") has no table.column
+    // dot pair. Now the checker reads anomaly.table, so the
+    // finding reaches the Problems panel.
+    const file = createDartFile('tags', ['id', 'label']);
+    const issues: IDiagnosticIssue[] = [];
+    const anomalies: Anomaly[] = [
+      {
+        message: '4 duplicate row(s) in tags',
+        severity: 'warning',
+        table: 'tags',
+      },
+    ];
+
+    checkAnomalies(issues, anomalies, [file]);
+
+    assert.strictEqual(issues.length, 1, 'duplicate_rows must not be silently discarded');
+    assert.strictEqual(issues[0].code, 'anomaly');
+    assert.strictEqual(issues[0].message, '4 duplicate row(s) in tags');
+    // Verify the structured data is attached for downstream exclusion matching
+    assert.deepStrictEqual(issues[0].data, {
+      table: 'tags',
+      column: undefined,
+    });
   });
 });

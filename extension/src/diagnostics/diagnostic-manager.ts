@@ -10,7 +10,7 @@ import {
   type IDiagnosticIssue,
   type IDiagnosticProvider,
 } from './diagnostic-types';
-import { parseDartFilesInWorkspace } from './dart-file-parser';
+import { parseDartFilesInWorkspace, readDateTimeAsText } from './dart-file-parser';
 import { loadDiagnosticConfig } from './diagnostic-config';
 import { isMonitoringKilled } from '../monitoring/monitoring-state';
 import {
@@ -220,7 +220,12 @@ export class DiagnosticManager implements vscode.Disposable {
   private async _buildContext(
     config: IDiagnosticConfig,
   ): Promise<IDiagnosticContext> {
-    const dartFiles = await parseDartFilesInWorkspace();
+    // Read Dart files and build.yaml in parallel — both are independent
+    // filesystem reads needed before diagnostics can run.
+    const [dartFiles, dateTimeAsText] = await Promise.all([
+      parseDartFilesInWorkspace(),
+      readDateTimeAsText(),
+    ]);
 
     return {
       client: this._client,
@@ -228,6 +233,7 @@ export class DiagnosticManager implements vscode.Disposable {
       queryIntel: this._queryIntel,
       dartFiles,
       config,
+      dateTimeAsText,
     };
   }
 

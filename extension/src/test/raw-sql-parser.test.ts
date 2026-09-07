@@ -132,6 +132,66 @@ await db.customSelect(
     );
   });
 
+  // --- Regression: Dart interpolation & named bind params (BUG_RAW_SQL_UNKNOWN_COLUMN_FALSE_POSITIVE) ---
+
+  it('does not treat $var in WHERE as a column reference', () => {
+    // $contactId is a Dart interpolation, not a column — the sigil must be
+    // consumed so the parser sees a param token, not a bare word.
+    const cols = columnsFor(
+      "customSelect('SELECT name FROM contacts WHERE id = \$contactId')",
+      'contacts',
+    );
+    assert.deepStrictEqual(cols.sort(), ['id', 'name']);
+  });
+
+  it('does not treat ${expr} in WHERE as a column reference', () => {
+    // Braced interpolation is blanked entirely so arbitrary Dart inside
+    // cannot be tokenized as SQL identifiers.
+    const cols = columnsFor(
+      "customSelect('SELECT name FROM contacts WHERE id = \${filter.id}')",
+      'contacts',
+    );
+    assert.deepStrictEqual(cols.sort(), ['id', 'name']);
+  });
+
+  it('does not treat :named bind parameter as a column reference', () => {
+    // SQLite named bind parameter — the colon sigil marks it as param.
+    const cols = columnsFor(
+      "customSelect('SELECT name FROM contacts WHERE id = :contactId')",
+      'contacts',
+    );
+    assert.deepStrictEqual(cols.sort(), ['id', 'name']);
+  });
+
+  it('does not treat @named bind parameter as a column reference', () => {
+    // Some SQL dialects use @ for named params — treat identically to :.
+    const cols = columnsFor(
+      "customSelect('SELECT name FROM contacts WHERE id = @contactId')",
+      'contacts',
+    );
+    assert.deepStrictEqual(cols.sort(), ['id', 'name']);
+  });
+
+  it('does not treat $var in SELECT list as a column reference', () => {
+    // A Dart interpolation in the SELECT list position should also be skipped.
+    const cols = columnsFor(
+      "customSelect('SELECT \$dynamicCol, name FROM contacts')",
+      'contacts',
+    );
+    assert.deepStrictEqual(cols, ['name']);
+  });
+
+  it('still validates real columns alongside params', () => {
+    // Mixed: real columns + interpolation + bind param — only real columns
+    // should appear in the extracted refs. `status` (no sigil) IS a column;
+    // `$status` and `:minAge` (with sigils) are params and must be excluded.
+    const cols = columnsFor(
+      "customSelect('SELECT id, name FROM contacts WHERE age > :minAge AND status = \$status')",
+      'contacts',
+    );
+    assert.deepStrictEqual(cols.sort(), ['age', 'id', 'name', 'status']);
+  });
+
   it('handles triple-quoted multi-line SQL', () => {
     const source = [
       "db.customSelect('''",

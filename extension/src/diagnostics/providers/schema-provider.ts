@@ -19,7 +19,7 @@ import { checkColumnDrift } from '../checkers/column-checker';
 import { checkMissingIndexes } from '../checkers/index-checker';
 import { checkMissingPrimaryKey, checkTextPrimaryKey } from '../checkers/pk-checker';
 import { checkRawSqlColumns } from '../checkers/raw-sql-column-checker';
-import { checkExtraTablesInDb, checkMissingTableInDb } from '../checkers/table-checker';
+import { checkExtraTablesInDb, checkMissingTableInDb, isEngineOwnedTable } from '../checkers/table-checker';
 import { TableNameMapper } from '../../codelens/table-name-mapper';
 
 export class SchemaProvider implements IDiagnosticProvider {
@@ -41,11 +41,28 @@ export class SchemaProvider implements IDiagnosticProvider {
       // e.g. "superhero_d_c_characters" vs "superhero_dc_characters"
       const dbNormalizedMap = new Map<string, TableMetadata>();
       for (const t of dbSchema) {
+        // Filter out SQLite internal tables (sqlite_sequence, sqlite_stat1, etc.)
         if (!t.name.startsWith('sqlite_')) {
           dbTableMap.set(t.name, t);
           dbNormalizedMap.set(
             TableNameMapper.normalizeForComparison(t.name),
             t,
+          );
+        }
+      }
+
+      // Remove engine-owned tables that aren't prefixed with `sqlite_`:
+      // FTS3/FTS4/FTS5 shadow tables (e.g. notes_fts_data, notes_fts_idx)
+      // and platform-injected tables (android_metadata). These are not
+      // user-declared and should never trigger extra-table-in-db.
+      // We must collect names first because we need the full set to detect
+      // shadow tables (their prefix must be a known table in the DB).
+      const allDbNames = new Set(dbTableMap.keys());
+      for (const name of allDbNames) {
+        if (isEngineOwnedTable(name, allDbNames)) {
+          dbTableMap.delete(name);
+          dbNormalizedMap.delete(
+            TableNameMapper.normalizeForComparison(name),
           );
         }
       }
@@ -73,7 +90,9 @@ export class SchemaProvider implements IDiagnosticProvider {
             checkMissingTableInDb(issues, file, dartTable, dbTable);
           }
           checkMissingPrimaryKey(issues, file, dartTable, dbTable);
-          checkColumnDrift(issues, file, dartTable, dbTable);
+          // Pass dateTimeAsText so DateTimeColumn type checks respect
+          // the build.yaml store_date_time_values_as_text setting
+          checkColumnDrift(issues, file, dartTable, dbTable, ctx.dateTimeAsText);
           checkTextPrimaryKey(issues, file, dartTable, dbTable);
         }
 

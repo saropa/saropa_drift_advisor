@@ -173,6 +173,15 @@ export interface IDiagnosticContext {
   dartFiles: IDartFileInfo[];
   /** Current configuration. */
   config: IDiagnosticConfig;
+  /**
+   * Whether `store_date_time_values_as_text: true` is set in build.yaml.
+   * - `true`: DateTimeColumn maps to TEXT (ISO-8601 strings).
+   * - `false`: DateTimeColumn maps to INTEGER (Unix epoch, Drift default).
+   * - `undefined`: build.yaml absent or unparseable — both types accepted
+   *   for DateTimeColumn to avoid false positives (see BUG_COLUMN_TYPE_DRIFT_
+   *   FALSE_POSITIVE_DATETIME_AS_TEXT).
+   */
+  dateTimeAsText?: boolean;
 }
 
 /**

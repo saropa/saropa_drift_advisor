@@ -168,6 +168,19 @@ describe('parseColumn', () => {
     );
     assert.ok(col);
     assert.strictEqual(col.sqlName, 'user_login');
+    // hasNamedOverride must be true so downstream diagnostics can distinguish
+    // an intentional SQL name override from an accidental mismatch
+    assert.strictEqual(col.hasNamedOverride, true,
+      'Should flag hasNamedOverride when .named() is used');
+  });
+
+  it('should not set hasNamedOverride without .named()', () => {
+    // Columns without .named() derive their SQL name mechanically — the
+    // flag must be false so getter-table-mismatch can still fire on them.
+    const col = parseColumn('TextColumn', 'firstName', 'text()', 0);
+    assert.ok(col);
+    assert.strictEqual(col.hasNamedOverride, false,
+      'Should not flag hasNamedOverride without .named()');
   });
 
   it('should convert getter name to snake_case', () => {

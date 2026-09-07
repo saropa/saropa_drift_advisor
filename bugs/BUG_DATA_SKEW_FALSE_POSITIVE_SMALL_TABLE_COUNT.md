@@ -1,6 +1,6 @@
 # BUG: `data-skew` fires on almost every two- or three-table database, regardless of row counts
 
-**Status: Open**
+**Status: Fixed
 
 Created: 2026-09-02
 Component: Extension

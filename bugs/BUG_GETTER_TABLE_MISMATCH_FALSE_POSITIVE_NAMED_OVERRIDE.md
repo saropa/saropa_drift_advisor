@@ -1,6 +1,6 @@
 # BUG: `getter-table-mismatch` fires on every deliberate `.named()` override — including the one `column-name-acronym-mismatch` tells you to add
 
-**Status: Open**
+**Status: Fixed
 
 Created: 2026-09-02
 Component: Extension

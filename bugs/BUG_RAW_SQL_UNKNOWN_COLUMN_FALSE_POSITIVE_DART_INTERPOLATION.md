@@ -1,6 +1,6 @@
 # BUG: Dart string interpolation and named bind parameters in raw SQL are flagged as unknown columns
 
-**Status: Open**
+**Status: Fixed
 
 Created: 2026-09-02
 Component: Extension

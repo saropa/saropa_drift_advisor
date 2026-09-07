@@ -1,6 +1,6 @@
 # BUG: NL-to-SQL safety gate rejects valid read-only SELECTs whose string literals contain a keyword or a semicolon
 
-**Status: Open**
+**Status: Fixed
 
 Created: 2026-09-02
 Component: Extension

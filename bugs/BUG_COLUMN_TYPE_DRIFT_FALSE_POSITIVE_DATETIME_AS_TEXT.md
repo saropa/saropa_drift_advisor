@@ -1,6 +1,6 @@
 # BUG: Every `DateTimeColumn` is flagged as type drift when `store_date_time_values_as_text` is enabled
 
-**Status: Open**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Extension

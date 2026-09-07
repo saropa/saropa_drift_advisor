@@ -1,6 +1,6 @@
 # BUG: Raw-SQL column validation never runs on DAO/repository files, which is where raw SQL lives
 
-**Status: Open**
+**Status: Fixed
 
 Created: 2026-09-02
 Component: Extension

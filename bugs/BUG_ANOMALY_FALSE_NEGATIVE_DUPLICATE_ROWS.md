@@ -1,6 +1,6 @@
 # BUG: `duplicate_rows` anomalies are silently discarded before reaching the Problems panel
 
-**Status: Open**
+**Status: Fixed
 
 Created: 2026-09-02
 Component: Extension
