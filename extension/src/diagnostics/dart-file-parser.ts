@@ -12,6 +12,14 @@ import type { IDartFileInfo } from './diagnostic-types';
 import { parseInlineSuppressions } from './suppression';
 
 /**
+ * Matches raw-SQL call sites that need column validation even when no table
+ * class is defined in the file. Without this, DAO/repository files — the
+ * standard location for raw SQL in Drift projects — are silently skipped.
+ * See BUG_RAW_SQL_UNKNOWN_COLUMN_FALSE_NEGATIVE_FILES_WITHOUT_TABLES.md.
+ */
+export const RAW_SQL_CALL = /\b(?:customSelect|customStatement)\s*\(/;
+
+/**
  * Returns true when pubspec content declares `drift` or `saropa_drift_advisor`
  * anywhere (dependencies, dev_dependencies, dependency_overrides).
  * Used as a fast gate before the expensive workspace-wide Dart scan.
@@ -40,6 +48,56 @@ export async function workspaceUsesDrift(): Promise<boolean> {
 }
 
 /**
+ * Read the `store_date_time_values_as_text` flag from the workspace's
+ * `build.yaml`. Drift reads this from two builder key forms:
+ *   - `drift_dev` (short form)
+ *   - `drift_dev|drift_dev` (fully-qualified form)
+ * Returns `true` when the option is explicitly enabled, `false` when it
+ * is explicitly disabled or absent, and `undefined` when `build.yaml`
+ * is missing or unparseable (so callers can accept either type rather
+ * than guessing wrong).
+ */
+export async function readDateTimeAsText(): Promise<boolean | undefined> {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders?.length) return undefined;
+
+  const buildUri = vscode.Uri.joinPath(folders[0].uri, 'build.yaml');
+  let content: string;
+  try {
+    const bytes = await vscode.workspace.fs.readFile(buildUri);
+    content = Buffer.from(bytes).toString('utf-8');
+  } catch {
+    // build.yaml missing or unreadable — caller will accept either type
+    return undefined;
+  }
+
+  try {
+    return parseDateTimeAsText(content);
+  } catch {
+    // Malformed YAML — treat as absent so we don't false-positive
+    return undefined;
+  }
+}
+
+/**
+ * Extract `store_date_time_values_as_text` from parsed build.yaml text.
+ * Handles both `drift_dev` and `drift_dev|drift_dev` builder key forms.
+ * Exported for unit testing without filesystem access.
+ */
+export function parseDateTimeAsText(buildYamlContent: string): boolean {
+  // Simple regex-based extraction to avoid adding a YAML parser dependency.
+  // Drift's build.yaml is structured enough that the option value always
+  // follows its key on the same line or the next.
+  // Reject lines that start with a YAML comment — a commented-out
+  // `# store_date_time_values_as_text: true` must not activate the flag.
+  // Match only lines where the key is NOT preceded by a `#` comment marker.
+  const pattern = /^[^#\n]*store_date_time_values_as_text\s*:\s*(true|false)/m;
+  const match = pattern.exec(buildYamlContent);
+  // When the key is absent the Drift default is false (INTEGER storage)
+  return match ? match[1] === 'true' : false;
+}
+
+/**
  * Find all Dart files (excluding build/) and parse table definitions.
  * Used by DiagnosticManager to build context for providers.
  *
@@ -65,7 +123,13 @@ export async function parseDartFilesInWorkspace(): Promise<IDartFileInfo[]> {
       const text = doc.getText();
       const tables = parseDartTables(text, uri.toString());
 
-      if (tables.length > 0) {
+      // Include files that define table classes (for schema checks) OR
+      // contain raw-SQL calls like customSelect/customStatement (for
+      // column-name validation). Without the raw-SQL arm, DAO/repository
+      // files — the standard location for raw SQL — are never scanned.
+      // Table-scoped checkers iterate file.tables, so a file with zero
+      // tables contributes nothing to them and needs no further guarding.
+      if (tables.length > 0 || RAW_SQL_CALL.test(text)) {
         files.push({
           uri,
           text,

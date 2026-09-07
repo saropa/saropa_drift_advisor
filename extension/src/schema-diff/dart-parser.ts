@@ -48,7 +48,10 @@ const TABLE_CLASS_PATTERN =
 const COLUMN_PATTERN = /(\w+Column)\s+get\s+(\w+)\s*=>\s*([^;]+);/g;
 const TABLE_NAME_RE =
   /String\s+get\s+tableName\s*=>\s*['"](\w+)['"]/;
-const NAMED_RE = /\.named\(\s*['"](\w+)['"]\s*\)/;
+// Captures any valid SQL identifier inside .named('...'), including hyphens,
+// dots, and other non-word characters that \w would miss. The pre-existing
+// \w+ silently failed on `.named('foo-bar')`, producing the wrong sqlName.
+const NAMED_RE = /\.named\s*\(\s*['"]([^'"]+)['"]\s*\)/;
 const NULLABLE_RE = /\.nullable\(\)/;
 const AUTO_INCREMENT_RE = /\.autoIncrement\(\)/;
 // A column-level default supplied by the schema (constant default or a
@@ -156,6 +159,9 @@ export function parseColumn(
     nullable: NULLABLE_RE.test(builderChain),
     autoIncrement: AUTO_INCREMENT_RE.test(builderChain),
     hasDefault: HAS_DEFAULT_RE.test(builderChain),
+    // Track whether .named() was used so downstream diagnostics can
+    // distinguish an intentional SQL name override from an accidental mismatch
+    hasNamedOverride: namedMatch !== null,
     line: lineOffset,
   };
 }

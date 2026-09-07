@@ -16,7 +16,13 @@ export interface IDartColumn {
   sqlName: string;
   /** Dart column type (e.g. 'IntColumn'). */
   dartType: string;
-  /** Mapped SQL type (e.g. 'INTEGER'). */
+  /**
+   * Static default SQL type from DART_TO_SQL_TYPE (e.g. 'INTEGER').
+   * For DateTimeColumn this is always 'INTEGER' regardless of build.yaml's
+   * `store_date_time_values_as_text` — the parser runs before the build
+   * config is read. Consumers that need the config-aware type MUST call
+   * {@link dartToSqlType} at check time instead of reading this field.
+   */
   sqlType: string;
   /** Whether .nullable() was detected in the builder chain. */
   nullable: boolean;
@@ -31,6 +37,15 @@ export interface IDartColumn {
    * need not be touched; the Dart parser always populates it.
    */
   hasDefault?: boolean;
+  /**
+   * Whether `.named('...')` was used in the builder chain to explicitly set
+   * the SQL column name. When true, the SQL name is an intentional override
+   * and should NOT be flagged by getter-table-mismatch — `.named()` IS the
+   * declaration of intentional Dart↔SQL name divergence. Optional so existing
+   * test fixtures and non-parser constructors need not be touched; the Dart
+   * parser always populates it.
+   */
+  hasNamedOverride?: boolean;
   /** Line number in the source file (0-based). */
   line: number;
 }
@@ -65,7 +80,12 @@ export interface IDartTable {
   line: number;
 }
 
-/** Map from Drift Dart column type to SQLite type. */
+/**
+ * Map from Drift Dart column type to SQLite type.
+ * DateTimeColumn defaults to INTEGER but can be TEXT when
+ * `store_date_time_values_as_text` is enabled in build.yaml.
+ * Use {@link dartToSqlType} for DateTimeColumn-aware lookups.
+ */
 export const DART_TO_SQL_TYPE: Record<string, string> = {
   IntColumn: 'INTEGER',
   TextColumn: 'TEXT',
@@ -75,3 +95,25 @@ export const DART_TO_SQL_TYPE: Record<string, string> = {
   BlobColumn: 'BLOB',
   Int64Column: 'INTEGER',
 };
+
+/**
+ * Resolve the SQLite type for a Drift Dart column type, accounting for
+ * the `store_date_time_values_as_text` build option. When the option is
+ * true, DateTimeColumn maps to TEXT (ISO-8601) instead of INTEGER (Unix
+ * epoch). When `dateTimeAsText` is undefined (build.yaml absent or
+ * unparseable), returns undefined for DateTimeColumn so the caller can
+ * accept either type — a suppressed true positive beats one permanent
+ * false positive per datetime column.
+ */
+export function dartToSqlType(
+  dartType: string,
+  dateTimeAsText: boolean | undefined,
+): string | undefined {
+  if (dartType === 'DateTimeColumn') {
+    // undefined = build.yaml absent/unparseable — accept either type upstream
+    if (dateTimeAsText === undefined) return undefined;
+    // Explicit setting: TEXT when enabled, INTEGER when disabled
+    return dateTimeAsText ? 'TEXT' : 'INTEGER';
+  }
+  return DART_TO_SQL_TYPE[dartType];
+}

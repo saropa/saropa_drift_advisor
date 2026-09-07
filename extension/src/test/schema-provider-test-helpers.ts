@@ -19,6 +19,12 @@ export interface CreateContextOptions {
     priority: 'high' | 'medium' | 'low';
   }>;
   anomalies?: Array<{ message: string; severity: 'error' | 'warning' | 'info' }>;
+  /**
+   * Mirror of IDiagnosticContext.dateTimeAsText — controls whether
+   * DateTimeColumn maps to TEXT (true), INTEGER (false), or either
+   * (undefined, the default when build.yaml is absent).
+   */
+  dateTimeAsText?: boolean;
 }
 
 /** Build a minimal IDiagnosticContext for SchemaProvider tests. */
@@ -63,5 +69,8 @@ export function createContext(options: CreateContextOptions): IDiagnosticContext
       tableExclusions: new Map(),
       columnExclusions: new Map(),
     },
+    // Pass through the build.yaml dateTimeAsText flag for DateTimeColumn
+    // type resolution — undefined when build.yaml is absent (the default)
+    dateTimeAsText: options.dateTimeAsText,
   };
 }

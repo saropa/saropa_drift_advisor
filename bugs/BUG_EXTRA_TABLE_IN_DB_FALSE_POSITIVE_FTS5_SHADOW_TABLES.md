@@ -1,6 +1,6 @@
 # BUG: FTS5 shadow tables reported as `extra-table-in-db`
 
-**Status: Open**
+**Status: Fixed
 
 Created: 2026-09-02
 Component: Extension

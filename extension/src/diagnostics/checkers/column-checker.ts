@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import type { ColumnMetadata, TableMetadata } from '../../api-types';
-import { DART_TO_SQL_TYPE } from '../../schema-diff/dart-schema';
+import { dartToSqlType } from '../../schema-diff/dart-schema';
 import type { IDartTable } from '../../schema-diff/dart-schema';
 import type { IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
 import { TableNameMapper } from '../../codelens/table-name-mapper';
@@ -13,12 +13,17 @@ import { TableNameMapper } from '../../codelens/table-name-mapper';
 /**
  * Report missing column in DB, type drift, acronym name mismatches,
  * and extra column in DB.
+ *
+ * @param dateTimeAsText - build.yaml `store_date_time_values_as_text` flag.
+ *   true = DateTimeColumn→TEXT, false = DateTimeColumn→INTEGER,
+ *   undefined = accept either (build.yaml absent/unparseable).
  */
 export function checkColumnDrift(
   issues: IDiagnosticIssue[],
   file: IDartFileInfo,
   dartTable: IDartTable,
   dbTable: TableMetadata | undefined,
+  dateTimeAsText?: boolean,
 ): void {
   if (!dbTable) return;
 
@@ -78,7 +83,13 @@ export function checkColumnDrift(
       continue;
     }
 
-    const expectedType = DART_TO_SQL_TYPE[dartCol.dartType];
+    // Resolve expected SQL type using the dateTimeAsText flag so that
+    // DateTimeColumn→TEXT is accepted when build.yaml enables it.
+    // When dateTimeAsText is undefined (build.yaml absent), dartToSqlType
+    // returns undefined for DateTimeColumn, suppressing the check to
+    // avoid false positives (see BUG_COLUMN_TYPE_DRIFT_FALSE_POSITIVE_
+    // DATETIME_AS_TEXT).
+    const expectedType = dartToSqlType(dartCol.dartType, dateTimeAsText);
     if (expectedType && dbCol.type !== expectedType) {
       // When a DateTimeColumn mismatches on INTEGER vs TEXT, the most
       // common cause is the build.yaml `store_date_time_values_as_text`

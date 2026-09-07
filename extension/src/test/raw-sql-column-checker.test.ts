@@ -110,6 +110,52 @@ describe('checkRawSqlColumns', () => {
     assert.strictEqual(range.end.character, expectedStart + 3);
   });
 
+  // Regression: files with no table classes (e.g. DAO/repository files)
+  // must still be checked for raw-SQL column errors. The checker receives
+  // IDartFileInfo with tables: [] — this test proves the checker fires
+  // correctly for that shape, guarding the fix for the file-inclusion gate
+  // in dart-file-parser.ts.
+  it('flags unknown column in a file with no table definitions (DAO/repository)', () => {
+    const issues: IDiagnosticIssue[] = [];
+    const { exact, normalized } = makeMaps([avatars]);
+    // Simulate a DAO file: tables array is empty, but raw SQL is present
+    const file = makeFile(
+      "@DriftAccessor(tables: [ContactAvatars])\n" +
+        "class AvatarDao extends DatabaseAccessor<AppDb> {\n" +
+        "  Future<List<QueryRow>> badQuery() =>\n" +
+        "      customSelect('SELECT contact_saropa_uuid FROM contact_avatars').get();\n" +
+        "}",
+    );
+    assert.strictEqual(file.tables.length, 0, 'precondition: no tables in file');
+
+    checkRawSqlColumns(issues, file, exact, normalized);
+
+    assert.strictEqual(issues.length, 1);
+    assert.strictEqual(issues[0].code, 'raw-sql-unknown-column');
+    assert.ok(issues[0].message.includes('contact_saropa_uuid'));
+    assert.ok(issues[0].message.includes('contact_avatars'));
+    // Suggestion should point to the real column
+    assert.ok(issues[0].message.includes('contact_saropa_u_u_i_d'));
+  });
+
+  // Companion to the above: a DAO file with VALID raw SQL should produce
+  // zero diagnostics, not just "no crash".
+  it('produces no diagnostic for valid columns in a file with no table definitions', () => {
+    const issues: IDiagnosticIssue[] = [];
+    const { exact, normalized } = makeMaps([avatars]);
+    const file = makeFile(
+      "class AvatarDao {\n" +
+        "  Future<List<QueryRow>> goodQuery() =>\n" +
+        "      customSelect('SELECT id, image FROM contact_avatars').get();\n" +
+        "}",
+    );
+    assert.strictEqual(file.tables.length, 0, 'precondition: no tables in file');
+
+    checkRawSqlColumns(issues, file, exact, normalized);
+
+    assert.strictEqual(issues.length, 0);
+  });
+
   it('matches column names case-insensitively', () => {
     const issues: IDiagnosticIssue[] = [];
     const { exact, normalized } = makeMaps([avatars]);

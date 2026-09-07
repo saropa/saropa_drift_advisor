@@ -175,7 +175,8 @@ describe('SchemaProvider', () => {
 
     it('should include build.yaml hint for DateTimeColumn INTEGER/TEXT mismatch', async () => {
       // Simulate a DateTimeColumn that Drift maps to INTEGER (default),
-      // but the pre-built database has TEXT.
+      // but the pre-built database has TEXT. dateTimeAsText: false means
+      // build.yaml explicitly says INTEGER, so this is a real mismatch.
       const dartFile = createDartFile('events', ['id', 'created_at']);
       // Override the auto-assigned TextColumn to DateTimeColumn
       dartFile.tables[0].columns[1].dartType = 'DateTimeColumn';
@@ -187,6 +188,8 @@ describe('SchemaProvider', () => {
           { name: 'id', type: 'INTEGER', pk: true },
           { name: 'created_at', type: 'TEXT', pk: false }, // DB has TEXT, Dart expects INTEGER
         ], rowCount: 50 }],
+        // Explicit false = build.yaml says INTEGER, so TEXT in DB is a real mismatch
+        dateTimeAsText: false,
       });
 
       const issues = await provider.collectDiagnostics(ctx);
@@ -201,6 +204,103 @@ describe('SchemaProvider', () => {
         issue!.message.includes('build.yaml'),
         'Should reference build.yaml',
       );
+    });
+
+    it('should NOT report column-type-drift for DateTimeColumn when dateTimeAsText is true and DB has TEXT', async () => {
+      // BUG_COLUMN_TYPE_DRIFT_FALSE_POSITIVE_DATETIME_AS_TEXT:
+      // When build.yaml has store_date_time_values_as_text: true,
+      // DateTimeColumn should map to TEXT — a TEXT DB column is correct.
+      const dartFile = createDartFile('events', ['id', 'created_at']);
+      dartFile.tables[0].columns[1].dartType = 'DateTimeColumn';
+      dartFile.tables[0].columns[1].sqlType = 'INTEGER'; // Parser still sets default
+
+      const ctx = createContext({
+        dartFiles: [dartFile],
+        dbTables: [{ name: 'events', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'created_at', type: 'TEXT', pk: false },
+        ], rowCount: 50 }],
+        // build.yaml says store as text — TEXT in DB is correct
+        dateTimeAsText: true,
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const typeIssue = issues.find((i) => i.code === 'column-type-drift');
+      assert.strictEqual(
+        typeIssue,
+        undefined,
+        'DateTimeColumn with TEXT in DB should NOT fire column-type-drift when dateTimeAsText is true',
+      );
+    });
+
+    it('should report column-type-drift for DateTimeColumn when dateTimeAsText is false and DB has TEXT', async () => {
+      // When build.yaml explicitly says INTEGER (dateTimeAsText: false),
+      // a TEXT DB column is a genuine type mismatch.
+      const dartFile = createDartFile('events', ['id', 'created_at']);
+      dartFile.tables[0].columns[1].dartType = 'DateTimeColumn';
+      dartFile.tables[0].columns[1].sqlType = 'INTEGER';
+
+      const ctx = createContext({
+        dartFiles: [dartFile],
+        dbTables: [{ name: 'events', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'created_at', type: 'TEXT', pk: false },
+        ], rowCount: 50 }],
+        dateTimeAsText: false,
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const typeIssue = issues.find((i) => i.code === 'column-type-drift');
+      assert.ok(typeIssue, 'DateTimeColumn with TEXT in DB should fire when dateTimeAsText is false');
+      assert.ok(typeIssue!.message.includes('INTEGER'));
+      assert.ok(typeIssue!.message.includes('TEXT'));
+    });
+
+    it('should NOT report column-type-drift for DateTimeColumn when dateTimeAsText is undefined (build.yaml absent)', async () => {
+      // When build.yaml is absent or unparseable, dateTimeAsText is undefined.
+      // The checker should accept either INTEGER or TEXT for DateTimeColumn
+      // to avoid false positives when we can't determine the project's config.
+      const dartFile = createDartFile('events', ['id', 'created_at']);
+      dartFile.tables[0].columns[1].dartType = 'DateTimeColumn';
+      dartFile.tables[0].columns[1].sqlType = 'INTEGER';
+
+      const ctx = createContext({
+        dartFiles: [dartFile],
+        dbTables: [{ name: 'events', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'created_at', type: 'TEXT', pk: false },
+        ], rowCount: 50 }],
+        // dateTimeAsText omitted = undefined = build.yaml absent
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const typeIssue = issues.find((i) => i.code === 'column-type-drift');
+      assert.strictEqual(
+        typeIssue,
+        undefined,
+        'DateTimeColumn should not fire column-type-drift when build.yaml is absent (accept either type)',
+      );
+    });
+
+    it('should still report column-type-drift for non-DateTimeColumn even when dateTimeAsText is undefined', async () => {
+      // Non-DateTimeColumn type mismatches should still fire regardless of
+      // the dateTimeAsText setting — only DateTimeColumn is affected.
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'user_id'])],
+        dbTables: [{ name: 'users', columns: [
+          { name: 'id', type: 'INTEGER', pk: true },
+          { name: 'user_id', type: 'TEXT', pk: false },
+        ], rowCount: 10 }],
+        // undefined = build.yaml absent, but IntColumn is not affected
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const typeIssue = issues.find((i) => i.code === 'column-type-drift');
+      assert.ok(typeIssue, 'Non-DateTimeColumn type drift should still fire when dateTimeAsText is undefined');
     });
 
     it('should report extra-column-in-db for DB-only columns', async () => {
@@ -237,6 +337,70 @@ describe('SchemaProvider', () => {
       assert.ok(issue.message.includes('INTEGER recommended'));
     });
 
+  });
+
+  describe('FTS5 shadow table filtering', () => {
+    it('should NOT report extra-table-in-db for FTS5 shadow tables', async () => {
+      // Bug: FTS5 virtual tables create five shadow tables (notes_fts_data,
+      // notes_fts_idx, etc.) that don't start with sqlite_ — they all got
+      // flagged as extra-table-in-db. The fix filters them in SchemaProvider
+      // before they reach checkExtraTablesInDb.
+      const ctx = createContext({
+        dartFiles: [createDartFile('notes', ['id', 'body'])],
+        dbTables: [
+          { name: 'notes', columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            { name: 'body', type: 'TEXT', pk: false },
+          ], rowCount: 100 },
+          // Parent FTS5 virtual table
+          { name: 'notes_fts', columns: [], rowCount: 0 },
+          // FTS5 shadow tables — these must be filtered out
+          { name: 'notes_fts_data', columns: [], rowCount: 0 },
+          { name: 'notes_fts_idx', columns: [], rowCount: 0 },
+          { name: 'notes_fts_content', columns: [], rowCount: 0 },
+          { name: 'notes_fts_docsize', columns: [], rowCount: 0 },
+          { name: 'notes_fts_config', columns: [], rowCount: 0 },
+        ],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const extraTableIssues = issues.filter((i) => i.code === 'extra-table-in-db');
+      // Only notes_fts (the parent virtual table) should remain as extra —
+      // the five shadow tables must be excluded.
+      assert.strictEqual(
+        extraTableIssues.length,
+        1,
+        `Expected 1 extra-table issue (notes_fts only), got ${extraTableIssues.length}: ${extraTableIssues.map((i) => i.message).join(', ')}`,
+      );
+      assert.ok(extraTableIssues[0].message.includes('notes_fts'));
+    });
+
+    it('should NOT report extra-table-in-db for android_metadata', async () => {
+      // Android's platform SQLite wrapper injects this table; users never
+      // declare it in Dart and can't remove it.
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'name'])],
+        dbTables: [
+          { name: 'users', columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            { name: 'name', type: 'TEXT', pk: false },
+          ], rowCount: 10 },
+          { name: 'android_metadata', columns: [
+            { name: 'locale', type: 'TEXT', pk: false },
+          ], rowCount: 1 },
+        ],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const extraTableIssues = issues.filter((i) => i.code === 'extra-table-in-db');
+      assert.strictEqual(
+        extraTableIssues.length,
+        0,
+        'android_metadata should not produce extra-table-in-db',
+      );
+    });
   });
 
   describe('schema-version-mismatch', () => {

@@ -32,7 +32,9 @@ export class DataQualityProvider implements IDiagnosticProvider {
 
       const userTables = tables.filter((t) => !t.name.startsWith('sqlite_'));
 
-      checkDataSkew(issues, sizeAnalytics, ctx.dartFiles);
+      // Pass the full context so checkDataSkew can honour userDataTables
+      // exclusions and access dartFiles for location mapping.
+      checkDataSkew(issues, sizeAnalytics, ctx);
       await checkHighNullRates(issues, userTables, ctx);
     } catch {
       // Server unreachable or other error - return empty

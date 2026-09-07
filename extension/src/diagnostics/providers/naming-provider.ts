@@ -124,7 +124,7 @@ export class NamingProvider implements IDiagnosticProvider {
     issues: IDiagnosticIssue[],
     file: IDartFileInfo,
     dartTable: { sqlTableName: string; line: number },
-    dartCol: { sqlName: string; dartName: string; line: number },
+    dartCol: { sqlName: string; dartName: string; line: number; hasNamedOverride?: boolean },
   ): void {
     const colName = dartCol.sqlName;
     const line = dartCol.line >= 0 ? dartCol.line : dartTable.line;
@@ -151,15 +151,22 @@ export class NamingProvider implements IDiagnosticProvider {
       });
     }
 
-    const expectedSqlName = this._toSnakeCase(dartCol.dartName);
-    if (colName !== expectedSqlName && colName !== dartCol.dartName) {
-      issues.push({
-        code: 'getter-table-mismatch',
-        message: `Dart getter "${dartCol.dartName}" maps to unexpected SQL name "${colName}"`,
-        fileUri: file.uri,
-        range: new vscode.Range(line, 0, line, 999),
-        severity: vscode.DiagnosticSeverity.Information,
-      });
+    // A .named() override IS the declaration of an intentional Dart↔SQL name
+    // divergence, and is what column-name-acronym-mismatch recommends as its
+    // fix. Reporting getter-table-mismatch on a .named() column makes the two
+    // rules mutually unsatisfiable — the user cannot resolve both at once.
+    // Skip the check entirely when the SQL name came from .named().
+    if (!dartCol.hasNamedOverride) {
+      const expectedSqlName = this._toSnakeCase(dartCol.dartName);
+      if (colName !== expectedSqlName && colName !== dartCol.dartName) {
+        issues.push({
+          code: 'getter-table-mismatch',
+          message: `Dart getter "${dartCol.dartName}" maps to unexpected SQL name "${colName}"`,
+          fileUri: file.uri,
+          range: new vscode.Range(line, 0, line, 999),
+          severity: vscode.DiagnosticSeverity.Information,
+        });
+      }
     }
   }
 

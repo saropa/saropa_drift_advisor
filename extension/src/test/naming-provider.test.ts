@@ -97,6 +97,82 @@ describe('NamingProvider', () => {
 
       assert.strictEqual(caseIssues.length, 0, 'Simple lowercase names should pass');
     });
+
+    it('should not fire getter-table-mismatch when .named() override is used', async () => {
+      // A .named() override IS the intentional declaration of a different SQL
+      // name — reporting it as a mismatch contradicts column-name-acronym-mismatch
+      // which tells users to add .named() as the fix.
+      const dartFile = createDartFileWithNamedOverride(
+        'users',
+        [
+          // Simple case: .named('user_name_v2') on a getter called userName
+          { dartName: 'userName', sqlName: 'user_name_v2', hasNamedOverride: true },
+          // Normal column without override — should still be checked
+          { dartName: 'id', sqlName: 'id', hasNamedOverride: false },
+        ],
+      );
+      const ctx = createContext({ dartFiles: [dartFile] });
+
+      const issues = await provider.collectDiagnostics(ctx);
+      const mismatchIssues = issues.filter((i) => i.code === 'getter-table-mismatch');
+
+      assert.strictEqual(
+        mismatchIssues.length,
+        0,
+        'Should not report getter-table-mismatch when .named() override is present',
+      );
+    });
+
+    it('should not fire getter-table-mismatch for acronym case with .named() override', async () => {
+      // Reproduces the exact scenario from the bug report: contactSaropaUUID
+      // with .named('contact_saropa_uuid'). Without the fix, _toSnakeCase
+      // produces 'contact_saropa_u_u_i_d' which differs from the .named() value,
+      // causing a false positive.
+      const dartFile = createDartFileWithNamedOverride(
+        'contacts',
+        [
+          { dartName: 'id', sqlName: 'id', hasNamedOverride: false },
+          {
+            dartName: 'contactSaropaUUID',
+            sqlName: 'contact_saropa_uuid',
+            hasNamedOverride: true,
+          },
+        ],
+      );
+      const ctx = createContext({ dartFiles: [dartFile] });
+
+      const issues = await provider.collectDiagnostics(ctx);
+      const mismatchIssues = issues.filter((i) => i.code === 'getter-table-mismatch');
+
+      assert.strictEqual(
+        mismatchIssues.length,
+        0,
+        'Acronym getter with .named() override should not trigger getter-table-mismatch',
+      );
+    });
+
+    it('should still fire getter-table-mismatch without .named() override', async () => {
+      // Columns WITHOUT .named() that have a genuine mismatch should still be
+      // caught — the fix must not suppress all mismatches, only intentional ones.
+      const dartFile = createDartFileWithNamedOverride(
+        'users',
+        [
+          // sqlName differs from _toSnakeCase(dartName) and dartName, but
+          // hasNamedOverride is false — this is a genuine anomaly
+          { dartName: 'userName', sqlName: 'usr_nm', hasNamedOverride: false },
+        ],
+      );
+      const ctx = createContext({ dartFiles: [dartFile] });
+
+      const issues = await provider.collectDiagnostics(ctx);
+      const mismatchIssues = issues.filter((i) => i.code === 'getter-table-mismatch');
+
+      assert.strictEqual(
+        mismatchIssues.length,
+        1,
+        'Should still report getter-table-mismatch when there is no .named() override',
+      );
+    });
   });
 
   describe('provideCodeActions', () => {
@@ -193,6 +269,44 @@ function createDartFile(
     sqlType: name === 'id' || name.endsWith('_id') ? 'INTEGER' : 'TEXT',
     nullable: false,
     autoIncrement: name === 'id',
+    line: 10 + idx,
+  }));
+
+  const dartTable: IDartTable = {
+    dartClassName: tableName.charAt(0).toUpperCase() + tableName.slice(1),
+    sqlTableName: tableName,
+    columns: dartColumns,
+    indexes: [],
+    uniqueKeys: [],
+    fileUri: `file:///lib/database/${tableName}.dart`,
+    line: 5,
+  };
+
+  return {
+    uri: Uri.parse(`file:///lib/database/${tableName}.dart`) as any,
+    text: `class ${dartTable.dartClassName} extends Table {}`,
+    tables: [dartTable],
+    suppressions: emptySuppressions(),
+  };
+}
+
+/**
+ * Creates a Dart file fixture with explicit control over hasNamedOverride
+ * per column — used to test that .named() overrides suppress
+ * getter-table-mismatch while non-overridden mismatches are still caught.
+ */
+function createDartFileWithNamedOverride(
+  tableName: string,
+  columns: { dartName: string; sqlName: string; hasNamedOverride: boolean }[],
+): IDartFileInfo {
+  const dartColumns = columns.map((col, idx) => ({
+    dartName: col.dartName,
+    sqlName: col.sqlName,
+    dartType: col.dartName === 'id' ? 'IntColumn' : 'TextColumn',
+    sqlType: col.dartName === 'id' ? 'INTEGER' : 'TEXT',
+    nullable: false,
+    autoIncrement: col.dartName === 'id',
+    hasNamedOverride: col.hasNamedOverride,
     line: 10 + idx,
   }));
 
