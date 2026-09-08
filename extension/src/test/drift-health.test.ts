@@ -90,6 +90,21 @@ describe('buildDriftHealthHtml', () => {
     assert.ok(html.includes('No suite findings'));
   });
 
+  it('omits the truncated banner by default', () => {
+    const html = buildDriftHealthHtml({ tables: [], untabled: [], totalIssues: 0 });
+    assert.ok(!html.includes('class="dh-truncated"'));
+  });
+
+  it('shows a truncated banner when the live anomaly scan hit its budget', () => {
+    const html = buildDriftHealthHtml(
+      { tables: [], untabled: [], totalIssues: 0 },
+      undefined,
+      undefined,
+      true,
+    );
+    assert.ok(html.includes('class="dh-truncated"'));
+  });
+
   it('flags a finding from a different commit as stale, but not a matching or unknown one', () => {
     const model = buildDriftHealth([
       d({ source: 'lints', table: 'orders', title: 'old finding', commitSha: 'OLD' }),

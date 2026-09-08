@@ -55,6 +55,11 @@ export const stringsPanelHealth: Record<string, string> = {
     'Static code, live data, and runtime behavior for each table, joined across the Saropa suite.',
   // {0} = total finding count across every table.
   'panel.driftHealth.count': '{0} finding(s) across the suite',
+  // Shown when Advisor's live anomaly scan hit its wall-clock budget and
+  // stopped before checking every table — the finding list below is
+  // partial, not a clean bill of health.
+  'panel.driftHealth.truncated':
+    'Anomaly scan stopped early after hitting its time budget — some tables were not checked. Findings below are partial.',
   'panel.driftHealth.empty':
     'No suite findings yet. Start the debug server and run Saropa Lints / Saropa Log Capture to populate this view.',
   'panel.driftHealth.col.advisor': 'Drift Advisor — runtime',

@@ -105,11 +105,16 @@ function severityCounts(model: DriftHealthModel): {
  * Build the full Drift Health panel HTML for [model]. [currentCommit], when
  * known, flags findings captured at a different commit as stale (plan 67 R6).
  * [opts] gates per-finding fix-action buttons to available commands (plan 67 R1).
+ * [truncated] shows a banner when Advisor's live anomaly scan hit its
+ * wall-clock budget and stopped before checking every table — the findings
+ * below are then partial, not a complete scan (see the anomaly-scan
+ * performance fix that added the underlying `truncated` envelope flag).
  */
 export function buildDriftHealthHtml(
   model: DriftHealthModel,
   currentCommit?: string,
   opts?: SuiteRenderOptions,
+  truncated = false,
 ): string {
   const cards = model.tables.map((tbl) => renderTable(tbl, currentCommit, opts)).join('\n');
 
@@ -143,12 +148,17 @@ export function buildDriftHealthHtml(
     ? `<p class="dh-empty">${t('panel.driftHealth.empty')}</p>`
     : `${toolbar}\n<div id="dh-cards">${cards}</div>\n${untabled}`;
 
+  const truncatedBanner = truncated
+    ? `<p class="dh-truncated" role="status">${t('panel.driftHealth.truncated')}</p>`
+    : '';
+
   const body = `
 <header class="dh-header">
   <h2>${t('panel.driftHealth.title')}</h2>
   <button class="dh-refresh" data-action="refresh">${t('panel.driftHealth.btn.refresh')}</button>
 </header>
 <p class="dh-intro">${t('panel.driftHealth.intro')}</p>
+${truncatedBanner}
 <p class="dh-count">${t('panel.driftHealth.count', model.totalIssues)}</p>
 ${bodyContent}`;
 
@@ -178,6 +188,10 @@ function wrapHtml(body: string): string {
   }
   .dh-refresh:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
   .dh-intro { opacity: 0.75; font-size: 13px; margin: 6px 0 2px; }
+  .dh-truncated {
+    font-size: 12px; margin: 8px 0; padding: 6px 10px; border-radius: 4px;
+    border: 1px solid var(--accent-warning); color: var(--accent-warning);
+  }
   .dh-count { opacity: 0.6; font-size: 12px; margin: 0 0 16px; }
   .dh-empty { opacity: 0.7; font-style: italic; }
   .dh-card {

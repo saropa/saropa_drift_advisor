@@ -25,21 +25,36 @@ import { secureWebviewHtml } from '../webview-csp';
 // panel re-fetches once, not per tick.
 const REFRESH_DEBOUNCE_MS = 1200;
 
+/** Diagnostics plus whether Advisor's live anomaly scan was partial. */
+interface CollectedDiagnostics {
+  diagnostics: SuiteDiagnostic[];
+  /** True when the envelope's `truncated` flag was set — Advisor's anomaly
+   * scan hit its wall-clock budget and stopped before checking every table
+   * (see the anomaly-scan performance fix). Siblings never set this. */
+  truncated: boolean;
+}
+
 /**
  * Gathers the three tools' diagnostics. Advisor's own envelope is fetched live
  * (best-effort — no notes if the server is down) and relabeled source=advisor
  * so its per-issue detector token does not split it across buckets; the siblings
  * come from their on-disk mirrors.
  */
-async function collectDiagnostics(client: DriftApiClient): Promise<SuiteDiagnostic[]> {
+async function collectDiagnostics(client: DriftApiClient): Promise<CollectedDiagnostics> {
   let advisor: SuiteDiagnostic[] = [];
+  let truncated = false;
   try {
-    advisor = diagnosticsFromEnvelope(await client.issues(), 'advisor', true);
+    const envelope = await client.issues();
+    advisor = diagnosticsFromEnvelope(envelope, 'advisor', true);
+    truncated =
+      typeof envelope === 'object' &&
+      envelope !== null &&
+      (envelope as { truncated?: unknown }).truncated === true;
   } catch {
     advisor = [];
   }
   const siblings = await readSiblingDiagnostics();
-  return [...advisor, ...siblings];
+  return { diagnostics: [...advisor, ...siblings], truncated };
 }
 
 /** Singleton Drift Health panel. */
@@ -110,15 +125,18 @@ export class DriftHealthPanel {
     // Resolve the current commit so findings captured at a different one are
     // flagged stale (plan 67 R6); the available-command set gates fix-action
     // buttons (plan 67 R1). undefined commit when not a git workspace.
-    const [diagnostics, currentCommit, availableCommands] = await Promise.all([
+    const [collected, currentCommit, availableCommands] = await Promise.all([
       collectDiagnostics(this._client),
       resolveWorkspaceCommit(),
       availableCommandSet(),
     ]);
-    const model = buildDriftHealth(diagnostics);
-    this._panel.webview.html = secureWebviewHtml(buildDriftHealthHtml(model, currentCommit, {
-      availableCommands,
-    }));
+    const model = buildDriftHealth(collected.diagnostics);
+    this._panel.webview.html = secureWebviewHtml(buildDriftHealthHtml(
+      model,
+      currentCommit,
+      { availableCommands },
+      collected.truncated,
+    ));
   }
 
   private _dispose(): void {
