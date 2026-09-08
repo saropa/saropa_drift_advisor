@@ -60,6 +60,11 @@ export const stringsPanelHealth: Record<string, string> = {
   // partial, not a clean bill of health.
   'panel.driftHealth.truncated':
     'Anomaly scan stopped early after hitting its time budget — some tables were not checked. Findings below are partial.',
+  // Short badge shown in the Suite Findings dashboard widget when the anomaly
+  // scan was truncated — the widget is compact, so this is a tooltip/title, not
+  // the full banner sentence used in the Drift Health panel.
+  'panel.suiteFindings.truncated':
+    'Anomaly scan was partial — open Drift Health for details',
   'panel.driftHealth.empty':
     'No suite findings yet. Start the debug server and run Saropa Lints / Saropa Log Capture to populate this view.',
   'panel.driftHealth.col.advisor': 'Drift Advisor — runtime',

@@ -22,8 +22,18 @@ import {
 } from '../../suite/suite-diagnostics';
 import { buildDriftHealth, summarizeDriftHealth } from '../../suite/drift-health';
 import type { SuiteFindingsSummary } from '../../suite/drift-health';
+import { t } from '../../l10n';
 
 const esc = escapeHtml;
+
+/** Widget payload: the shared count summary + whether the scan was partial. */
+export interface SuiteFindingsData {
+  summary: SuiteFindingsSummary;
+  /** True when Advisor's live anomaly scan hit its wall-clock budget and
+   * stopped before checking every table (mirrors `collectDiagnostics` in the
+   * Drift Health panel). */
+  truncated: boolean;
+}
 
 /**
  * Collects all three tools' diagnostics and reduces them to counts. Advisor's
@@ -34,10 +44,18 @@ const esc = escapeHtml;
  */
 async function fetchSuiteFindings(
   client: { issues: () => Promise<unknown> },
-): Promise<SuiteFindingsSummary> {
+): Promise<SuiteFindingsData> {
   let advisor: SuiteDiagnostic[] = [];
+  let truncated = false;
   try {
-    advisor = diagnosticsFromEnvelope(await client.issues(), 'advisor', true);
+    // Extract both the diagnostics and the truncation flag from the envelope,
+    // same cast pattern as `collectDiagnostics` in drift-health-panel.ts.
+    const envelope = await client.issues();
+    advisor = diagnosticsFromEnvelope(envelope, 'advisor', true);
+    truncated =
+      typeof envelope === 'object' &&
+      envelope !== null &&
+      (envelope as { truncated?: unknown }).truncated === true;
   } catch {
     advisor = [];
   }
@@ -45,12 +63,16 @@ async function fetchSuiteFindings(
   // buildDriftHealth drops unknown producers and routes table-less findings to
   // `untabled`; summarizeDriftHealth is the shared count reducer, so this
   // widget's numbers always match the Drift Health panel and the timeline.
-  return summarizeDriftHealth(buildDriftHealth([...advisor, ...siblings]));
+  return {
+    summary: summarizeDriftHealth(buildDriftHealth([...advisor, ...siblings])),
+    truncated,
+  };
 }
 
 /** Renders the summary counts plus a deep-link button to the full panel. */
-function renderSuiteFindingsHtml(summary: SuiteFindingsSummary): string {
-  const clean = summary.total === 0;
+export function renderSuiteFindingsHtml(data: SuiteFindingsData): string {
+  const { summary, truncated } = data;
+  const clean = summary.total === 0 && !truncated;
   // The open-panel button reuses the dashboard's executeAction path; the command
   // id is Advisor's own stable deep-link target (plan 67 §3 / R5).
   // data-click + the delegated dispatcher replace the inline onclick the C2b
@@ -59,6 +81,13 @@ function renderSuiteFindingsHtml(summary: SuiteFindingsSummary): string {
     `<button class="suite-open-btn" `
     + `data-click="executeAction" data-a0="driftViewer.openDriftHealth" `
     + `title="Open the full Drift Health panel">Open Drift Health</button>`;
+
+  // Warning badge shown next to the total when Advisor's anomaly scan was
+  // truncated — a compact counterpart to the full banner in the Drift Health
+  // panel, so a user doesn't have to open it just to learn the scan was partial.
+  const truncBadge = truncated
+    ? ` <span class="suite-trunc" title="${esc(t('panel.suiteFindings.truncated'))}">⚠</span>`
+    : '';
 
   if (clean) {
     return `<style>${SUITE_FINDINGS_CSS}</style>
@@ -77,7 +106,7 @@ function renderSuiteFindingsHtml(summary: SuiteFindingsSummary): string {
   return `<style>${SUITE_FINDINGS_CSS}</style>
     <div class="suite-findings">
       <div class="suite-headline">
-        <span class="suite-total">${summary.total}</span>
+        <span class="suite-total">${summary.total}${truncBadge}</span>
         <span class="suite-total-label">findings across ${summary.tables} `
     + `table${summary.tables === 1 ? '' : 's'}</span>
       </div>
@@ -114,6 +143,7 @@ const SUITE_FINDINGS_CSS = `
     color:var(--vscode-button-secondaryForeground, var(--text)); border:none; border-radius:3px;
     padding:4px 10px; font-size:11px; cursor:pointer; }
   .suite-open-btn:hover { background:var(--vscode-button-secondaryHoverBackground); }
+  .suite-trunc { color:var(--accent-warning); font-size:14px; cursor:help; }
 `;
 
 // ── Widget definition ─────────────────────────────────────────────────
@@ -127,6 +157,6 @@ export const SUITE_FINDINGS_WIDGETS: IWidgetDefinition[] = [
     defaultSize: { w: 2, h: 2 },
     configSchema: [],
     fetchData: async (client) => fetchSuiteFindings(client),
-    renderHtml: (data) => renderSuiteFindingsHtml(data as SuiteFindingsSummary),
+    renderHtml: (data) => renderSuiteFindingsHtml(data as SuiteFindingsData),
   },
 ];
