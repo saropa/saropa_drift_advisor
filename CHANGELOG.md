@@ -69,6 +69,10 @@ browse source on
 - **`doc/API.md` — document `slowThresholdMs`** — the `GET /api/analytics/performance` endpoint accepts an optional `?slowThresholdMs=<int>` query parameter (default 100) and echoes it in the response, but neither was documented; the `slowQueries` description hardcoded "100 ms" as if the threshold were fixed.
 - **`doc/API.md` — stale implementation pointer** — the SQL-from-query-string reference pointed at the pre-migration `assets/web/app.js` instead of `assets/web/sql-runner.ts`.
 
+### Internal
+
+- **Activation event listeners now register their disposal handles** — three phase-10 subscriptions (server-active-change, discovery-servers-change, generation-change) previously discarded the `Disposable` VS Code returns instead of pushing it onto `context.subscriptions`, unlike every other listener in the same file. Fixed for consistency and to close the gap in case activation ever re-wires (hot-reload, multi-root workspace).
+
 ---
 
 ## [4.4.0]
