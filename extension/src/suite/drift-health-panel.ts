@@ -12,6 +12,7 @@ import type { DriftApiClient } from '../api-client';
 import type { GenerationWatcher } from '../generation-watcher';
 import {
   diagnosticsFromEnvelope,
+  extractTruncatedFlag,
   readSiblingDiagnostics,
   type SuiteDiagnostic,
 } from './suite-diagnostics';
@@ -46,10 +47,7 @@ async function collectDiagnostics(client: DriftApiClient): Promise<CollectedDiag
   try {
     const envelope = await client.issues();
     advisor = diagnosticsFromEnvelope(envelope, 'advisor', true);
-    truncated =
-      typeof envelope === 'object' &&
-      envelope !== null &&
-      (envelope as { truncated?: unknown }).truncated === true;
+    truncated = extractTruncatedFlag(envelope);
   } catch {
     advisor = [];
   }

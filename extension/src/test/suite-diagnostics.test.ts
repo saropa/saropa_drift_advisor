@@ -5,6 +5,7 @@
 import * as assert from 'assert';
 import {
   envelopeMeta,
+  extractTruncatedFlag,
   parseEnvelope,
   readSuiteMirrorRefs,
   relatedDiagnostics,
@@ -142,5 +143,21 @@ describe('readSuiteMirrorRefs', () => {
       assert.strictEqual(typeof ref.count, 'number');
       assert.ok(ref.file.startsWith('.saropa/diagnostics/'));
     }
+  });
+});
+
+describe('extractTruncatedFlag', () => {
+  it('is true only for a literal `truncated: true`', () => {
+    assert.strictEqual(extractTruncatedFlag({ truncated: true }), true);
+    assert.strictEqual(extractTruncatedFlag({ truncated: false }), false);
+    assert.strictEqual(extractTruncatedFlag({ truncated: 'true' }), false); // wrong type
+    assert.strictEqual(extractTruncatedFlag({}), false); // absent
+  });
+
+  it('is malformed-safe: never throws on non-object input', () => {
+    assert.strictEqual(extractTruncatedFlag(null), false);
+    assert.strictEqual(extractTruncatedFlag(undefined), false);
+    assert.strictEqual(extractTruncatedFlag('not an object'), false);
+    assert.strictEqual(extractTruncatedFlag(42), false);
   });
 });

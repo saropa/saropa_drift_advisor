@@ -17,6 +17,7 @@ import type { IWidgetDefinition } from '../dashboard-types';
 import { escapeHtml } from '../dashboard-types';
 import {
   diagnosticsFromEnvelope,
+  extractTruncatedFlag,
   readSiblingDiagnostics,
   type SuiteDiagnostic,
 } from '../../suite/suite-diagnostics';
@@ -48,14 +49,11 @@ async function fetchSuiteFindings(
   let advisor: SuiteDiagnostic[] = [];
   let truncated = false;
   try {
-    // Extract both the diagnostics and the truncation flag from the envelope,
-    // same cast pattern as `collectDiagnostics` in drift-health-panel.ts.
     const envelope = await client.issues();
     advisor = diagnosticsFromEnvelope(envelope, 'advisor', true);
-    truncated =
-      typeof envelope === 'object' &&
-      envelope !== null &&
-      (envelope as { truncated?: unknown }).truncated === true;
+    // Shared with `collectDiagnostics` in drift-health-panel.ts so both
+    // surfaces agree on what "truncated" means from one envelope shape.
+    truncated = extractTruncatedFlag(envelope);
   } catch {
     advisor = [];
   }

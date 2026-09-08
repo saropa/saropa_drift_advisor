@@ -271,6 +271,25 @@ export function diagnosticsFromEnvelope(
 }
 
 /**
+ * True when an Advisor `/api/issues` envelope carries `truncated: true` — its
+ * live anomaly scan hit the wall-clock budget and stopped before checking
+ * every table, so the `anomaly`-sourced issues in the envelope are partial.
+ * Single source of truth for this extraction: both the Drift Health panel
+ * (`collectDiagnostics`) and the Suite Findings dashboard widget
+ * (`fetchSuiteFindings`) call this instead of re-deriving the cast, so a
+ * future change to the envelope's truncation contract only needs updating
+ * here. Malformed-safe like the rest of this module: anything other than a
+ * literal `true` (missing envelope, wrong type, absent field) reads as false.
+ */
+export function extractTruncatedFlag(envelope: unknown): boolean {
+  return (
+    typeof envelope === 'object' &&
+    envelope !== null &&
+    (envelope as { truncated?: unknown }).truncated === true
+  );
+}
+
+/**
  * Filters diagnostics to those related to a query: its `table` is among
  * [tables] (case-insensitive) or its `sql` matches [sql] (trimmed, exact).
  * Pure and exported for tests. A diagnostic with neither a matching table nor

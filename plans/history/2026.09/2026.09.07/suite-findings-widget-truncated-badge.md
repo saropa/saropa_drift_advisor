@@ -94,3 +94,34 @@ Verification: `npx tsc --noEmit -p .` clean; scoped mocha run
 (`--grep "suiteFindings|renderSuiteFindingsHtml|buildDriftHealth"`) 22/22
 passing (one new test added for the aria-label/role/data-testid trio);
 `/code-review low` on the hardening diff — zero findings.
+
+## Second round: shared helper + reflection follow-up (2026-09-08)
+
+The `/finish` run on the hardening round above produced its own reflection,
+which the user approved acting on in full (harden + build the previously
+deferred unrequested feature):
+
+- **Extracted `extractTruncatedFlag`** into `extension/src/suite/
+  suite-diagnostics.ts` — the single home already shared by both call sites
+  via `diagnosticsFromEnvelope`/`readSiblingDiagnostics`. Both
+  `collectDiagnostics` (`drift-health-panel.ts`) and `fetchSuiteFindings`
+  (`suite-findings-widget.ts`) now call it instead of independently casting
+  `envelope.truncated === true`. This was the "one unrequested feature" from
+  the FIRST reflection (deliberately deferred that round) and directly
+  resolves the SECOND reflection's "if this breaks in 3 months" concern
+  (drift between the two independent extractions).
+- **Verified the accessibility assumption with codebase evidence, not
+  speculation** — the second reflection flagged "does VS Code's webview
+  sandbox actually honor `role`/`aria-label`" as an unstated assumption.
+  Grepped the codebase: `diagram-html.ts` and `bulk-edit-html.ts` already use
+  `aria-label`, `role="region"`, `aria-pressed`, `aria-labelledby` in shipped
+  webview HTML — this is an established, working pattern in this extension,
+  not a novel bet made for this badge.
+- Added `extractTruncatedFlag` unit tests to `extension/src/test/
+  suite-diagnostics.test.ts` (literal-true gate, malformed-input safety).
+- CHANGELOG: added a `### Fixed` bullet for the `/api/issues` doc gap and an
+  `### Internal` bullet for the helper extraction.
+
+Verification: `npx tsc --noEmit -p .` clean; scoped mocha run
+(`--grep "suiteFindings|renderSuiteFindingsHtml|buildDriftHealth|
+extractTruncatedFlag|parseEnvelope|envelopeMeta"`) 32/32 passing.
