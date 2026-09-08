@@ -357,6 +357,98 @@ describe('DiagnosticManager', () => {
     });
   });
 
+  describe('columnNameExclusions', () => {
+    it('should suppress a rule on a bare column name regardless of table', async () => {
+      // lastModified is nullable by design on every table that carries it —
+      // columnNameExclusions matches by column name alone, no table qualifier.
+      const issues: IDiagnosticIssue[] = [
+        createMockIssue('high-null-rate', 'Column "activities.lastModified" has 91% NULL values', 10, {
+          table: 'activities',
+          column: 'lastModified',
+        }),
+        createMockIssue('high-null-rate', 'Column "contacts.lastModified" has 88% NULL values', 20, {
+          table: 'contacts',
+          column: 'lastModified',
+        }),
+      ];
+
+      manager.registerProvider(createMockProvider('dq', 'dataQuality', issues));
+
+      sinon.stub(workspace, 'getConfiguration').returns({
+        get: (key: string, defaultVal?: unknown) => {
+          if (key === 'columnNameExclusions') {
+            return { 'high-null-rate': ['lastModified'] };
+          }
+          if (key === 'categories.dataQuality') return true;
+          return defaultVal;
+        },
+      } as any);
+
+      (manager as any)._lastRefresh = 0;
+      await manager.refresh();
+
+      const collection = manager.collection as unknown as MockDiagnosticCollection;
+      const allDiags = [...collection.entries().values()].flat();
+      assert.strictEqual(allDiags.length, 0, 'lastModified should be suppressed on every table');
+    });
+
+    it('should match case-insensitively', async () => {
+      const issues: IDiagnosticIssue[] = [
+        createMockIssue('high-null-rate', 'Column "activities.LastModified" has 91% NULL values', 10, {
+          table: 'activities',
+          column: 'LastModified',
+        }),
+      ];
+
+      manager.registerProvider(createMockProvider('dq', 'dataQuality', issues));
+
+      sinon.stub(workspace, 'getConfiguration').returns({
+        get: (key: string, defaultVal?: unknown) => {
+          if (key === 'columnNameExclusions') {
+            return { 'high-null-rate': ['lastmodified'] };
+          }
+          if (key === 'categories.dataQuality') return true;
+          return defaultVal;
+        },
+      } as any);
+
+      (manager as any)._lastRefresh = 0;
+      await manager.refresh();
+
+      const collection = manager.collection as unknown as MockDiagnosticCollection;
+      const allDiags = [...collection.entries().values()].flat();
+      assert.strictEqual(allDiags.length, 0, 'match should be case-insensitive');
+    });
+
+    it('should NOT suppress a differently-named column', async () => {
+      const issues: IDiagnosticIssue[] = [
+        createMockIssue('high-null-rate', 'Column "users.nickname" has 80% NULL values', 10, {
+          table: 'users',
+          column: 'nickname',
+        }),
+      ];
+
+      manager.registerProvider(createMockProvider('dq', 'dataQuality', issues));
+
+      sinon.stub(workspace, 'getConfiguration').returns({
+        get: (key: string, defaultVal?: unknown) => {
+          if (key === 'columnNameExclusions') {
+            return { 'high-null-rate': ['lastModified'] };
+          }
+          if (key === 'categories.dataQuality') return true;
+          return defaultVal;
+        },
+      } as any);
+
+      (manager as any)._lastRefresh = 0;
+      await manager.refresh();
+
+      const collection = manager.collection as unknown as MockDiagnosticCollection;
+      const allDiags = [...collection.entries().values()].flat();
+      assert.strictEqual(allDiags.length, 1, 'unrelated column name must not be suppressed');
+    });
+  });
+
   describe('clear', () => {
     it('should clear all diagnostics', async () => {
       const issues: IDiagnosticIssue[] = [

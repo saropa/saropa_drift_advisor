@@ -150,6 +150,17 @@ export interface IDiagnosticConfig {
    */
   columnExclusions: Map<string, Set<string>>;
   /**
+   * Column-name-only rule exclusions (no table qualifier). Keys are diagnostic
+   * codes, values are sets of bare column names matched across every table
+   * (e.g. `lastModified`, `updatedAt`). For nullable-by-design columns that
+   * recur across many tables, this avoids repeating `table.column` in
+   * `columnExclusions` — or an inline `// drift-advisor:ignore` — on every
+   * table that carries the column. Matching is case-insensitive. Optional so
+   * existing config constructors (tests, callers) need not be updated;
+   * absence means "no column-name exclusions".
+   */
+  columnNameExclusions?: Map<string, Set<string>>;
+  /**
    * SQL table names whose live debug rows are NOT a representative sample of
    * the production data — user/demo tables and static reference tables that
    * load lazily or partially in a debug session. Null-rate / unused-column
@@ -231,6 +242,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: IDiagnosticConfig = {
   disabledRules: new Set(),
   tableExclusions: new Map(),
   columnExclusions: new Map(),
+  columnNameExclusions: new Map(),
   userDataTables: new Set(),
 };
 

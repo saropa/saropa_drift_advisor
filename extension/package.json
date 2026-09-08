@@ -1771,6 +1771,17 @@
             }
           }
         },
+        "driftViewer.diagnostics.columnNameExclusions": {
+          "type": "object",
+          "default": {},
+          "description": "%config.diagnostics.columnNameExclusions.description%",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
         "driftViewer.diagnostics.userDataTables": {
           "type": "array",
           "default": [],

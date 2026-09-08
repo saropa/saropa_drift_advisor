@@ -84,6 +84,15 @@ export function buildDiagnosticsByFile(
         if (excludedColumns?.has(`${tableName}.${columnName}`)) {
           continue;
         }
+
+        // Column-name-only exclusion: suppress by bare column name across
+        // every table (e.g. a `lastModified` column that is nullable by
+        // design on any table that carries it). Case-insensitive since the
+        // config is authored in analysis_options-style YAML/JSON, not code.
+        const excludedColumnNames = config.columnNameExclusions?.get(issue.code);
+        if (excludedColumnNames?.has(columnName.toLowerCase())) {
+          continue;
+        }
       }
     }
 

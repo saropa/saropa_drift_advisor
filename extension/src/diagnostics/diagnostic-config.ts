@@ -71,6 +71,18 @@ export function loadDiagnosticConfig(): IDiagnosticConfig {
     }
   }
 
+  // Column-name-only exclusions: { "high-null-rate": ["lastModified", "updatedAt"], ... }
+  // Matches a bare column name across every table, so a nullable-by-design
+  // column recurring across the schema (e.g. lastModified) doesn't need a
+  // `table.column` entry per table in columnExclusions.
+  const columnNameExclusionsRaw = cfg.get<Record<string, string[]>>('columnNameExclusions', {});
+  const columnNameExclusions = new Map<string, Set<string>>();
+  for (const [code, columns] of Object.entries(columnNameExclusionsRaw)) {
+    if (Array.isArray(columns) && columns.length > 0) {
+      columnNameExclusions.set(code, new Set(columns.map((c) => c.toLowerCase())));
+    }
+  }
+
   // Tables whose live debug rows are unrepresentative (user/demo data or
   // partially-loaded static reference tables). Null-rate / unused-column
   // analysis is skipped for these — a null rate measured on a partial table is
@@ -87,6 +99,7 @@ export function loadDiagnosticConfig(): IDiagnosticConfig {
     disabledRules,
     tableExclusions,
     columnExclusions,
+    columnNameExclusions,
     userDataTables,
   };
 }
