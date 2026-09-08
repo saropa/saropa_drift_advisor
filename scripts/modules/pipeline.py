@@ -10,8 +10,8 @@ import time
 from typing import TYPE_CHECKING
 
 from modules.constants import ABOUT_SAROPA_PATH, C, CHANGELOG_PATH, EXTENSION_DIR, REPO_ROOT
-from modules.display import ask_choice, heading, info, ok, warn
-from modules.utils import run_step
+from modules.display import ask_choice, fail, heading, info, ok, warn
+from modules.utils import append_ignored_result, run_step
 
 if TYPE_CHECKING:
     from modules.target_config import TargetConfig
@@ -191,8 +191,6 @@ def _run_ext_dev_checks(
         while True:
             if run_step("Remote sync", check_remote_sync, results):
                 break
-            if results and results[-1][0] == "Remote sync":
-                results.pop()
             choice = ask_choice(
                 "Remote sync failed. Choose what to do next",
                 choices=("retry", "ignore", "cancel"),
@@ -200,12 +198,18 @@ def _run_ext_dev_checks(
                 eof_default="cancel",
             )
             if choice == "retry":
+                if results and results[-1][0] == "Remote sync":
+                    results.pop()
                 warn("Retrying remote sync...")
                 continue
             if choice == "ignore":
+                if results and results[-1][0] == "Remote sync":
+                    results.pop()
                 warn("Ignoring remote sync failure by user choice.")
-                results.append(("Remote sync (ignored)", True, 0.0))
+                append_ignored_result(results, "Remote sync")
                 break
+            # cancel: leave the failed-check entry in `results` so the run
+            # summary reflects that this step ran and failed.
             return False
 
         heading("Step 5b \u00b7 Dependabot PRs")
@@ -213,8 +217,6 @@ def _run_ext_dev_checks(
         while True:
             if run_step("Dependabot PRs", check_pending_dependabot_prs, results):
                 break
-            if results and results[-1][0] == "Dependabot PRs":
-                results.pop()
             choice = ask_choice(
                 "Dependabot PRs step failed. Choose what to do next",
                 choices=("retry", "ignore", "cancel"),
@@ -222,11 +224,15 @@ def _run_ext_dev_checks(
                 eof_default="cancel",
             )
             if choice == "retry":
+                if results and results[-1][0] == "Dependabot PRs":
+                    results.pop()
                 warn("Retrying Dependabot PRs...")
                 continue
             if choice == "ignore":
+                if results and results[-1][0] == "Dependabot PRs":
+                    results.pop()
                 warn("Ignoring Dependabot PRs failure by user choice.")
-                results.append(("Dependabot PRs (ignored)", True, 0.0))
+                append_ignored_result(results, "Dependabot PRs")
                 break
             return False
 
@@ -239,8 +245,6 @@ def _run_ext_dev_checks(
     while True:
         if run_step("Dependencies", ensure_dependencies, results):
             break
-        if results and results[-1][0] == "Dependencies":
-            results.pop()
         choice = ask_choice(
             "Dependencies step failed. Choose what to do next",
             choices=("retry", "ignore", "cancel"),
@@ -248,11 +252,15 @@ def _run_ext_dev_checks(
             eof_default="cancel",
         )
         if choice == "retry":
+            if results and results[-1][0] == "Dependencies":
+                results.pop()
             warn("Retrying dependencies...")
             continue
         if choice == "ignore":
+            if results and results[-1][0] == "Dependencies":
+                results.pop()
             warn("Ignoring dependency failure by user choice.")
-            results.append(("Dependencies (ignored)", True, 0.0))
+            append_ignored_result(results, "Dependencies")
             break
         return False
 
@@ -297,6 +305,7 @@ def _run_ext_build_and_validate(
     """
     from modules.ext_build import (
         step_compile, step_test, check_file_line_limits, check_engines_vscode_compat,
+        fix_engines_vscode_compat,
     )
     from modules.target_config import EXTENSION
 
@@ -313,7 +322,37 @@ def _run_ext_build_and_validate(
     # instead of letting it blow up at the much later vsce packaging step. A
     # Dependabot bump to @types/vscode crossed this line and only surfaced as a
     # hard packaging failure mid-publish.
-    if not run_step("VS Code API compatibility", check_engines_vscode_compat, results):
+    while True:
+        if run_step("VS Code API compatibility", check_engines_vscode_compat, results):
+            break
+        choice = ask_choice(
+            "VS Code API compatibility check failed. Choose what to do next",
+            choices=("retry", "fix", "ignore", "cancel"),
+            default="fix",
+            eof_default="cancel",
+        )
+        if choice == "retry":
+            if results and results[-1][0] == "VS Code API compatibility":
+                results.pop()
+            warn("Retrying VS Code API compatibility check...")
+            continue
+        if choice == "fix":
+            if results and results[-1][0] == "VS Code API compatibility":
+                results.pop()
+            warn("Pinning @types/vscode to the engines.vscode floor...")
+            if not run_step("VS Code API compatibility", fix_engines_vscode_compat, results):
+                fail("Auto-fix failed -- resolve @types/vscode vs engines.vscode manually.")
+                return "", False, None
+            break
+        if choice == "ignore":
+            if results and results[-1][0] == "VS Code API compatibility":
+                results.pop()
+            warn("Ignoring VS Code API compatibility failure by user choice.")
+            append_ignored_result(results, "VS Code API compatibility")
+            break
+        # cancel: leave the failed-check entry in `results` so the run
+        # summary reflects that this step ran and failed, rather than
+        # silently disappearing from the report.
         return "", False, None
 
     lint_step_name = "Lint (saropa_lints)"
@@ -680,8 +719,6 @@ def run_dart_analysis(
     while True:
         if run_step("Remote sync", check_remote_sync, results):
             break
-        if results and results[-1][0] == "Remote sync":
-            results.pop()
         choice = ask_choice(
             "Remote sync failed. Choose what to do next",
             choices=("retry", "ignore", "cancel"),
@@ -689,20 +726,24 @@ def run_dart_analysis(
             eof_default="cancel",
         )
         if choice == "retry":
+            if results and results[-1][0] == "Remote sync":
+                results.pop()
             warn("Retrying remote sync...")
             continue
         if choice == "ignore":
+            if results and results[-1][0] == "Remote sync":
+                results.pop()
             warn("Ignoring remote sync failure by user choice.")
-            results.append(("Remote sync (ignored)", True, 0.0))
+            append_ignored_result(results, "Remote sync")
             break
+        # cancel: leave the failed-check entry in `results` so the run
+        # summary reflects that this step ran and failed.
         return "", False
 
     heading("Dart \u00b7 Dependabot PRs")
     while True:
         if run_step("Dependabot PRs", check_pending_dependabot_prs, results):
             break
-        if results and results[-1][0] == "Dependabot PRs":
-            results.pop()
         choice = ask_choice(
             "Dependabot PRs step failed. Choose what to do next",
             choices=("retry", "ignore", "cancel"),
@@ -710,11 +751,15 @@ def run_dart_analysis(
             eof_default="cancel",
         )
         if choice == "retry":
+            if results and results[-1][0] == "Dependabot PRs":
+                results.pop()
             warn("Retrying Dependabot PRs...")
             continue
         if choice == "ignore":
+            if results and results[-1][0] == "Dependabot PRs":
+                results.pop()
             warn("Ignoring Dependabot PRs failure by user choice.")
-            results.append(("Dependabot PRs (ignored)", True, 0.0))
+            append_ignored_result(results, "Dependabot PRs")
             break
         return "", False
 

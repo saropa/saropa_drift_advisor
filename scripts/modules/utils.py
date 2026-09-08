@@ -49,6 +49,18 @@ def run_step(
     return passed
 
 
+def append_ignored_result(results: list[tuple[str, bool, float]], step_name: str) -> None:
+    """Record *step_name* as passed-by-override after an operator "ignore" choice.
+
+    Centralizes the "(ignored)" result tuple so every retry/ignore/cancel loop
+    in the pipeline builds it the same way -- report.py and print_timing both
+    unpack `results` positionally as (name, passed, elapsed), so a hand-rolled
+    literal at each call site is one accidental field-order slip away from
+    corrupting the run summary.
+    """
+    results.append((f"{step_name} (ignored)", True, 0.0))
+
+
 def command_exists(cmd: str) -> bool:
     """Return True if *cmd* is found on PATH."""
     return shutil.which(cmd) is not None

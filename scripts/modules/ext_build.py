@@ -82,6 +82,57 @@ def check_engines_vscode_compat() -> bool:
     return True
 
 
+def fix_engines_vscode_compat() -> bool:
+    """Pin ``@types/vscode`` down to the ``engines.vscode`` floor and reinstall.
+
+    Applies the lower-risk of the two remedies ``check_engines_vscode_compat``
+    offers (pin the types package rather than drop support for older VS Code).
+    Rewrites the raw JSON text rather than round-tripping through
+    ``json.load``/``dump`` so package.json keeps its existing key order and
+    formatting -- only the one version string changes.
+    """
+    pkg_json = os.path.join(EXTENSION_DIR, "package.json")
+    try:
+        with open(pkg_json, "r", encoding="utf-8") as fh:
+            raw = fh.read()
+        pkg = json.loads(raw)
+    except (OSError, json.JSONDecodeError) as exc:
+        fail(f"Could not read extension package.json: {exc}")
+        return False
+
+    engines_spec = (pkg.get("engines") or {}).get("vscode", "")
+    types_spec = (pkg.get("devDependencies") or {}).get("@types/vscode", "")
+    engines_ver = _semver_tuple(engines_spec)
+    if not engines_spec or not types_spec or engines_ver is None:
+        fail("Cannot auto-fix: engines.vscode / @types/vscode missing or unparseable.")
+        return False
+
+    pinned_spec = f"^{engines_ver[0]}.{engines_ver[1]}.{engines_ver[2]}"
+    pattern = re.compile(r'("@types/vscode"\s*:\s*")' + re.escape(types_spec) + r'(")')
+    new_raw, count = pattern.subn(r"\g<1>" + pinned_spec + r"\g<2>", raw, count=1)
+    if count != 1:
+        fail(f"Could not locate @types/vscode {types_spec!r} in package.json to rewrite.")
+        return False
+
+    with open(pkg_json, "w", encoding="utf-8") as fh:
+        fh.write(new_raw)
+    fix(f"Pinned @types/vscode: {types_spec} -> {pinned_spec}")
+
+    # Scope the reinstall to the one changed devDependency -- a type-only
+    # package with no runtime footprint doesn't need a full registry
+    # resolve of every dependency to pick up its new pinned version.
+    result = run(
+        ["npm", "install", f"@types/vscode@{pinned_spec}", "--save-dev"],
+        cwd=EXTENSION_DIR,
+        check=False,
+    )
+    if result.returncode != 0:
+        fail(f"npm install @types/vscode@{pinned_spec} failed: {result.stderr.strip()}")
+        return False
+    ok(f"npm install @types/vscode@{pinned_spec} completed")
+    return check_engines_vscode_compat()
+
+
 def ensure_dependencies() -> bool:
     """Run npm install if node_modules is stale or missing."""
     node_modules = os.path.join(EXTENSION_DIR, "node_modules")
