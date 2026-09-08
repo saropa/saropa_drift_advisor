@@ -4,6 +4,7 @@ import {
   DIAGNOSTIC_PREFIX,
   DIAGNOSTIC_SOURCE,
   hasCallerPinnedData,
+  matchesColumnNameExclusion,
   type IDartFileInfo,
   type IDiagnosticConfig,
   type IDiagnosticIssue,
@@ -68,6 +69,24 @@ export function buildDiagnosticsByFile(
     // diagnostics are actually suppressible (they previously never matched
     // because only `tableName` was read). See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M12.
     const tableName = issue.data?.tableName ?? issue.data?.table;
+    const columnName = issue.data?.column;
+
+    // Column-name-only exclusion: suppress by bare column name — or a
+    // `*`-glob pattern (e.g. `*_at`) — across every table (e.g. a
+    // `lastModified` column that is nullable by design on any table that
+    // carries it). Checked independently of tableName below — a
+    // column-scoped diagnostic can rely on this even if a future provider
+    // omits data.table/data.tableName, unlike the table-qualified checks
+    // which need a table name to build their lookup key. Case-insensitive
+    // since the config is authored in analysis_options-style YAML/JSON, not
+    // code identifiers.
+    if (
+      typeof columnName === 'string' &&
+      matchesColumnNameExclusion(config.columnNameExclusions?.get(issue.code), columnName)
+    ) {
+      continue;
+    }
+
     if (typeof tableName === 'string') {
       const excludedTables = config.tableExclusions.get(issue.code);
       if (excludedTables?.has(tableName)) {
@@ -78,19 +97,9 @@ export function buildDiagnosticsByFile(
       // rule on a single `table.column` (e.g. a column expected to be mostly
       // NULL) while leaving the rest of the table reporting. Only applies to
       // column-scoped diagnostics that carry data.column.
-      const columnName = issue.data?.column;
       if (typeof columnName === 'string') {
         const excludedColumns = config.columnExclusions.get(issue.code);
         if (excludedColumns?.has(`${tableName}.${columnName}`)) {
-          continue;
-        }
-
-        // Column-name-only exclusion: suppress by bare column name across
-        // every table (e.g. a `lastModified` column that is nullable by
-        // design on any table that carries it). Case-insensitive since the
-        // config is authored in analysis_options-style YAML/JSON, not code.
-        const excludedColumnNames = config.columnNameExclusions?.get(issue.code);
-        if (excludedColumnNames?.has(columnName.toLowerCase())) {
           continue;
         }
       }

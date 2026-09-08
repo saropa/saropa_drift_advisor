@@ -44,6 +44,61 @@ export interface ICallerPinnedData extends Record<string, unknown> {
   tableFileLine: number;
 }
 
+/**
+ * A single compiled `columnNameExclusions` glob entry. Only a leading and/or
+ * trailing `*` is supported (`*_at`, `created*`, `*mid*`) — deliberately not
+ * a general glob-to-regex translation. A regex with several interior `.*`
+ * segments (from multiple `*` wildcards) can force catastrophic backtracking
+ * on a crafted or coincidentally-adversarial input; matching prefix/suffix/
+ * substring directly with plain string ops has no backtracking to exploit,
+ * so this stays linear-time regardless of what a user pastes into settings.
+ * `text` is pre-lowercased so the hot per-issue check never re-lowercases.
+ */
+export interface IColumnNameGlobPattern {
+  /** How `text` anchors against the (lowercased) column name. */
+  kind: 'prefix' | 'suffix' | 'contains' | 'inert';
+  /** Lowercased literal to match; for `inert`, never matches anything. */
+  text: string;
+}
+
+/**
+ * Compiled `columnNameExclusions` entries for one diagnostic code. Split at
+ * config-load time into exact names (O(1) `Set` lookup) and glob patterns
+ * so the hot per-issue suppression check never re-parses a pattern.
+ */
+export interface IColumnNameExclusionSet {
+  /** Lowercased exact column names. */
+  exact: Set<string>;
+  /** Compiled `*`-glob patterns. */
+  patterns: IColumnNameGlobPattern[];
+}
+
+/** True when `columnName` matches an exact name or glob pattern in `set`. */
+export function matchesColumnNameExclusion(
+  set: IColumnNameExclusionSet | undefined,
+  columnName: string,
+): boolean {
+  if (!set) {
+    return false;
+  }
+  const lower = columnName.toLowerCase();
+  if (set.exact.has(lower)) {
+    return true;
+  }
+  return set.patterns.some((p) => {
+    switch (p.kind) {
+      case 'prefix':
+        return lower.startsWith(p.text);
+      case 'suffix':
+        return lower.endsWith(p.text);
+      case 'contains':
+        return lower.includes(p.text);
+      case 'inert':
+        return false;
+    }
+  });
+}
+
 /** Type guard: true when issue.data carries caller-pinned table file info. */
 export function hasCallerPinnedData(
   data: Record<string, unknown> | undefined,
@@ -151,15 +206,16 @@ export interface IDiagnosticConfig {
   columnExclusions: Map<string, Set<string>>;
   /**
    * Column-name-only rule exclusions (no table qualifier). Keys are diagnostic
-   * codes, values are sets of bare column names matched across every table
-   * (e.g. `lastModified`, `updatedAt`). For nullable-by-design columns that
-   * recur across many tables, this avoids repeating `table.column` in
-   * `columnExclusions` — or an inline `// drift-advisor:ignore` — on every
-   * table that carries the column. Matching is case-insensitive. Optional so
-   * existing config constructors (tests, callers) need not be updated;
-   * absence means "no column-name exclusions".
+   * codes, values hold the bare column names and `*`-glob patterns (e.g.
+   * `lastModified`, `*_at`) matched across every table. For nullable-by-design
+   * columns that recur across many tables, this avoids repeating
+   * `table.column` in `columnExclusions` — or an inline
+   * `// drift-advisor:ignore` — on every table that carries the column.
+   * Matching is case-insensitive. Optional so existing config constructors
+   * (tests, callers) need not be updated; absence means "no column-name
+   * exclusions".
    */
-  columnNameExclusions?: Map<string, Set<string>>;
+  columnNameExclusions?: Map<string, IColumnNameExclusionSet>;
   /**
    * SQL table names whose live debug rows are NOT a representative sample of
    * the production data — user/demo tables and static reference tables that

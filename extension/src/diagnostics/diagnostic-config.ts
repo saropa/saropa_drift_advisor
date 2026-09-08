@@ -6,8 +6,47 @@ import * as vscode from 'vscode';
 import {
   DEFAULT_DIAGNOSTIC_CONFIG,
   type DiagnosticCategory,
+  type IColumnNameExclusionSet,
+  type IColumnNameGlobPattern,
   type IDiagnosticConfig,
 } from './diagnostic-types';
+
+/**
+ * Compile a `columnNameExclusions` glob entry (e.g. `*_at`, `created*`,
+ * `*mid*`) into a plain prefix/suffix/contains match — deliberately NOT a
+ * regex. Only a single leading and/or trailing `*` is meaningful; the string
+ * is matched with `startsWith`/`endsWith`/`includes`, which is linear-time
+ * with no backtracking, so an arbitrary user-authored pattern (settings.json
+ * can be workspace-shared or pasted from elsewhere) can never hang the
+ * extension host the way a naively-translated multi-wildcard regex can. A
+ * `*` anywhere in the interior (not leading/trailing) falls back to `inert`
+ * — it never matches a real column name — rather than silently changing
+ * meaning or reintroducing backtracking risk to support it.
+ */
+function compileColumnNameGlob(pattern: string): IColumnNameGlobPattern {
+  const lower = pattern.toLowerCase();
+  const leading = lower.startsWith('*');
+  // Guard length > 1 so a lone "*" (leading and "trailing" the same char)
+  // is treated as leading-only, matching everything via suffix('').
+  const trailing = lower.endsWith('*') && lower.length > 1;
+  const core = lower.slice(leading ? 1 : 0, trailing ? -1 : undefined);
+
+  if (core.includes('*')) {
+    return { kind: 'inert', text: lower };
+  }
+  if (leading && trailing) {
+    return { kind: 'contains', text: core };
+  }
+  if (leading) {
+    return { kind: 'suffix', text: core };
+  }
+  if (trailing) {
+    return { kind: 'prefix', text: core };
+  }
+  // No leading/trailing '*' but the caller only invokes this when the raw
+  // pattern contains '*' somewhere — an interior-only wildcard.
+  return { kind: 'inert', text: lower };
+}
 
 function parseSeverity(sev: string): vscode.DiagnosticSeverity {
   switch (sev.toLowerCase()) {
@@ -71,16 +110,29 @@ export function loadDiagnosticConfig(): IDiagnosticConfig {
     }
   }
 
-  // Column-name-only exclusions: { "high-null-rate": ["lastModified", "updatedAt"], ... }
-  // Matches a bare column name across every table, so a nullable-by-design
-  // column recurring across the schema (e.g. lastModified) doesn't need a
-  // `table.column` entry per table in columnExclusions.
+  // Column-name-only exclusions: { "high-null-rate": ["lastModified", "*_at"], ... }
+  // Matches a bare column name — or a `*`-glob pattern — across every table,
+  // so a nullable-by-design column recurring across the schema (e.g.
+  // lastModified, or every *_at timestamp) doesn't need a `table.column`
+  // entry per table in columnExclusions. Entries with no `*` go into `exact`
+  // for an O(1) lookup; entries with `*` are compiled once here so the
+  // per-issue suppression check never re-parses a pattern.
   const columnNameExclusionsRaw = cfg.get<Record<string, string[]>>('columnNameExclusions', {});
-  const columnNameExclusions = new Map<string, Set<string>>();
+  const columnNameExclusions = new Map<string, IColumnNameExclusionSet>();
   for (const [code, columns] of Object.entries(columnNameExclusionsRaw)) {
-    if (Array.isArray(columns) && columns.length > 0) {
-      columnNameExclusions.set(code, new Set(columns.map((c) => c.toLowerCase())));
+    if (!Array.isArray(columns) || columns.length === 0) {
+      continue;
     }
+    const exact = new Set<string>();
+    const patterns: IColumnNameGlobPattern[] = [];
+    for (const column of columns) {
+      if (column.includes('*')) {
+        patterns.push(compileColumnNameGlob(column));
+      } else {
+        exact.add(column.toLowerCase());
+      }
+    }
+    columnNameExclusions.set(code, { exact, patterns });
   }
 
   // Tables whose live debug rows are unrepresentative (user/demo data or
