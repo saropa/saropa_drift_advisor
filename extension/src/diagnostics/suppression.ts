@@ -17,7 +17,8 @@
  * codes for that line / file. Multiple codes are comma- or space-separated.
  *
  * Field-level association mirrors the Dart analyzer: a directive that occupies
- * its own line suppresses the NEXT non-blank line; a trailing directive (code
+ * its own line suppresses the NEXT code line (skipping blank and comment-only
+ * lines, so wrapped rationale text is ignored); a trailing directive (code
  * before it on the same line) suppresses its own line. Advisor diagnostics pin
  * to the column getter's line (or the table class line), so the target line is
  * exactly what gets matched against `diagnostic.range.start.line`.
@@ -46,17 +47,24 @@ export function emptySuppressions(): IInlineSuppressions {
 }
 
 // Matches `// drift-advisor:ignore` or `:ignore-file`, optional `:`/spaces,
-// then an optional comma/space-separated code list. Case-insensitive on the
-// marker; codes are kebab-case (lowercased on capture).
+// then everything to end-of-line (or `*/` for block comments). The captured
+// tail is parsed by `parseCodes`, which strips `-- rationale` and extracts
+// only valid kebab-case code slugs. Case-insensitive on the marker.
 const DIRECTIVE_RE =
-  /\/\/\s*drift-advisor:ignore(-file)?\b[:\s]*([a-z0-9\-,\s]*?)(?:\*\/|$)/i;
+  /\/\/\s*drift-advisor:ignore(-file)?\b[:\s]*(.*?)(?:\*\/|$)/i;
 
-/** Split a captured code list (`a, b c`) into a normalized set. */
+/**
+ * Split a captured code list (`a, b c`) into a normalized set.
+ * Strips a `-- rationale` suffix first, so `high-null-rate -- by design: ...`
+ * yields only `['high-null-rate']`.
+ */
 function parseCodes(raw: string): string[] {
-  return raw
+  // Strip rationale after a ` -- ` separator (space-hyphen-hyphen-space).
+  const codesPart = raw.replace(/\s--\s.*$/, '');
+  return codesPart
     .split(/[\s,]+/)
     .map((c) => c.trim().toLowerCase())
-    .filter((c) => c.length > 0);
+    .filter((c) => /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(c));
 }
 
 /** True when everything before `index` on the line is whitespace. */
@@ -94,7 +102,9 @@ export function parseInlineSuppressions(source: string): IInlineSuppressions {
     // trailing directive targets its own line.
     const commentIndex = line.indexOf('//');
     const trailing = !isFullLineComment(line, commentIndex);
-    const targetLine = trailing ? i : nextNonBlankLine(lines, i + 1);
+    // Skip past any continuation comment lines between the directive and
+    // the actual code line it targets (e.g. wrapped rationale text).
+    const targetLine = trailing ? i : nextCodeLine(lines, i + 1);
     if (targetLine < 0) continue;
 
     if (codes.length === 0) {
@@ -109,10 +119,18 @@ export function parseInlineSuppressions(source: string): IInlineSuppressions {
   return result;
 }
 
-/** First non-blank line index at or after `from`, or -1 if none. */
-function nextNonBlankLine(lines: string[], from: number): number {
+/**
+ * First code line index at or after `from`, or -1 if none.
+ * Skips blank lines AND comment-only lines (whitespace + `//`), so a
+ * directive with a wrapped rationale targets the actual code, not the
+ * continuation comment.
+ */
+function nextCodeLine(lines: string[], from: number): number {
   for (let i = from; i < lines.length; i++) {
-    if (lines[i].trim().length > 0) return i;
+    const trimmed = lines[i].trim();
+    // Skip blank lines and lines that are nothing but a `//` comment.
+    if (trimmed.length === 0 || trimmed.startsWith('//')) continue;
+    return i;
   }
   return -1;
 }

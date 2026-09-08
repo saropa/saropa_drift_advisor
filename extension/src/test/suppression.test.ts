@@ -31,6 +31,26 @@ describe('inline suppression directives', () => {
     });
   });
 
+  describe('field-level (multi-line rationale wraps past continuation comments)', () => {
+    const src = [
+      'class Users extends Table {', // 0
+      '  // drift-advisor:ignore high-null-rate -- by design: most activity types (screen', // 1
+      '  // visits, searches, games, nav history) have no associated contact.', // 2
+      '  TextColumn get contactSaropaUUID => text().named(\'contact_saropa_u_u_i_d\').nullable()();', // 3 (target)
+    ].join('\n');
+
+    it('skips continuation comment lines and targets the code line', () => {
+      const s = parseInlineSuppressions(src);
+      // Must suppress on line 3 (the column getter), not line 2 (continuation).
+      assert.ok(isInlineSuppressed(s, 'high-null-rate', 3));
+    });
+
+    it('does not suppress the continuation comment line itself', () => {
+      const s = parseInlineSuppressions(src);
+      assert.ok(!isInlineSuppressed(s, 'high-null-rate', 2));
+    });
+  });
+
   describe('field-level (trailing directive)', () => {
     it('suppresses on its own line', () => {
       const src =
