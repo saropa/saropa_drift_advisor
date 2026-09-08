@@ -92,7 +92,10 @@ export function wireEventListeners(
 
   // Server connection lifecycle.
   let treeLoadedLazy = false;
-  d.serverManager.onDidChangeActive((server) => {
+  // Registered on context.subscriptions (not discarded) so VS Code detaches
+  // this listener on deactivation like every other subscription in this file —
+  // see BUG_INFRA_ACTIVATION_EVENT_SUBSCRIPTIONS_DISCARDED.md.
+  d.context.subscriptions.push(d.serverManager.onDidChangeActive((server) => {
     statusBars?.refreshStatusBar();
     d.schemaCache.invalidate();
     connectionUiRefresh.fn?.();
@@ -147,18 +150,21 @@ export function wireEventListeners(
       // since the sweep reads blob lengths, not bytes. One-time per workspace.
       if (d.cachedClient) maybeRecommendAutoCapture(d.cachedClient);
     }
-  });
+  }));
 
   // Delayed context sync to handle races where the sidebar evaluates
   // before the extension finishes wiring.
   const syncContextTimeout = setTimeout(() => connectionUiRefresh.fn?.(), 1500);
   d.context.subscriptions.push({ dispose: () => clearTimeout(syncContextTimeout) });
 
-  // Discovery server list changes.
-  d.discovery.onDidChangeServers(() => {
-    statusBars?.refreshStatusBar();
-    connectionUiRefresh.fn?.();
-  });
+  // Discovery server list changes. Registered (not discarded) per
+  // BUG_INFRA_ACTIVATION_EVENT_SUBSCRIPTIONS_DISCARDED.md.
+  d.context.subscriptions.push(
+    d.discovery.onDidChangeServers(() => {
+      statusBars?.refreshStatusBar();
+      connectionUiRefresh.fn?.();
+    }),
+  );
 
   // Lazy tree loading when the tree view becomes visible.
   if (d.providers && typeof d.providers.treeView.onDidChangeVisibility === 'function') {
@@ -173,7 +179,9 @@ export function wireEventListeners(
   }
 
   // Schema generation watcher — refreshes tree, caches, linters, etc.
-  d.watcher.onDidChange(() => {
+  // Registered (not discarded) per BUG_INFRA_ACTIVATION_EVENT_SUBSCRIPTIONS_DISCARDED.md;
+  // watcher.dispose() below also clears all listeners as a backstop.
+  d.context.subscriptions.push(d.watcher.onDidChange(() => {
     d.schemaCache.invalidate();
     // Drop the SchemaIntelligence cache on a real generation change so schema
     // insights (and the diagnostics built from them, refreshed below) reflect
@@ -205,7 +213,7 @@ export function wireEventListeners(
     if (d.providers) {
       d.providers.dbpProvider.onGenerationChange().catch(() => {});
     }
-  });
+  }));
 
   // Start watcher + initial refresh if extension is enabled.
   if (d.extensionEnabled) {
