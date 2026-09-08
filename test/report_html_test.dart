@@ -143,6 +143,30 @@ void main() {
       expect((anomalies.first as Map<String, dynamic>)['severity'], 'warning');
     });
 
+    test('anomaliesTruncated defaults to false and is embedded', () {
+      final String html = ReportHtmlBuilder.build(
+        generatedAt: 'now',
+        serverHost: 'host',
+        tables: <ReportTableData>[table()],
+      );
+      final Map<String, dynamic> data = _embeddedData(html);
+      expect(data['anomaliesTruncated'], false);
+    });
+
+    test(
+      'anomaliesTruncated true is embedded when the scan hit its budget',
+      () {
+        final String html = ReportHtmlBuilder.build(
+          generatedAt: 'now',
+          serverHost: 'host',
+          tables: <ReportTableData>[table()],
+          anomaliesTruncated: true,
+        );
+        final Map<String, dynamic> data = _embeddedData(html);
+        expect(data['anomaliesTruncated'], true);
+      },
+    );
+
     test('handles a zero-table report without error', () {
       final String html = ReportHtmlBuilder.build(
         generatedAt: 'now',

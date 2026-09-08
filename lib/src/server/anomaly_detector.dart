@@ -29,7 +29,14 @@ abstract final class AnomalyDetector {
 
   /// Wall-clock budget for the entire anomaly scan. Partial results are
   /// returned with `truncated: true` when the budget is exceeded.
-  static const _scanBudget = Duration(seconds: 60);
+  static const _scanBudget = defaultScanBudget;
+
+  /// Public alias of the production wall-clock budget, so a caller that
+  /// wants to override [getAnomaliesResult]'s `scanBudget` conditionally
+  /// (e.g. only when a caller-supplied value is present) has a value to
+  /// fall back to instead of duplicating the magic number or being forced
+  /// to always pass an override.
+  static const Duration defaultScanBudget = Duration(seconds: 60);
 
   /// Scans all tables for data quality anomalies and
   /// returns a map with `anomalies` (list),
@@ -73,6 +80,11 @@ abstract final class AnomalyDetector {
   /// the SQLite connection and starve every other endpoint. A timeout on
   /// one table's scan is caught per-table (see the loop below) so it skips
   /// only that table instead of discarding every anomaly already collected.
+  ///
+  /// [scanBudget] overrides the default wall-clock budget for the whole
+  /// scan (see [_scanBudget]). Exposed as a parameter (defaulting to the
+  /// production value) purely so tests can inject a short budget instead
+  /// of waiting out the real 60-second default.
   static Future<Map<String, dynamic>> getAnomaliesResult(
     DriftDebugQuery query, {
     List<DeclaredRelationship> declaredRelationships =
@@ -81,6 +93,7 @@ abstract final class AnomalyDetector {
     Set<String> staticTables = const <String>{},
     Set<String> tablesWithObservedMutations = const <String>{},
     Duration? statementTimeout,
+    Duration scanBudget = _scanBudget,
   }) async {
     // Wrap query with per-statement timeout so a single slow scan cannot
     // wedge the connection. SqlHandler already does this; the anomaly
@@ -103,7 +116,7 @@ abstract final class AnomalyDetector {
       // Wall-clock budget: stop the whole scan and return partial results
       // rather than running unbounded. Remaining tables are silently skipped
       // and `truncated: true` is added to the response envelope.
-      if (budget.elapsed > _scanBudget) {
+      if (budget.elapsed > scanBudget) {
         truncated = true;
         break;
       }
@@ -876,6 +889,15 @@ abstract final class AnomalyDetector {
   ///    sorting multi-MB values through the temp store is what made
   ///    the old `SELECT DISTINCT *` pathological on tables with BLOB
   ///    data. If all columns are BLOBs, the check is skipped.
+  ///
+  /// Behavior change from the pre-fix scan: two rows that differ ONLY in a
+  /// BLOB column's content (all non-BLOB columns identical) are now reported
+  /// as duplicates, where the old unrestricted `SELECT DISTINCT *` would have
+  /// correctly told them apart. This is judged an acceptable trade — BLOB
+  /// content differing while every other column matches is a narrow case,
+  /// and the false positive it can produce is far cheaper than the
+  /// multi-minute full-table BLOB sort it replaces (see the bug's evidence:
+  /// a 1 MB BLOB column over 10K rows pushed ~10 GB through the temp store).
   static Future<void> _detectDuplicateRows({
     required DriftDebugQuery query,
     required String tableName,

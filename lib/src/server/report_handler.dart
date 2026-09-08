@@ -86,8 +86,11 @@ final class ReportHandler {
     }
 
     List<Map<String, dynamic>>? anomalies;
+    var anomaliesTruncated = false;
     if (includeAnomalies) {
-      anomalies = await _collectAnomalies(query);
+      final collectedAnomalies = await _collectAnomalies(query);
+      anomalies = collectedAnomalies.anomalies;
+      anomaliesTruncated = collectedAnomalies.truncated;
     }
 
     final String html = ReportHtmlBuilder.build(
@@ -96,6 +99,7 @@ final class ReportHandler {
       tables: collected,
       schemaSql: schemaSql,
       anomalies: anomalies,
+      anomaliesTruncated: anomaliesTruncated,
     );
 
     response.statusCode = HttpStatus.ok;
@@ -154,25 +158,28 @@ final class ReportHandler {
     );
   }
 
-  /// Runs the anomaly scan and returns its raw `anomalies` list. A failing or
-  /// missing scan yields an empty list rather than aborting the whole report —
+  /// Runs the anomaly scan and returns its raw `anomalies` list plus whether
+  /// the scan hit its wall-clock budget and skipped remaining tables
+  /// ([ServerConstants.jsonKeyTruncated]). A failing or missing scan yields
+  /// an empty, non-truncated result rather than aborting the whole report —
   /// the data + schema are still worth exporting.
-  Future<List<Map<String, dynamic>>> _collectAnomalies(
-    DriftDebugQuery query,
-  ) async {
+  Future<({List<Map<String, dynamic>> anomalies, bool truncated})>
+  _collectAnomalies(DriftDebugQuery query) async {
     try {
       final Map<String, dynamic> result = await _analytics.getAnomaliesResult(
         query,
       );
       final Object? list = result[ServerConstants.jsonKeyAnomalies];
-      if (list is List) {
-        return list.whereType<Map<String, dynamic>>().toList(growable: false);
-      }
+      final anomalies = list is List
+          ? list.whereType<Map<String, dynamic>>().toList(growable: false)
+          : const <Map<String, dynamic>>[];
+      final truncated = result[ServerConstants.jsonKeyTruncated] == true;
+      return (anomalies: anomalies, truncated: truncated);
     } on Object catch (error, stack) {
       // A faulty anomaly scan must not sink the export; log and ship without it.
       _ctx.logError(error, stack);
     }
-    return <Map<String, dynamic>>[];
+    return (anomalies: const <Map<String, dynamic>>[], truncated: false);
   }
 
   /// `drift-report-YYYY-MM-DD.html`, matching the extension's default filename.

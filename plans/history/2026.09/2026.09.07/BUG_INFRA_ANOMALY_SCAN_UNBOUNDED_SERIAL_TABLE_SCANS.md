@@ -204,6 +204,12 @@ Each detector was written as an independent per-column probe with no shared budg
 
 8. **Positional (index-based) SQL aliases**: the combined scan and variance queries alias columns as `null_0`, `avg_2`, `var_1`, etc. (index into the classified-column list) instead of a sanitized column name. A prior name-based scheme could collide — two distinct column names that sanitize to the same alias (e.g. `foo-bar` and `foo_bar`) would silently overwrite each other's stats in the result row map. Positional aliases make collision impossible regardless of naming.
 
+9. **Made `getAnomaliesResult`'s wall-clock budget injectable (`scanBudget` parameter, defaults to the 60s production value)** so tests can exercise truncation deterministically instead of waiting out the real budget. Added tests: `wall-clock scan budget` (2 tests) and `row-count guards` (2 tests) in `anomaly_detector_test.dart`.
+
+10. **Surfaced `truncated` through `/api/issues` and `/api/report`**, both of which previously discarded the anomaly scan's top-level `truncated` flag while forwarding only its `anomalies` list — a truncated scan looked identical to a complete one to any consumer (Saropa Lints via `/api/issues`, the exported HTML report). `AnalyticsHandler._wrapIssuesEnvelope` now adds `truncated: true` to the issues envelope when the anomaly scan hit its budget (additive — omitted when false, so existing consumers see no shape change). `ReportHtmlBuilder.build` gained an `anomaliesTruncated` parameter that renders a banner in the report's Anomalies section. New tests: `report_html_test.dart` (2 tests) and `test/anomaly_issues_envelope_test.dart` (new file, verifies a per-table `scan_skipped` finding merges cleanly into `/api/issues` without a `column` key breaking anything).
+
+11. **Documented the BLOB-exclusion duplicate-row trade-off**: excluding BLOB columns from the DISTINCT projection (item 2) means two rows identical in every non-BLOB column but differing only in BLOB content are now reported as duplicates, where the pre-fix unrestricted `SELECT DISTINCT *` would have told them apart. Judged acceptable — noted in `_detectDuplicateRows`'s doc comment — because the false positive is narrow and far cheaper than the multi-minute full-table BLOB sort it replaces.
+
 ---
 
 ## Commits

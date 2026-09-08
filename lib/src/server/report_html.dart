@@ -59,12 +59,16 @@ class ReportHtmlBuilder {
   /// [anomalies] is the raw `anomalies` list from the analytics scan (each an
   /// object with `table`/`column`/`severity`/`message`); null/empty omits the
   /// section. [schemaSql] is the DDL dump; null omits the schema section.
+  /// [anomaliesTruncated] marks that the scan hit its wall-clock budget and
+  /// some tables were never checked — shown as a banner so the report is not
+  /// mistaken for a complete scan.
   static String build({
     required String generatedAt,
     required String serverHost,
     required List<ReportTableData> tables,
     String? schemaSql,
     List<Map<String, dynamic>>? anomalies,
+    bool anomaliesTruncated = false,
   }) {
     final Map<String, dynamic> payload = <String, dynamic>{
       'generatedAt': generatedAt,
@@ -72,6 +76,7 @@ class ReportHtmlBuilder {
       'tables': tables.map((ReportTableData t) => t.toJson()).toList(),
       'schema': schemaSql,
       'anomalies': anomalies ?? <Map<String, dynamic>>[],
+      'anomaliesTruncated': anomaliesTruncated,
     };
 
     // `</` → `<\/` so a cell or DDL containing `</script>` cannot close the tag.
@@ -209,9 +214,14 @@ if(typeof DATA.schema==='string'&&DATA.schema.length>0){
   document.getElementById('schema').hidden=false;
   document.getElementById('schema-pre').textContent=DATA.schema;
 }
-if(DATA.anomalies&&DATA.anomalies.length>0){
+if((DATA.anomalies&&DATA.anomalies.length>0)||DATA.anomaliesTruncated){
   document.getElementById('anomalies').hidden=false;
   var list=document.getElementById('anomaly-list');
+  if(DATA.anomaliesTruncated){
+    var banner=document.createElement('div');banner.className='anom warning';
+    banner.textContent='Scan stopped early after hitting its time budget — some tables were not checked. Results below are partial.';
+    list.appendChild(banner);
+  }
   DATA.anomalies.forEach(function(a){
     var sev=val(a.severity||'info').toLowerCase();
     var d=document.createElement('div');d.className='anom '+(sev==='error'||sev==='warning'?sev:'info');

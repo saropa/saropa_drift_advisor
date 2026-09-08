@@ -2109,6 +2109,167 @@ void main() {
         },
       );
     });
+
+    // -------------------------------------------------------
+    // Wall-clock scan budget
+    //
+    // The whole scan must stop and return partial results once
+    // the wall-clock budget is exceeded, rather than running
+    // unbounded across every table.
+    // -------------------------------------------------------
+    group('wall-clock scan budget', () {
+      test(
+        'stops scanning remaining tables once the budget is exceeded',
+        () async {
+          // Five tables, each of which takes real time to scan. A budget
+          // shorter than the time to scan all five forces the loop to stop
+          // early and mark the result truncated.
+          final tableNames = List.generate(5, (i) => 'tbl_$i');
+          final baseQuery = _anomalyQuery(
+            tableColumns: {
+              for (final t in tableNames) t: [_col('id', 'INTEGER', pk: 1)],
+            },
+            counts: {for (final t in tableNames) t: 1},
+          );
+
+          Future<List<Map<String, dynamic>>> query(String sql) async {
+            // Slow down every combined scan query so the budget check
+            // between tables has time to trip.
+            if (sql.contains('_row_count')) {
+              await Future<void>.delayed(const Duration(milliseconds: 30));
+            }
+            return baseQuery(sql);
+          }
+
+          final result = await AnomalyDetector.getAnomaliesResult(
+            query,
+            scanBudget: const Duration(milliseconds: 50),
+          );
+
+          expect(result['truncated'], true);
+          expect(
+            result['tablesScanned'],
+            lessThan(tableNames.length),
+            reason: 'The budget should stop the scan before all 5 tables run',
+          );
+        },
+      );
+
+      test(
+        'truncated is absent when the scan finishes within budget',
+        () async {
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'items': [_col('id', 'INTEGER', pk: 1)],
+              },
+              counts: {'items': 1},
+            ),
+            scanBudget: const Duration(seconds: 30),
+          );
+
+          expect(result.containsKey('truncated'), isFalse);
+          expect(result['tablesScanned'], 1);
+        },
+      );
+    });
+
+    // -------------------------------------------------------
+    // Row-count guards
+    //
+    // Per-column anomaly processing and the duplicate-row check
+    // are both skipped for oversized tables — the combined scan
+    // still runs (cheap), but results above the threshold are not
+    // acted on.
+    // -------------------------------------------------------
+    group('row-count guards', () {
+      test(
+        'skips per-column anomaly processing for tables over the full-scan row limit',
+        () async {
+          // Row count deliberately exceeds AnomalyDetector's internal
+          // _maxRowsForFullScan (1,000,000). NULL/outlier data is supplied
+          // that would normally produce findings, to prove the guard — not
+          // the absence of data — is what suppresses them.
+          const oversizedRowCount = 2000000;
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'huge': [
+                  _col('name', 'TEXT', notnull: 1),
+                  _col('amount', 'INTEGER'),
+                ],
+              },
+              counts: {'huge': oversizedRowCount},
+              nullCounts: {'huge.name': 500},
+              numericStats: {
+                'huge.amount': {
+                  'avg_val': 10.0,
+                  'min_val': 5.0,
+                  'max_val': 100000.0,
+                  'variance': 100.0,
+                  'cnt': 50,
+                },
+              },
+            ),
+          );
+
+          final anomalies = (result['anomalies'] as List)
+              .cast<Map<String, dynamic>>();
+          final nullFindings = anomalies
+              .where((a) => a['type'] == 'null_values')
+              .toList();
+          final outlierFindings = anomalies
+              .where((a) => a['type'] == 'potential_outlier')
+              .toList();
+          expect(
+            nullFindings,
+            isEmpty,
+            reason: 'Tables over the row limit skip NULL processing',
+          );
+          expect(
+            outlierFindings,
+            isEmpty,
+            reason: 'Tables over the row limit skip outlier processing',
+          );
+          // The table is still counted as scanned — only per-column
+          // processing is skipped, not the table itself.
+          expect(result['tablesScanned'], 1);
+        },
+      );
+
+      test(
+        'skips duplicate-row check for tables over the duplicate-check row limit',
+        () async {
+          // Row count exceeds _maxRowsForDuplicateCheck (100,000) but stays
+          // under _maxRowsForFullScan, isolating this guard from the one
+          // above. No primary key, so the PK guard is not what's skipping it.
+          const oversizedRowCount = 200000;
+          final result = await AnomalyDetector.getAnomaliesResult(
+            _anomalyQuery(
+              tableColumns: {
+                'big_no_pk': [_col('name', 'TEXT'), _col('value', 'INTEGER')],
+              },
+              counts: {'big_no_pk': oversizedRowCount},
+              // Would normally report (oversizedRowCount - distinctCounts)
+              // duplicates if the guard did not skip the check.
+              distinctCounts: {'big_no_pk': oversizedRowCount - 1000},
+            ),
+          );
+
+          final dups = (result['anomalies'] as List)
+              .cast<Map<String, dynamic>>()
+              .where((a) => a['type'] == 'duplicate_rows')
+              .toList();
+          expect(
+            dups,
+            isEmpty,
+            reason:
+                'Tables over the duplicate-check row limit skip the '
+                'DISTINCT scan entirely',
+          );
+        },
+      );
+    });
   });
 
   group('AnomalySuppression', () {

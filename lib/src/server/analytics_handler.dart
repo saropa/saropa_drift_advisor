@@ -215,13 +215,25 @@ final class AnalyticsHandler {
   ///
   /// On error from either analysis, returns a map containing
   /// [ServerConstants.jsonKeyError]; callers should respond with 500.
+  ///
+  /// [anomalyScanBudget] overrides the anomaly detector's default wall-clock
+  /// budget (see [AnomalyDetector.getAnomaliesResult]'s `scanBudget`
+  /// parameter). Exposed here purely so tests can force the `truncated`
+  /// propagation into the issues envelope deterministically instead of
+  /// waiting out the real 60-second production default.
   Future<Map<String, dynamic>> getIssuesList(
     DriftDebugQuery query, {
     String? sources,
     List<AnomalySuppression> suppressions = const <AnomalySuppression>[],
+    Duration? anomalyScanBudget,
   }) async {
     final filter = _parseSourcesFilter(sources);
     final issues = <Map<String, dynamic>>[];
+    // Set when the anomaly scan hit its wall-clock budget and skipped
+    // remaining tables (AnomalyDetector._scanBudget) — surfaced on the
+    // envelope so a consumer (e.g. Saropa Lints) does not mistake a
+    // partial scan for a clean one.
+    var anomalyScanTruncated = false;
 
     if (filter.includeIndexSuggestions) {
       try {
@@ -272,10 +284,12 @@ final class AnalyticsHandler {
           tablesWithObservedMutations: _ctx.tableActivity
               .tablesWithObservedMutations(),
           statementTimeout: _ctx.sqlStatementTimeout,
+          scanBudget: anomalyScanBudget ?? AnomalyDetector.defaultScanBudget,
         );
         if (result.containsKey(ServerConstants.jsonKeyError)) {
           return result;
         }
+        anomalyScanTruncated = result[ServerConstants.jsonKeyTruncated] == true;
         final anomalies =
             result['anomalies'] as List<Map<String, dynamic>>? ?? [];
         for (final a in anomalies) {
@@ -381,7 +395,10 @@ final class AnalyticsHandler {
       }
     }
 
-    return _wrapIssuesEnvelope(issues);
+    return _wrapIssuesEnvelope(
+      issues,
+      anomalyScanTruncated: anomalyScanTruncated,
+    );
   }
 
   /// Wraps the merged issue list in the Saropa Diagnostic Envelope (plan 67
@@ -395,7 +412,17 @@ final class AnalyticsHandler {
   /// (cross-tool dedupe key), and a [ServerConstants.jsonKeyTitle] (alias of
   /// `message`). Top-level `schemaVersion` / `producer` / `generatedAt` let a
   /// consumer reject an incompatible shape.
-  Map<String, dynamic> _wrapIssuesEnvelope(List<Map<String, dynamic>> issues) {
+  ///
+  /// [anomalyScanTruncated] surfaces the anomaly detector's wall-clock
+  /// budget outcome: when true, the scan hit its time budget and some
+  /// tables were never checked, so a clean `issues` list does not mean a
+  /// clean database — only [ServerConstants.jsonKeyTruncated] is added
+  /// (omitted entirely when false) so existing consumers that don't check
+  /// for it see no shape change.
+  Map<String, dynamic> _wrapIssuesEnvelope(
+    List<Map<String, dynamic>> issues, {
+    bool anomalyScanTruncated = false,
+  }) {
     for (final issue in issues) {
       final source = issue[ServerConstants.jsonKeySource] as String? ?? '';
       issue[ServerConstants.jsonKeyCategory] = _categoryForSource(source);
@@ -413,6 +440,7 @@ final class AnalyticsHandler {
         ServerConstants.jsonKeyName: ServerConstants.productName,
         ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
       },
+      if (anomalyScanTruncated) ServerConstants.jsonKeyTruncated: true,
       ServerConstants.jsonKeyGeneratedAt: DateTime.now()
           .toUtc()
           .toIso8601String(),
