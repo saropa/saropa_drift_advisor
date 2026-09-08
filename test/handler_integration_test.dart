@@ -99,6 +99,8 @@ void main() {
         contains('issues'),
         reason: 'Health must advertise GET /api/issues support',
       );
+      // authRequired absent when no auth configured.
+      expect(r.body.containsKey('authRequired'), isFalse);
     });
 
     test('GET /api/health writeEnabled when writeQuery configured', () async {
@@ -291,6 +293,36 @@ void main() {
           headers: {'Authorization': 'Bearer '},
         );
         expect(r.status, HttpStatus.unauthorized);
+      });
+
+      test('health returns reduced payload without credentials', () async {
+        // Health is exempt from auth so probes can detect the server.
+        final r = await httpGet(port!, '/api/health');
+        expect(r.status, HttpStatus.ok);
+        expect(r.body['ok'], isTrue);
+        expect(r.body['authRequired'], isTrue);
+        expect(r.body['version'], isA<String>());
+        // Internal fields withheld from unauthenticated response.
+        expect(r.body.containsKey('capabilities'), isFalse);
+        expect(r.body.containsKey('endpoints'), isFalse);
+        expect(r.body.containsKey('writeEnabled'), isFalse);
+        expect(r.body.containsKey('loopbackOnly'), isFalse);
+      });
+
+      test('health returns full payload with valid credentials', () async {
+        // Authenticated health includes all fields plus authRequired.
+        final r = await httpGet(
+          port!,
+          '/api/health',
+          headers: {'Authorization': 'Bearer secret-token-123'},
+        );
+        expect(r.status, HttpStatus.ok);
+        expect(r.body['ok'], isTrue);
+        expect(r.body['authRequired'], isTrue);
+        expect(r.body['capabilities'], isA<List<dynamic>>());
+        expect(r.body['endpoints'], isA<List<dynamic>>());
+        expect(r.body.containsKey('writeEnabled'), isTrue);
+        expect(r.body.containsKey('loopbackOnly'), isTrue);
       });
     });
 

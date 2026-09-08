@@ -395,6 +395,13 @@ abstract final class ServerConstants {
   /// identical to no server at all. See BUG_drift_server_unreachable_by_lan_ip.
   static const String jsonKeyLoopbackOnly = 'loopbackOnly';
 
+  /// Health field: true when the server requires credentials (Bearer or Basic)
+  /// for non-health endpoints. Present in the reduced unauthenticated health
+  /// payload and in the full authenticated payload when auth is configured.
+  /// Lets a probe distinguish "server found, auth required" from "open server".
+  /// See BUG_INFRA_AUTH_TOKEN_BLOCKS_SIBLING_SERVER_DISCOVERY.
+  static const String jsonKeyAuthRequired = 'authRequired';
+
   /// Health + API-index field listing the server's read endpoints so a non-UI
   /// client can discover the API from one response (E1 discoverability).
   static const String jsonKeyEndpoints = 'endpoints';

@@ -88,10 +88,63 @@ final class GenerationHandler {
   ];
 
   /// GET /api/health — returns {"ok": true}.
-  Future<void> sendHealth(HttpResponse response) async {
+  ///
+  /// When [authenticated] is false and auth is configured, returns a reduced
+  /// payload (ok, version, schemaVersion, authRequired) so unauthenticated
+  /// probes can detect the server without leaking internal configuration.
+  /// `authRequired` is also included in the full (authenticated) payload —
+  /// deliberately, so a client that always reads the full shape (rather than
+  /// branching on payload size) still learns the server's auth posture, and
+  /// so adding a field to the reduced-payload allowlist later does not
+  /// silently change which keys the full payload carries.
+  ///
+  /// Health is exempt from both auth and the rate limiter (see the dispatch
+  /// gate in router.dart) so probes are never blocked; that pre-existing
+  /// unlimited-hit exemption now also applies to the reduced, credential-free
+  /// path — an acceptable trade since the reduced payload leaks nothing new.
+  /// Health also answers while [ServerContext.monitoringEnabled] is false
+  /// (the kill switch): it is dispatched in [_routePreQuery], before the
+  /// kill-switch gate in `_dispatch`, so probes can tell "dormant" from
+  /// "gone" regardless of auth state.
+  ///
+  /// See BUG_INFRA_AUTH_TOKEN_BLOCKS_SIBLING_SERVER_DISCOVERY.
+  Future<void> sendHealth(
+    HttpResponse response, {
+    bool authenticated = true,
+  }) async {
     final res = response;
 
     _ctx.setJsonHeaders(res);
+
+    if (!authenticated && _ctx.authConfigured) {
+      // Also set WWW-Authenticate on this 200 (not just on 401s) so a
+      // strictly HTTP-spec-following client gets the standard signal in
+      // addition to the JSON authRequired field below. Uses the same
+      // challenge as AuthHandler.sendUnauthorized (see
+      // ServerContext.wwwAuthenticateChallenge) so a given server challenges
+      // identically on both this path and a 401.
+      res.headers.set(
+        ServerConstants.headerWwwAuthenticate,
+        _ctx.wwwAuthenticateChallenge,
+      );
+      // Reduced payload: enough for probe detection and auth negotiation,
+      // but withhold capabilities, endpoints, and internal flags so the
+      // unauthenticated response leaks strictly less than the old 401.
+      res.write(
+        jsonEncode(<String, dynamic>{
+          ServerConstants.jsonKeyOk: true,
+          ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
+          ServerConstants.jsonKeySchemaVersion:
+              ServerConstants.issuesSchemaVersion,
+          ServerConstants.jsonKeyAuthRequired: true,
+        }),
+      );
+      await res.close();
+
+      return;
+    }
+
+    // Full payload for authenticated callers or servers with no auth.
     res.write(
       jsonEncode(<String, dynamic>{
         ServerConstants.jsonKeyOk: true,
@@ -124,6 +177,9 @@ final class GenerationHandler {
         // method+description catalog is served by GET /api/. See E1 in
         // plans/history/2026.06/2026.06.24/BUG_loopback_server_wedges_and_hard_to_discover_for_agents.md.
         ServerConstants.jsonKeyEndpoints: ServerConstants.healthEndpoints,
+        // Signal whether this server requires auth, so the full payload
+        // also carries the field for consistent parsing.
+        if (_ctx.authConfigured) ServerConstants.jsonKeyAuthRequired: true,
       }),
     );
     await res.close();

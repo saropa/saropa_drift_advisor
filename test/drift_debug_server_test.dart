@@ -1061,7 +1061,47 @@ void main() {
       },
     );
 
-    test('request without auth gets 401 when only Basic auth is set', () async {
+    test(
+      'health returns reduced payload without auth when Basic auth is set',
+      () async {
+        // Health is exempt from auth so unauthenticated probes can detect
+        // the server and learn that credentials are needed.
+        await DriftDebugServer.start(
+          query: mockQuery,
+          enabled: true,
+          port: 0,
+          basicAuthUser: 'dev',
+          basicAuthPassword: 'pass',
+        );
+        final port = DriftDebugServer.port;
+        expect(port, isNotNull);
+
+        final client = HttpClient();
+        try {
+          final req = await client.get('localhost', port!, '/api/health');
+          final resp = await req.close();
+          // Health succeeds without credentials.
+          expect(resp.statusCode, HttpStatus.ok);
+          final body = await resp.transform(utf8.decoder).join();
+          final decoded = jsonDecode(body) as Map<String, dynamic>;
+          // Reduced payload: ok, version, schemaVersion, authRequired.
+          expect(decoded['ok'], isTrue);
+          expect(decoded['authRequired'], isTrue);
+          // Internal fields withheld from unauthenticated response.
+          expect(decoded.containsKey('capabilities'), isFalse);
+          expect(decoded.containsKey('endpoints'), isFalse);
+          expect(decoded.containsKey('writeEnabled'), isFalse);
+        } finally {
+          client.close();
+        }
+      },
+    );
+
+    test('health sets WWW-Authenticate: Basic on reduced response when Basic '
+        'auth is set', () async {
+      // A 200 response does not conventionally carry WWW-Authenticate, but
+      // this repo adds it as a belt-and-suspenders signal for strictly
+      // HTTP-spec-following clients alongside the JSON authRequired field.
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -1076,11 +1116,64 @@ void main() {
       try {
         final req = await client.get('localhost', port!, '/api/health');
         final resp = await req.close();
-        expect(resp.statusCode, HttpStatus.unauthorized);
+        expect(resp.statusCode, HttpStatus.ok);
+        expect(
+          resp.headers.value('WWW-Authenticate'),
+          'Basic realm="Saropa Drift Advisor"',
+        );
       } finally {
         client.close();
       }
     });
+
+    test('health sets WWW-Authenticate: Bearer on reduced response when only '
+        'authToken is set', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+        authToken: 'secret-token',
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/health');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        expect(
+          resp.headers.value('WWW-Authenticate'),
+          'Bearer realm="Saropa Drift Advisor"',
+        );
+      } finally {
+        client.close();
+      }
+    });
+
+    test(
+      'non-health request without auth still gets 401 when Basic auth is set',
+      () async {
+        await DriftDebugServer.start(
+          query: mockQuery,
+          enabled: true,
+          port: 0,
+          basicAuthUser: 'dev',
+          basicAuthPassword: 'pass',
+        );
+        final port = DriftDebugServer.port;
+        expect(port, isNotNull);
+
+        final client = HttpClient();
+        try {
+          final req = await client.get('localhost', port!, '/api/tables');
+          final resp = await req.close();
+          expect(resp.statusCode, HttpStatus.unauthorized);
+        } finally {
+          client.close();
+        }
+      },
+    );
 
     test(
       'empty authToken does not require auth (treated as disabled)',
@@ -1104,6 +1197,33 @@ void main() {
         }
       },
     );
+
+    test('empty basicAuthUser/basicAuthPassword does not require auth '
+        '(treated as disabled, matching empty authToken)', () async {
+      // The start() validation accepts '' + '' as "neither set", but does
+      // not null out the fields the way an empty authToken is normalized.
+      // ServerContext.authConfigured must still treat this as "no auth" —
+      // otherwise every request needs auth but none can ever satisfy it
+      // (isAuthenticated's own isNotEmpty guard can never pass for '').
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+        basicAuthUser: '',
+        basicAuthPassword: '',
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/tables');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+      } finally {
+        client.close();
+      }
+    });
   });
 
   group('GET /api/database (raw SQLite file)', () {

@@ -146,14 +146,25 @@ final class Router {
     final res = req.response;
     final String path = req.uri.path;
 
-    // When auth is configured, require it on every request.
-    if (_ctx.authToken != null ||
-        (_ctx.basicAuthUser != null && _ctx.basicAuthPassword != null)) {
-      if (!_auth.isAuthenticated(req)) {
-        await _auth.sendUnauthorized(res);
+    // Health is exempt from auth so unauthenticated probes (Saropa Lints
+    // discovery) can distinguish "server present, auth required" from
+    // "no server". The handler returns a reduced payload when the caller
+    // is unauthenticated. Mirrors the existing rate-limit exemption.
+    // Scoped to health only: other pre-query routes (e.g. the /api/ index)
+    // still require auth when configured — discovery is health's specific
+    // job, and widening the exemption was not needed to fix the reported bug.
+    final bool isHealthPath =
+        path == ServerConstants.pathApiHealth ||
+        path == ServerConstants.pathApiHealthAlt;
 
-        return;
-      }
+    // When auth is configured, require it on every request except health.
+    final bool authenticated =
+        !_ctx.authConfigured || _auth.isAuthenticated(req);
+
+    if (!authenticated && !isHealthPath) {
+      await _auth.sendUnauthorized(res);
+
+      return;
     }
 
     // Per-IP rate limiting: check before any handler work. Exempt the
@@ -196,7 +207,7 @@ final class Router {
     // Health, generation, and change-detection are checked
     // before the DB query so probes / live-refresh work.
     try {
-      if (await _routePreQuery(req, res, path)) return;
+      if (await _routePreQuery(req, res, path, authenticated)) return;
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       await _ctx.sendErrorResponse(res, error);
@@ -308,12 +319,16 @@ final class Router {
     HttpRequest request,
     HttpResponse response,
     String path,
+    bool authenticated,
   ) async {
-    // GET /api/health — lightweight health probe.
+    // GET /api/health — lightweight health probe. Exempt from auth so
+    // unauthenticated probes can detect the server and learn whether
+    // credentials are needed. The handler returns a reduced payload
+    // when the caller is unauthenticated and auth is configured.
     if (request.method == ServerConstants.methodGet &&
         (path == ServerConstants.pathApiHealth ||
             path == ServerConstants.pathApiHealthAlt)) {
-      await _generation.sendHealth(response);
+      await _generation.sendHealth(response, authenticated: authenticated);
 
       return true;
     }

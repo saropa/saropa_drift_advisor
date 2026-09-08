@@ -136,11 +136,19 @@ Authentication is **optional**. When `authToken` or `basicAuthUser`/`basicAuthPa
 }
 ```
 
-When HTTP Basic is configured, the response includes:
+The response also includes a `WWW-Authenticate` header naming the configured scheme (Basic takes precedence when both are configured):
 
 ```
 WWW-Authenticate: Basic realm="Saropa Drift Advisor"
 ```
+
+or, when only a Bearer token is configured:
+
+```
+WWW-Authenticate: Bearer realm="Saropa Drift Advisor"
+```
+
+The same header, with the same value, is also sent on the reduced `GET /api/health` response (see below) — a server challenges identically whether the client hit a protected route and got 401, or hit health and got the reduced 200.
 
 ---
 
@@ -255,7 +263,7 @@ Body: the raw Markdown content of this document.
 
 Health check. Always succeeds when the server is running. **This endpoint is exempt from authentication** so unauthenticated probes can detect the server and negotiate auth.
 
-When auth is configured and the request carries no valid credentials, a **reduced** payload is returned: only `ok`, `version`, `schemaVersion`, and `authRequired`. Internal fields (`capabilities`, `endpoints`, `writeEnabled`, etc.) are withheld so the unauthenticated response leaks strictly less than a 401 would.
+When auth is configured and the request carries no valid credentials, a **reduced** payload is returned: only `ok`, `version`, `schemaVersion`, and `authRequired`. Internal fields (`capabilities`, `endpoints`, `writeEnabled`, etc.) are withheld so the unauthenticated response leaks strictly less than a 401 would. This response also carries the same `WWW-Authenticate` header a 401 would (see [Authentication](#authentication)) so HTTP-spec-aware clients get the standard signal alongside the JSON field.
 
 **Response** `200 OK` — unauthenticated, auth configured (reduced payload):
 

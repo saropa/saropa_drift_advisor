@@ -161,6 +161,36 @@ final class ServerContext {
   /// HTTP Basic auth password (dev-tunnel use only).
   final String? basicAuthPassword;
 
+  /// True when [basicAuthUser]/[basicAuthPassword] hold real credentials.
+  /// The `DriftDebugServer.start()` validation accepts `''`/`''` as "neither
+  /// set" (matching an empty [authToken], which IS normalized to null before
+  /// reaching [ServerContext]) but does not itself null out the Basic
+  /// fields — so a bare `!= null` check here would report Basic as
+  /// configured while [AuthHandler.isAuthenticated]'s own `isNotEmpty` guard
+  /// could never succeed, locking out every request. Matching that guard
+  /// here keeps the two in agreement.
+  bool get _hasBasicAuth =>
+      basicAuthUser != null &&
+      basicAuthUser!.isNotEmpty &&
+      basicAuthPassword != null;
+
+  /// Whether the server requires credentials (Bearer or Basic) for
+  /// non-health endpoints. Single source of truth for the auth-configured
+  /// check shared by the router's auth gate and the health handler's
+  /// payload-reduction decision — see
+  /// BUG_INFRA_AUTH_TOKEN_BLOCKS_SIBLING_SERVER_DISCOVERY.
+  bool get authConfigured => authToken != null || _hasBasicAuth;
+
+  /// The `WWW-Authenticate` challenge for this server's configured scheme.
+  /// Single source of truth for [AuthHandler.sendUnauthorized] (401s) and
+  /// the reduced, unauthenticated `GET /api/health` response (200s) so both
+  /// paths challenge with the same scheme instead of drifting apart. Basic
+  /// is preferred when both are configured, matching [AuthHandler]'s
+  /// existing precedence. Only meaningful when [authConfigured] is true.
+  String get wwwAuthenticateChallenge => _hasBasicAuth
+      ? 'Basic realm="${ServerConstants.realmDriftDebug}"'
+      : 'Bearer realm="${ServerConstants.realmDriftDebug}"';
+
   /// Optional callback that returns the raw SQLite
   /// database file bytes.
   final DriftDebugGetDatabaseBytes? getDatabaseBytes;

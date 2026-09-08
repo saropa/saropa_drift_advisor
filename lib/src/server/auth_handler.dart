@@ -84,15 +84,23 @@ final class AuthHandler {
     return false;
   }
 
-  /// Sends 401 with JSON body; sets WWW-Authenticate for Basic when
-  /// Basic auth is configured.
+  /// Sends 401 with JSON body and a WWW-Authenticate challenge matching the
+  /// configured scheme (see [ServerContext.wwwAuthenticateChallenge] — the
+  /// same challenge is also sent on the reduced, unauthenticated health
+  /// response so both paths agree on how this server challenges).
+  ///
+  /// The header is only set when auth is actually configured: the caller
+  /// today (router.dart) only reaches this when it is, but
+  /// [wwwAuthenticateChallenge] itself defaults to a Bearer challenge for
+  /// any non-Basic config, including none at all — guarding here keeps this
+  /// method correct on its own rather than relying on the caller's invariant.
   Future<void> sendUnauthorized(HttpResponse response) async {
     final res = response;
     res.statusCode = HttpStatus.unauthorized;
-    if (_ctx.basicAuthUser != null && _ctx.basicAuthPassword != null) {
+    if (_ctx.authConfigured) {
       res.headers.set(
         ServerConstants.headerWwwAuthenticate,
-        'Basic realm="${ServerConstants.realmDriftDebug}"',
+        _ctx.wwwAuthenticateChallenge,
       );
     }
     _ctx.setJsonHeaders(res);
