@@ -1,6 +1,7 @@
 // Anomaly detection extracted from AnalyticsHandler.
 // Pure static logic with no instance state dependencies.
 
+import 'dart:async' show TimeoutException;
 import 'dart:math' show log, sqrt;
 
 import 'server_typedefs.dart';
@@ -15,16 +16,36 @@ import 'server_utils.dart';
 /// can be tested and reused without constructing a full
 /// handler context.
 abstract final class AnomalyDetector {
+  /// Maximum row count before per-column probes are skipped for a table.
+  /// With combined queries the scan is a single pass, so even large tables
+  /// are fast — but above this limit the wall-clock cost of a single pass
+  /// starts to matter on the host's single SQLite connection.
+  static const _maxRowsForFullScan = 1000000;
+
+  /// Maximum row count before the duplicate-row check is skipped.
+  /// `SELECT DISTINCT *` forces a sort/temp-B-tree over every column of every
+  /// row, which is orders of magnitude more expensive than an aggregate scan.
+  static const _maxRowsForDuplicateCheck = 100000;
+
+  /// Wall-clock budget for the entire anomaly scan. Partial results are
+  /// returned with `truncated: true` when the budget is exceeded.
+  static const _scanBudget = Duration(seconds: 60);
+
   /// Scans all tables for data quality anomalies and
   /// returns a map with `anomalies` (list),
   /// `tablesScanned` (count), and `analyzedAt` (ISO 8601).
   ///
-  /// Detection pipeline per table:
-  /// 1. NOT NULL columns → [_detectNullValues]
-  /// 2. Text columns → [_detectEmptyStrings]
-  /// 3. Numeric columns → [_detectNumericOutliers]
+  /// Detection pipeline per table (collapsed into combined queries):
+  /// 1. NOT NULL columns → NULL value counts
+  /// 2. Text columns → empty-string counts
+  /// 3. Numeric columns → outlier detection (3σ rule)
   /// 4. Foreign keys → [_detectOrphanedForeignKeys]
-  /// 5. All rows → [_detectDuplicateRows]
+  /// 5. All rows → [_detectDuplicateRows] (guarded)
+  ///
+  /// Per-column probes (1–3) are folded into at most two SQL queries per
+  /// table: one combined scan for counts and pass-1 stats, and one combined
+  /// variance query for columns that need the 3σ check. This replaces the
+  /// prior per-column await loops that issued thousands of serial scans.
   ///
   /// Pure function: no [ServerContext] dependency.
   /// Callers are responsible for error handling and
@@ -45,6 +66,13 @@ abstract final class AnomalyDetector {
   /// Dart comments, host configuration, user settings) and passes them here.
   /// Suppressed anomalies are removed before sorting and returning, so they
   /// never appear in JSON or server logs. Defaults to empty (no suppressions).
+  ///
+  /// [statementTimeout] bounds every individual SQL query. When non-null,
+  /// each `await query(sql)` is wrapped with `.timeout(statementTimeout)`.
+  /// Without this, a single slow scan on a pathological table can wedge
+  /// the SQLite connection and starve every other endpoint. A timeout on
+  /// one table's scan is caught per-table (see the loop below) so it skips
+  /// only that table instead of discarding every anomaly already collected.
   static Future<Map<String, dynamic>> getAnomaliesResult(
     DriftDebugQuery query, {
     List<DeclaredRelationship> declaredRelationships =
@@ -52,119 +80,61 @@ abstract final class AnomalyDetector {
     List<AnomalySuppression> suppressions = const <AnomalySuppression>[],
     Set<String> staticTables = const <String>{},
     Set<String> tablesWithObservedMutations = const <String>{},
+    Duration? statementTimeout,
   }) async {
-    final tableNames = await ServerUtils.getTableNames(query);
+    // Wrap query with per-statement timeout so a single slow scan cannot
+    // wedge the connection. SqlHandler already does this; the anomaly
+    // detector never did, which is what allowed the all-endpoints-blocked
+    // failure mode described in the bug.
+    final DriftDebugQuery boundedQuery;
+    if (statementTimeout != null) {
+      boundedQuery = (sql) => query(sql).timeout(statementTimeout);
+    } else {
+      boundedQuery = query;
+    }
+
+    final budget = Stopwatch()..start();
+    final tableNames = await ServerUtils.getTableNames(boundedQuery);
     final anomalies = <Map<String, dynamic>>[];
+    var tablesScanned = 0;
+    var truncated = false;
 
     for (final tableName in tableNames) {
-      // Fetch column metadata and row count for the
-      // current table — shared by multiple detectors.
-      final colInfoRows = ServerUtils.normalizeRows(
-        await query('PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})'),
-      );
-      final tableRowCount = ServerUtils.extractCountFromRows(
-        ServerUtils.normalizeRows(
-          await query(
-            'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(tableName)}',
-          ),
-        ),
-      );
-
-      // Run per-column detectors based on column type
-      // and nullability constraints.
-      for (final col in colInfoRows) {
-        final colName = col['name'] as String?;
-        final colType = (col['type'] as String?) ?? '';
-        final isNullable = col['notnull'] == 0;
-        if (colName != null) {
-          // 1. Detect NULL values in NOT NULL columns —
-          //    NULLs here indicate constraint violations or
-          //    data corruption (e.g. direct SQL inserts,
-          //    schema migrations). Nullable columns are
-          //    skipped because NULLs are expected by design.
-          if (!isNullable) {
-            await _detectNullValues(
-              query: query,
-              tableName: tableName,
-              colName: colName,
-              tableRowCount: tableRowCount,
-              anomalies: anomalies,
-            );
-          }
-
-          // 2. Detect empty strings in NOT NULL text columns.
-          //    Nullable text columns are skipped because the
-          //    schema already signals that missing/absent data
-          //    is acceptable — empty strings there are a valid
-          //    design choice, not anomalies.
-          //    Columns whose declared default is '' are also
-          //    skipped — empty strings are the designed "no
-          //    value" sentinel and flagging them is a false
-          //    positive (see plans/history/2026.04/2026.04.13/empty_string_default_false_positive.md).
-          if (ServerUtils.isTextType(colType) && !isNullable) {
-            // SQLite PRAGMA table_info returns the default
-            // expression as-is, so an empty-string default
-            // appears as the two-character string ''.
-            final dfltValue = col['dflt_value'];
-            final hasEmptyDefault = dfltValue == "''" || dfltValue == '""';
-            if (!hasEmptyDefault) {
-              await _detectEmptyStrings(
-                query: query,
-                tableName: tableName,
-                colName: colName,
-                anomalies: anomalies,
-              );
-            }
-          }
-
-          // 3. Detect numeric outliers (values > 3σ from
-          //    the mean) in numeric columns. Boolean
-          //    columns are excluded — skewed distributions
-          //    (e.g., 9% true) are valid data patterns,
-          //    not anomalies. Domain-specific columns
-          //    (coordinates, timestamps, sort order,
-          //    year/founded, versions, identifiers,
-          //    dimensions/sizes, physical measurements)
-          //    and primary key columns are also skipped.
-          if (ServerUtils.isNumericType(colType) &&
-              !ServerUtils.isBooleanType(colType)) {
-            final isPrimaryKey = col['pk'] != null && col['pk'] != 0;
-            await _detectNumericOutliers(
-              query: query,
-              tableName: tableName,
-              colName: colName,
-              isPrimaryKey: isPrimaryKey,
-              anomalies: anomalies,
-            );
-          }
-        }
+      // Wall-clock budget: stop the whole scan and return partial results
+      // rather than running unbounded. Remaining tables are silently skipped
+      // and `truncated: true` is added to the response envelope.
+      if (budget.elapsed > _scanBudget) {
+        truncated = true;
+        break;
       }
 
-      // 4. Detect orphaned foreign key references. Narrow the host manifest to
-      //    this table's joinable edges: fromTable matches AND orphanCheckable
-      //    (list_ref / seed_identity edges are excluded — a scalar LEFT JOIN
-      //    cannot represent them). PRAGMA-derived FKs are added inside the
-      //    detector; for a zero-FK host these declared edges are the ONLY
-      //    relationship source the orphan check has.
-      final declaredEdges = declaredRelationships
-          .where((edge) => edge.fromTable == tableName && edge.orphanCheckable)
-          .toList(growable: false);
-      await _detectOrphanedForeignKeys(
-        query: query,
-        tableName: tableName,
-        tableNames: tableNames,
-        anomalies: anomalies,
-        declaredEdges: declaredEdges,
-      );
+      tablesScanned++;
 
-      // 5. Detect duplicate rows (DISTINCT count vs
-      //    total count).
-      await _detectDuplicateRows(
-        query: query,
-        tableName: tableName,
-        tableRowCount: tableRowCount,
-        anomalies: anomalies,
-      );
+      // Each table's detectors run inside their own try/catch: a timeout on
+      // one pathological table (e.g. a huge column under connection
+      // contention) must skip that table, not discard every anomaly already
+      // collected for tables scanned so far. Without a per-table catch, a
+      // single slow table would propagate past this loop to the caller's
+      // generic error handler and turn a partial-results scan into a
+      // zero-results failure — the opposite of what `truncated` promises.
+      try {
+        await _scanTable(
+          query: boundedQuery,
+          tableName: tableName,
+          tableNames: tableNames,
+          anomalies: anomalies,
+          declaredRelationships: declaredRelationships,
+        );
+      } on TimeoutException {
+        anomalies.add(<String, dynamic>{
+          'table': tableName,
+          'type': 'scan_skipped',
+          'severity': 'info',
+          'message':
+              'Anomaly scan for $tableName timed out and was skipped; '
+              'other tables were still scanned.',
+        });
+      }
     }
 
     // Remove anomalies matching suppressions. Two sources merge here:
@@ -249,86 +219,341 @@ abstract final class AnomalyDetector {
 
     // Sort anomalies by severity: error → warning → info.
     ServerUtils.sortAnomaliesBySeverity(anomalies);
-    return <String, dynamic>{
+    final result = <String, dynamic>{
       'anomalies': anomalies,
-      'tablesScanned': tableNames.length,
+      'tablesScanned': tablesScanned,
       'analyzedAt': DateTime.now().toUtc().toIso8601String(),
     };
+    // Signal partial results when the wall-clock budget was exceeded.
+    if (truncated) {
+      result['truncated'] = true;
+    }
+    return result;
   }
 
-  /// Counts NULL values in a NOT NULL [colName] and
-  /// appends an anomaly if the count is non-zero.
-  ///
-  /// This method is only called for columns declared as
-  /// NOT NULL — any NULLs found indicate a constraint
-  /// violation (data corruption, direct SQL inserts
-  /// bypassing constraints, or failed migrations).
-  /// Severity is always 'error' because the schema
-  /// explicitly forbids NULLs in these columns.
-  static Future<void> _detectNullValues({
+  /// Runs all per-table detectors (NULL, empty-string, outlier, orphan FK,
+  /// duplicate rows) for a single [tableName] and appends findings to
+  /// [anomalies]. Extracted from [getAnomaliesResult] so the caller can wrap
+  /// each table's scan in its own try/catch — a timeout here propagates to
+  /// the caller, which skips just this table.
+  static Future<void> _scanTable({
     required DriftDebugQuery query,
     required String tableName,
-    required String colName,
-    required int tableRowCount,
+    required List<String> tableNames,
     required List<Map<String, dynamic>> anomalies,
+    required List<DeclaredRelationship> declaredRelationships,
   }) async {
-    final nullCount = ServerUtils.extractCountFromRows(
-      ServerUtils.normalizeRows(
-        await query(
-          'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(tableName)} '
-          'WHERE ${ServerUtils.quoteIdent(colName)} IS NULL',
-        ),
-      ),
+    // Fetch column metadata — shared by all detectors for this table.
+    final colInfoRows = ServerUtils.normalizeRows(
+      await query('PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})'),
     );
-    if (nullCount == 0) {
-      return;
+
+    // ── Classify columns ──────────────────────────────────
+    // Build parallel lists for the combined scan query so each detector
+    // class (NULL, empty-string, outlier) is served from a single pass.
+    // Aliases are positional (index into these lists), not derived from the
+    // column name — two columns whose names sanitize to the same alias
+    // (e.g. "foo-bar" and "foo_bar") would otherwise collide and silently
+    // overwrite each other's stats in the result row.
+    final notNullCols = <String>[];
+    final notNullTextCols = <String>[];
+    final numericCols = <String>[];
+    var hasPrimaryKey = false;
+    final nonBlobColNames = <String>[];
+
+    for (final col in colInfoRows) {
+      final colName = col['name'] as String?;
+      final colType = (col['type'] as String?) ?? '';
+      final isNullable = col['notnull'] == 0;
+      final isPk = col['pk'] != null && col['pk'] != 0;
+      if (isPk) hasPrimaryKey = true;
+      if (colName == null) continue;
+
+      // Track non-BLOB columns for the duplicate-row check (BLOBs are
+      // excluded because sorting multi-MB values through the temp store
+      // is what made the old DISTINCT * query pathological).
+      if (!_isBlobType(colType)) {
+        nonBlobColNames.add(colName);
+      }
+
+      // NOT NULL columns → check for NULL constraint violations.
+      if (!isNullable) {
+        notNullCols.add(colName);
+      }
+
+      // NOT NULL text columns without an empty-string default → check
+      // for empty strings. Columns whose default IS '' are skipped
+      // because the schema treats empty strings as the designed
+      // "no value" sentinel.
+      if (ServerUtils.isTextType(colType) && !isNullable) {
+        final dfltValue = col['dflt_value'];
+        final hasEmptyDefault = dfltValue == "''" || dfltValue == '""';
+        if (!hasEmptyDefault) {
+          notNullTextCols.add(colName);
+        }
+      }
+
+      // Numeric, non-boolean, non-PK, non-domain columns → outlier
+      // check. All skip guards are applied here so excluded columns
+      // never enter the combined query.
+      if (ServerUtils.isNumericType(colType) &&
+          !ServerUtils.isBooleanType(colType) &&
+          !isPk &&
+          !_shouldSkipOutlierColumn(colName)) {
+        numericCols.add(colName);
+      }
     }
 
-    final pct = tableRowCount > 0 ? (nullCount / tableRowCount * 100) : 0;
+    // ── Combined scan query ───────────────────────────────
+    // One full-table pass replaces the prior per-column await loops.
+    // Includes: row count, NULL counts, empty-string counts, and
+    // outlier pass-1 aggregates (AVG, MIN, MAX, COUNT per column).
+    // Every alias below is positional ("null_0", "avg_2", ...) so distinct
+    // columns can never collide on the same result-row key.
+    final tbl = ServerUtils.quoteIdent(tableName);
+    final selectParts = <String>['COUNT(*) AS _row_count'];
 
-    // Always 'error' — NULLs in NOT NULL columns are
-    // constraint violations, not warnings.
-    anomalies.add(<String, dynamic>{
-      'table': tableName,
-      'column': colName,
-      'type': 'null_values',
-      'severity': 'error',
-      'count': nullCount,
-      'message':
-          '$nullCount NULL value(s) in NOT NULL column '
-          '$tableName.$colName (${pct.toStringAsFixed(1)}%)',
-    });
-  }
-
-  /// Counts empty-string values in [colName] and appends
-  /// an anomaly if the count is non-zero.
-  static Future<void> _detectEmptyStrings({
-    required DriftDebugQuery query,
-    required String tableName,
-    required String colName,
-    required List<Map<String, dynamic>> anomalies,
-  }) async {
-    final emptyCount = ServerUtils.extractCountFromRows(
-      ServerUtils.normalizeRows(
-        await query(
-          'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(tableName)} '
-          "WHERE ${ServerUtils.quoteIdent(colName)} = ''",
-        ),
-      ),
-    );
-    if (emptyCount == 0) {
-      return;
+    for (var i = 0; i < notNullCols.length; i++) {
+      selectParts.add(
+        'SUM(${ServerUtils.quoteIdent(notNullCols[i])} IS NULL) '
+        'AS "null_$i"',
+      );
+    }
+    for (var i = 0; i < notNullTextCols.length; i++) {
+      selectParts.add(
+        "SUM(${ServerUtils.quoteIdent(notNullTextCols[i])} = '') "
+        'AS "empty_$i"',
+      );
+    }
+    for (var i = 0; i < numericCols.length; i++) {
+      final qc = ServerUtils.quoteIdent(numericCols[i]);
+      selectParts.add('AVG($qc) AS "avg_$i"');
+      selectParts.add('MIN($qc) AS "min_$i"');
+      selectParts.add('MAX($qc) AS "max_$i"');
+      selectParts.add('COUNT($qc) AS "cnt_$i"');
     }
 
-    anomalies.add(<String, dynamic>{
-      'table': tableName,
-      'column': colName,
-      'type': 'empty_strings',
-      'severity': 'warning',
-      'count': emptyCount,
-      'message': '$emptyCount empty string(s) in $tableName.$colName',
-    });
+    final scanRows = ServerUtils.normalizeRows(
+      await query('SELECT ${selectParts.join(', ')} FROM $tbl'),
+    );
+    if (scanRows.isEmpty) return;
+    final scanRow = scanRows.first;
+
+    final tableRowCount = (ServerUtils.toDouble(scanRow['_row_count']) ?? 0)
+        .toInt();
+
+    // Row-count guard: skip per-column anomaly processing for oversized
+    // tables. The combined scan already ran (it's cheap enough), but we
+    // don't act on its results — each individual count would produce
+    // noise, and the variance/log-scale follow-ups are the expensive
+    // part. FK and duplicate checks still run (they use indexes).
+    final skipPerColumnChecks = tableRowCount > _maxRowsForFullScan;
+
+    if (!skipPerColumnChecks) {
+      // ── Process NULL results ──────────────────────────────
+      for (var i = 0; i < notNullCols.length; i++) {
+        final nullCount = (ServerUtils.toDouble(scanRow['null_$i']) ?? 0)
+            .toInt();
+        if (nullCount == 0) continue;
+
+        final c = notNullCols[i];
+        final pct = tableRowCount > 0 ? (nullCount / tableRowCount * 100) : 0;
+        // Always 'error' — NULLs in NOT NULL columns are constraint
+        // violations, not warnings.
+        anomalies.add(<String, dynamic>{
+          'table': tableName,
+          'column': c,
+          'type': 'null_values',
+          'severity': 'error',
+          'count': nullCount,
+          'message':
+              '$nullCount NULL value(s) in NOT NULL column '
+              '$tableName.$c (${pct.toStringAsFixed(1)}%)',
+        });
+      }
+
+      // ── Process empty-string results ──────────────────────
+      for (var i = 0; i < notNullTextCols.length; i++) {
+        final emptyCount = (ServerUtils.toDouble(scanRow['empty_$i']) ?? 0)
+            .toInt();
+        if (emptyCount == 0) continue;
+
+        final c = notNullTextCols[i];
+        anomalies.add(<String, dynamic>{
+          'table': tableName,
+          'column': c,
+          'type': 'empty_strings',
+          'severity': 'warning',
+          'count': emptyCount,
+          'message': '$emptyCount empty string(s) in $tableName.$c',
+        });
+      }
+
+      // ── Process outlier pass-1: collect variance candidates ─
+      final varianceCandidates = <_OutlierCandidate>[];
+      for (var i = 0; i < numericCols.length; i++) {
+        final sampleCount = (ServerUtils.toDouble(scanRow['cnt_$i']) ?? 0)
+            .toInt();
+        // Small sample guard: sigma-based outlier detection is unreliable
+        // with fewer than 30 data points.
+        if (sampleCount < _minSampleSizeForOutliers) continue;
+
+        final avg = ServerUtils.toDouble(scanRow['avg_$i']);
+        final min = ServerUtils.toDouble(scanRow['min_$i']);
+        final max = ServerUtils.toDouble(scanRow['max_$i']);
+        if (avg == null || min == null || max == null) continue;
+
+        // Skip binary-domain columns (range exactly 0–1).
+        if (min == 0 && max == 1) continue;
+
+        // Skip columns whose observed range fits within a known bounded
+        // scale (0–5, 0–10, 1–10, 0–100, etc.).
+        var bounded = false;
+        for (final (lower, upper) in _boundedScales) {
+          if (min >= lower && max <= upper) {
+            bounded = true;
+            break;
+          }
+        }
+        if (bounded) continue;
+
+        varianceCandidates.add(
+          _OutlierCandidate(
+            colName: numericCols[i],
+            avg: avg,
+            min: min,
+            max: max,
+            sampleCount: sampleCount,
+          ),
+        );
+      }
+
+      // ── Combined variance query (pass-2) ──────────────────
+      // One scan replaces per-column variance queries. Each column's
+      // variance is E[(X-mean)²] with the mean from pass-1 interpolated
+      // as a numeric literal (numerically stable; see M2 audit note).
+      // Aliases are positional within this candidate list — a fresh index
+      // space per query, so no collision with the scan-query aliases above.
+      if (varianceCandidates.isNotEmpty) {
+        final varParts = <String>[];
+        for (var i = 0; i < varianceCandidates.length; i++) {
+          final c = varianceCandidates[i];
+          final qc = ServerUtils.quoteIdent(c.colName);
+          varParts.add('AVG(($qc - ${c.avg}) * ($qc - ${c.avg})) AS "var_$i"');
+        }
+        final varRows = ServerUtils.normalizeRows(
+          await query('SELECT ${varParts.join(', ')} FROM $tbl'),
+        );
+
+        if (varRows.isNotEmpty) {
+          final varRow = varRows.first;
+          for (var i = 0; i < varianceCandidates.length; i++) {
+            final c = varianceCandidates[i];
+            final rawVariance = ServerUtils.toDouble(varRow['var_$i']) ?? 0;
+            // Clamp to zero to guard against tiny negative rounding.
+            final stddev = sqrt(rawVariance < 0 ? 0 : rawVariance);
+            // Zero stddev means all values are identical — no outliers.
+            if (stddev == 0) continue;
+
+            final minDeviation = (c.min - c.avg).abs();
+            final maxDeviation = (c.max - c.avg).abs();
+            final threshold = stddev * 3;
+
+            // Neither extreme exceeds 3σ — no outlier.
+            if (maxDeviation <= threshold && minDeviation <= threshold) {
+              continue;
+            }
+
+            // Log-scale fallback for all-positive columns: if extremes
+            // sit within 3σ of the geometric mean in log space, the wide
+            // spread is log-normal, not an outlier. These queries remain
+            // individual because they are rare (only columns that failed
+            // the linear check AND have min > 0).
+            if (c.min > 0 &&
+                await _passesLogScaleCheck(
+                  query: query,
+                  col: ServerUtils.quoteIdent(c.colName),
+                  tbl: tbl,
+                  min: c.min,
+                  max: c.max,
+                )) {
+              continue;
+            }
+
+            // Flag the outlier with both σ distance and sample size so
+            // the reader can judge signal strength.
+            final minSigma = minDeviation / stddev;
+            final maxSigma = maxDeviation / stddev;
+            final outlierEnd = maxDeviation > minDeviation ? 'max' : 'min';
+            final outlierValue = maxDeviation > minDeviation ? c.max : c.min;
+            final outlierSigma = maxDeviation > minDeviation
+                ? maxSigma
+                : minSigma;
+
+            anomalies.add(<String, dynamic>{
+              'table': tableName,
+              'column': c.colName,
+              'type': 'potential_outlier',
+              'severity': 'info',
+              'message':
+                  'Potential outlier in $tableName.${c.colName}: '
+                  '$outlierEnd value $outlierValue is '
+                  '${outlierSigma.toStringAsFixed(1)}σ from mean '
+                  '${c.avg.toStringAsFixed(2)} '
+                  '(range [${c.min}, ${c.max}], n=${c.sampleCount})',
+            });
+          }
+        }
+      }
+    }
+
+    // 4. Detect orphaned foreign key references. Narrow the host manifest
+    //    to this table's joinable edges: fromTable matches AND
+    //    orphanCheckable (list_ref / seed_identity edges are excluded).
+    final declaredEdges = declaredRelationships
+        .where((edge) => edge.fromTable == tableName && edge.orphanCheckable)
+        .toList(growable: false);
+    await _detectOrphanedForeignKeys(
+      query: query,
+      tableName: tableName,
+      tableNames: tableNames,
+      anomalies: anomalies,
+      declaredEdges: declaredEdges,
+    );
+
+    // 5. Detect duplicate rows (guarded: skips tables with a primary key,
+    //    excludes BLOB columns, and respects the row-count limit).
+    await _detectDuplicateRows(
+      query: query,
+      tableName: tableName,
+      tableRowCount: tableRowCount,
+      anomalies: anomalies,
+      hasPrimaryKey: hasPrimaryKey,
+      nonBlobColNames: nonBlobColNames,
+    );
   }
+
+  /// Returns true when [type] is a BLOB type. Used to exclude BLOB columns
+  /// from the duplicate-row DISTINCT query — sorting multi-MB values through
+  /// SQLite's temp store is what made the old query pathological.
+  static bool _isBlobType(String type) => type.toUpperCase().contains('BLOB');
+
+  /// Returns true when [colName] matches a domain-specific pattern that
+  /// makes sigma-based outlier detection meaningless (identifiers,
+  /// coordinates, timestamps, sort order, year, ratings, dimensions,
+  /// physical measurements). Centralizes the skip-guard logic so it can
+  /// be applied during column classification rather than inside a per-column
+  /// query method.
+  static bool _shouldSkipOutlierColumn(String colName) =>
+      _identifierPattern.hasMatch(colName) ||
+      _coordinatePattern.hasMatch(colName) ||
+      _versionPattern.hasMatch(colName) ||
+      _timestampPattern.hasMatch(colName) ||
+      _sortOrderPattern.hasMatch(colName) ||
+      _yearPattern.hasMatch(colName) ||
+      _ratingPattern.hasMatch(colName) ||
+      _dimensionPattern.hasMatch(colName) ||
+      _physicalMeasurementPattern.hasMatch(colName);
 
   /// Column name patterns for identifier/key columns —
   /// external IDs (API identifiers, foreign system keys)
@@ -474,219 +699,6 @@ abstract final class AnomalyDetector {
     (1, 10), // rating scale (1-based)
     (0, 100), // percentage, percentile
   ];
-
-  /// Computes statistical distribution metrics for
-  /// [colName] and flags an outlier anomaly when min or
-  /// max lies more than 3 standard deviations from the
-  /// mean (the classic 3-sigma rule).
-  ///
-  /// Skip guards (checked in order):
-  /// 1. Primary key columns (auto-increment, not data).
-  /// 2. Identifier columns (`*_id`, `*_key`, `*_code`) —
-  ///    opaque external IDs, not measurements.
-  /// 3. Domain-specific columns: coordinates, versions,
-  ///    timestamps, sort/ordering, year/founded,
-  ///    rating/score/percent, dimensions/sizes,
-  ///    physical measurements.
-  /// 4. Small samples (n < 30) — sigma estimates are
-  ///    unreliable and a single value can dominate.
-  /// 5. Binary domain (range exactly 0–1).
-  /// 6. Bounded scales — observed [min, max] fits within
-  ///    a known scale (0–5, 0–10, 1–10, 0–100, etc.).
-  ///
-  /// Log-scale fallback: for all-positive columns that
-  /// fail the linear 3σ check, a log-transformed check
-  /// is applied to catch log-normal distributions
-  /// (e.g., currency exchange rates, engagement scores).
-  static Future<void> _detectNumericOutliers({
-    required DriftDebugQuery query,
-    required String tableName,
-    required String colName,
-    required bool isPrimaryKey,
-    required List<Map<String, dynamic>> anomalies,
-  }) async {
-    // Skip primary key columns — auto-increment IDs are
-    // sequential by definition, not measurements.
-    if (isPrimaryKey) {
-      return;
-    }
-
-    // Skip columns whose names indicate identifiers or
-    // foreign keys. External IDs (API identifiers, foreign
-    // system keys) are opaque — not drawn from a normal
-    // distribution — so sigma-based outlier detection
-    // produces false positives.
-    // See plans/history/2026.04/2026.04.13/outlier_on_external_id_false_positive.md.
-    if (_identifierPattern.hasMatch(colName)) {
-      return;
-    }
-
-    // Skip columns whose names indicate a domain where
-    // wide numeric ranges are expected and correct.
-    // Each pattern targets a specific false-positive
-    // category documented in plans/history/2026.04/2026.04.06/false_positive_anomaly_detections.md.
-    if (_coordinatePattern.hasMatch(colName) ||
-        _versionPattern.hasMatch(colName) ||
-        _timestampPattern.hasMatch(colName) ||
-        _sortOrderPattern.hasMatch(colName) ||
-        _yearPattern.hasMatch(colName) ||
-        _ratingPattern.hasMatch(colName) ||
-        _dimensionPattern.hasMatch(colName) ||
-        _physicalMeasurementPattern.hasMatch(colName)) {
-      return;
-    }
-
-    // First pass: mean, min, max, and non-null count. Variance is computed
-    // separately below as a SECOND pass (E[(X-mean)²]) rather than the naive
-    // E[X²]-E[X]² in one query. The naive form subtracts two large, nearly
-    // equal sums and loses most significant bits to floating-point cancellation
-    // for large-magnitude, low-spread columns — yielding a garbage σ that either
-    // suppressed real outliers (σ rounded to ~0) or flagged everything (tiny σ).
-    // See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M2.
-    final col = ServerUtils.quoteIdent(colName);
-    final tbl = ServerUtils.quoteIdent(tableName);
-    final statsRows = ServerUtils.normalizeRows(
-      await query(
-        'SELECT AVG($col) AS avg_val, '
-        'MIN($col) AS min_val, '
-        'MAX($col) AS max_val, '
-        'COUNT($col) AS cnt '
-        'FROM $tbl WHERE $col IS NOT NULL',
-      ),
-    );
-    if (statsRows.isEmpty) {
-      return;
-    }
-
-    // Small sample guard: sigma-based outlier detection is
-    // unreliable with fewer than 30 data points. The sample
-    // mean and standard deviation are poor estimators at
-    // small n, and a single extreme value can dominate the
-    // statistics. Skip to avoid false positives.
-    final sampleCount = (ServerUtils.toDouble(statsRows.first['cnt']) ?? 0)
-        .toInt();
-    if (sampleCount < _minSampleSizeForOutliers) {
-      return;
-    }
-
-    final avg = ServerUtils.toDouble(statsRows.first['avg_val']);
-    final min = ServerUtils.toDouble(statsRows.first['min_val']);
-    final max = ServerUtils.toDouble(statsRows.first['max_val']);
-    if (avg == null || min == null || max == null) {
-      return;
-    }
-
-    // Skip binary-domain columns (range exactly 0–1) —
-    // these are typically boolean flags stored as INTEGER.
-    // A skewed distribution (e.g., 9% true → avg 0.09) is
-    // a valid data pattern, not an outlier.
-    if (min == 0 && max == 1) {
-      return;
-    }
-
-    // Skip columns whose observed data range fits within a
-    // known bounded scale (e.g., 0–10 ratings, 0–100
-    // percentages). Bounded scales naturally produce skewed
-    // distributions — values at the scale boundary are
-    // legitimate, not anomalies. A TV rating of 1.0 on a
-    // 1–10 scale is rare but valid; sigma-based detection
-    // flags it incorrectly because the data is non-Gaussian.
-    // See plans/history/2026.04/2026.04.14/anomaly_false_positive_valid_range.md.
-    for (final (lower, upper) in _boundedScales) {
-      if (min >= lower && max <= upper) {
-        return;
-      }
-    }
-
-    // Second pass: population variance as E[(X-mean)²], with the mean from the
-    // first pass interpolated as a numeric literal (a double — no injection).
-    // This is numerically stable where the naive one-pass form was not.
-    // Variance query depends on avg computed from the first-pass stats query.
-    // ignore: avoid_sequential_awaits -- uses avg from the first-pass query
-    final varianceRows = ServerUtils.normalizeRows(
-      await query(
-        'SELECT AVG(($col - $avg) * ($col - $avg)) AS variance '
-        'FROM $tbl WHERE $col IS NOT NULL',
-      ),
-    );
-    final rawVariance = varianceRows.isEmpty
-        ? 0.0
-        : (ServerUtils.toDouble(varianceRows.first['variance']) ?? 0);
-    // Clamp to zero to guard against tiny negative rounding.
-    final stddev = sqrt(rawVariance < 0 ? 0 : rawVariance);
-
-    // Zero stddev means all values are identical — no
-    // outliers possible.
-    if (stddev == 0) {
-      return;
-    }
-
-    // Flag when either extreme lies more than 3 standard
-    // deviations from the mean (3-sigma rule). This
-    // correctly handles high-variance distributions
-    // (e.g., multi-currency exchange rates) where a wide
-    // range is natural, while still catching isolated
-    // extreme values in otherwise tight distributions.
-    final minDeviation = (min - avg).abs();
-    final maxDeviation = (max - avg).abs();
-    final threshold = stddev * 3;
-
-    if (maxDeviation <= threshold && minDeviation <= threshold) {
-      // Neither extreme exceeds 3σ — no outlier.
-      return;
-    }
-
-    // Log-scale fallback for all-positive columns. Distributions like currency
-    // exchange rates and engagement scores span orders of magnitude but look
-    // reasonable on a log scale; if the extremes are within 3σ of the GEOMETRIC
-    // mean in log space, the spread is log-normal, not an outlier — suppress.
-    //
-    // The previous heuristic derived a log σ from the range (range/4) and
-    // centered on log(arithmetic mean). With only min/max/mean it was circular:
-    // both extremes ARE the range, so the test almost always passed and
-    // suppressed everything. Locating an outlier needs the distribution of the
-    // logs, so the real mean/variance of LN(x) are now computed in SQL. See M2.
-    if (min > 0 &&
-        await _passesLogScaleCheck(
-          query: query,
-          col: col,
-          tbl: tbl,
-          min: min,
-          max: max,
-        )) {
-      return;
-    }
-
-    // Identify which end is the outlier and by how many
-    // standard deviations, so developers know which
-    // values to investigate.
-    final minSigma = minDeviation / stddev;
-    final maxSigma = maxDeviation / stddev;
-    final outlierEnd = maxDeviation > minDeviation ? 'max' : 'min';
-    final outlierValue = maxDeviation > minDeviation ? max : min;
-    final outlierSigma = maxDeviation > minDeviation ? maxSigma : minSigma;
-
-    // Include the sample size (n) in the message. A low-n
-    // z-score is intrinsically unstable — 30 values is the
-    // hard floor above (see `_minSampleSizeForOutliers`), but
-    // 30 ≤ n < ~100 still produces wide confidence intervals
-    // around σ, so "4.1σ from mean" at n=35 is a weaker
-    // signal than the same number at n=5000. Surfacing n in
-    // the diagnostic lets the reader judge that for themselves
-    // without having to inspect the data.
-    anomalies.add(<String, dynamic>{
-      'table': tableName,
-      'column': colName,
-      'type': 'potential_outlier',
-      'severity': 'info',
-      'message':
-          'Potential outlier in $tableName.$colName: '
-          '$outlierEnd value $outlierValue is '
-          '${outlierSigma.toStringAsFixed(1)}σ from mean '
-          '${avg.toStringAsFixed(2)} '
-          '(range [$min, $max], n=$sampleCount)',
-    });
-  }
 
   /// Returns true when the all-positive column's extremes sit within 3σ of the
   /// geometric mean in LOG space — i.e. the wide spread is log-normal, not an
@@ -852,17 +864,45 @@ abstract final class AnomalyDetector {
   /// Compares DISTINCT row count against total row count
   /// for [tableName] and flags an anomaly when duplicates
   /// are detected.
+  ///
+  /// Guards (checked in order):
+  /// 1. Tables with a primary key are skipped — PK uniqueness means
+  ///    every row is distinct by construction, so the scan can never
+  ///    produce a finding.
+  /// 2. Tables exceeding [_maxRowsForDuplicateCheck] are skipped —
+  ///    DISTINCT over all columns forces a sort/temp-B-tree that is
+  ///    orders of magnitude more expensive than aggregate scans.
+  /// 3. BLOB columns are excluded from the DISTINCT projection —
+  ///    sorting multi-MB values through the temp store is what made
+  ///    the old `SELECT DISTINCT *` pathological on tables with BLOB
+  ///    data. If all columns are BLOBs, the check is skipped.
   static Future<void> _detectDuplicateRows({
     required DriftDebugQuery query,
     required String tableName,
     required int tableRowCount,
     required List<Map<String, dynamic>> anomalies,
+    required bool hasPrimaryKey,
+    required List<String> nonBlobColNames,
   }) async {
+    // Skip tables with a primary key — every row is distinct by construction
+    // (SQLite enforces PK uniqueness), so DISTINCT can never find duplicates.
+    if (hasPrimaryKey) return;
+
+    // Skip oversized tables — DISTINCT forces a sort/temp-B-tree that is
+    // prohibitively expensive at scale.
+    if (tableRowCount > _maxRowsForDuplicateCheck) return;
+
+    // Skip if all columns are BLOBs (nothing left to compare).
+    if (nonBlobColNames.isEmpty) return;
+
+    // Use explicit column list excluding BLOBs instead of SELECT DISTINCT *
+    // to avoid sorting multi-MB BLOB values through the temp store.
+    final colList = nonBlobColNames.map(ServerUtils.quoteIdent).join(', ');
     final distinctCount = ServerUtils.extractCountFromRows(
       ServerUtils.normalizeRows(
         await query(
           'SELECT COUNT(*) AS c FROM '
-          '(SELECT DISTINCT * FROM ${ServerUtils.quoteIdent(tableName)})',
+          '(SELECT DISTINCT $colList FROM ${ServerUtils.quoteIdent(tableName)})',
         ),
       ),
     );
@@ -898,4 +938,23 @@ final class _OrphanEdge {
   final String toTable;
   final String toCol;
   final bool enforced;
+}
+
+/// Intermediate data from the combined scan query's pass-1 aggregates for
+/// one numeric column. Carries the stats needed by the variance pass-2 and
+/// the final outlier decision without re-querying the table.
+final class _OutlierCandidate {
+  const _OutlierCandidate({
+    required this.colName,
+    required this.avg,
+    required this.min,
+    required this.max,
+    required this.sampleCount,
+  });
+
+  final String colName;
+  final double avg;
+  final double min;
+  final double max;
+  final int sampleCount;
 }

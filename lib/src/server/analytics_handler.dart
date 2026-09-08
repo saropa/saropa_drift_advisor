@@ -95,6 +95,7 @@ final class AnalyticsHandler {
         staticTables: _ctx.staticTables,
         tablesWithObservedMutations: _ctx.tableActivity
             .tablesWithObservedMutations(),
+        statementTimeout: _ctx.sqlStatementTimeout,
       );
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
@@ -270,6 +271,7 @@ final class AnalyticsHandler {
           staticTables: _ctx.staticTables,
           tablesWithObservedMutations: _ctx.tableActivity
               .tablesWithObservedMutations(),
+          statementTimeout: _ctx.sqlStatementTimeout,
         );
         if (result.containsKey(ServerConstants.jsonKeyError)) {
           return result;

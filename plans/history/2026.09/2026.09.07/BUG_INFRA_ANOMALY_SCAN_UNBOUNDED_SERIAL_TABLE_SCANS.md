@@ -1,6 +1,6 @@
 # BUG: `/api/analytics/anomalies` runs 3-5 serial full-table scans per column with no row guard and no timeout
 
-**Status: Open**
+**Status: Fixed**
 
 Created: 2026-09-02
 Component: Server
@@ -188,7 +188,21 @@ Each detector was written as an independent per-column probe with no shared budg
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+1. **Collapsed per-column probes into combined queries** (`anomaly_detector.dart`): NULL counts, empty-string counts, and outlier pass-1 aggregates (AVG/MIN/MAX/COUNT) are folded into a single `SELECT ... FROM table` per table. Variance queries are similarly combined. This eliminates ~1800 of the ~2000 serial scans for the reference 40-table schema.
+
+2. **Guarded `_detectDuplicateRows`**: skips tables with any primary key (every row is unique by construction); excludes BLOB columns from the DISTINCT projection; skips tables exceeding 100K rows (`_maxRowsForDuplicateCheck`).
+
+3. **Added row-count guard**: tables exceeding 1M rows (`_maxRowsForFullScan`) skip per-column anomaly processing. The combined scan still runs (it's one pass) but results are not acted on.
+
+4. **Applied `.timeout(statementTimeout)`**: every detector query is now wrapped with the caller's statement timeout. `getAnomaliesResult` accepts a new optional `statementTimeout` parameter; both call sites in `AnalyticsHandler` pass `_ctx.sqlStatementTimeout`.
+
+5. **Added wall-clock budget**: the entire scan respects a 60-second budget (`_scanBudget`). Partial results are returned with `truncated: true`.
+
+6. **Added query-count regression test** (`stress_performance_test.dart`): a 40-table × 15-column schema asserts total query count stays under 10×tableCount, preventing regression to O(tables × columns).
+
+7. **Extracted per-table scan into `_scanTable`, caught per-table timeouts**: a timeout on one table's combined scan (e.g. a slow table under connection contention) is caught with `on TimeoutException` inside the per-table loop and appends a `scan_skipped` info anomaly for that table only. Without this the timeout propagated to the caller's generic error handler and discarded every anomaly already found on prior tables, turning the per-statement timeout into a scan-wide failure — the opposite of the `truncated: true` partial-results behavior. Regression test added: `per-table timeout isolation`.
+
+8. **Positional (index-based) SQL aliases**: the combined scan and variance queries alias columns as `null_0`, `avg_2`, `var_1`, etc. (index into the classified-column list) instead of a sanitized column name. A prior name-based scheme could collide — two distinct column names that sanitize to the same alias (e.g. `foo-bar` and `foo_bar`) would silently overwrite each other's stats in the result row map. Positional aliases make collision impossible regardless of naming.
 
 ---
 
@@ -207,3 +221,15 @@ Each detector was written as an independent per-column probe with no shared budg
   external tooling concludes the server is dead.
 - Data risk: none.
 - Frequency: every invocation; severity scales with schema width and table size.
+
+---
+
+## Finish Report (2026-09-07)
+
+`AnomalyDetector.getAnomaliesResult` issued thousands of serial per-column full-table scans (up to ~2000 on a 40-table/15-column schema) with no timeout, no row-count guard, and no wall-clock budget, wedging the host's single SQLite connection and starving every other endpoint including health probes.
+
+The fix collapses NULL/empty-string/outlier-pass-1 probes into one combined `SELECT` per table and variance checks into a second, replacing ~1800 of ~2000 scans. `_detectDuplicateRows` now skips tables with a primary key (uniqueness is guaranteed by construction), excludes BLOB columns from its DISTINCT projection, and skips tables over 100K rows. A row-count guard (1M rows) skips per-column processing on oversized tables, and a 60-second wall-clock budget returns partial results (`truncated: true`) instead of running unbounded. Every query is wrapped in the caller's `sqlStatementTimeout`.
+
+A follow-on code review caught two defects introduced by the refactor before they shipped: (1) a timeout on one table's scan was not isolated — it propagated past the table loop to the caller's generic error handler and discarded every anomaly already collected for prior tables, defeating the purpose of both the per-statement timeout and the wall-clock budget. Fixed by extracting `_scanTable` and catching `TimeoutException` per table, appending a `scan_skipped` note for the failed table while preserving all other results. (2) The combined-query column aliases were derived from sanitized column names (non-alphanumeric characters replaced with `_`), so two distinct column names that sanitize identically (e.g. `foo-bar` and `foo_bar`) would collide on the same alias and silently overwrite one column's stats with another's. Fixed by switching to positional (list-index) aliases, which cannot collide regardless of naming.
+
+Query count on the reference 40-table/15-column stress fixture is now asserted to stay under 10×tableCount (`test/stress_performance_test.dart`), and a new `per-table timeout isolation` test confirms a timed-out table does not discard other tables' findings.

@@ -1711,10 +1711,12 @@ void main() {
       // -------------------------------------------------------
 
       test('detects duplicate rows', () async {
+        // Table without a primary key — the duplicate check only runs
+        // when no PK exists (PK guarantees uniqueness by construction).
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [_col('id', 'INTEGER', pk: 1), _col('name', 'TEXT')],
+              'items': [_col('name', 'TEXT'), _col('value', 'INTEGER')],
             },
             // 10 total rows but only 8 distinct → 2 duplicates.
             counts: {'items': 10},
@@ -1733,10 +1735,11 @@ void main() {
       });
 
       test('no anomaly when all rows are distinct', () async {
+        // Table without a primary key so the duplicate check runs.
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [_col('id', 'INTEGER', pk: 1), _col('name', 'TEXT')],
+              'items': [_col('name', 'TEXT'), _col('value', 'INTEGER')],
             },
             counts: {'items': 5},
             distinctCounts: {'items': 5},
@@ -1748,6 +1751,33 @@ void main() {
             .where((a) => (a as Map)['type'] == 'duplicate_rows')
             .toList();
         expect(dups, isEmpty);
+      });
+
+      test('skips duplicate check for tables with primary key', () async {
+        // Tables with a PK are always unique by construction — the
+        // expensive DISTINCT scan is skipped entirely.
+        final result = await AnomalyDetector.getAnomaliesResult(
+          _anomalyQuery(
+            tableColumns: {
+              'items': [_col('id', 'INTEGER', pk: 1), _col('name', 'TEXT')],
+            },
+            counts: {'items': 10},
+            // Even though distinctCounts says 8, the check should never
+            // run because the table has a PK.
+            distinctCounts: {'items': 8},
+          ),
+        );
+
+        final anomalies = (result['anomalies'] as List)
+            .cast<Map<String, dynamic>>();
+        final dups = anomalies
+            .where((a) => a['type'] == 'duplicate_rows')
+            .toList();
+        expect(
+          dups,
+          isEmpty,
+          reason: 'Tables with a primary key skip the duplicate check',
+        );
       });
 
       // -------------------------------------------------------
@@ -1984,10 +2014,12 @@ void main() {
       });
 
       test('table-level suppression removes column-less anomalies', () async {
+        // Table without a PK so the duplicate check actually runs and
+        // the suppression has something to suppress.
         final result = await AnomalyDetector.getAnomaliesResult(
           _anomalyQuery(
             tableColumns: {
-              'items': [_col('id', 'INTEGER', pk: 1), _col('name', 'TEXT')],
+              'items': [_col('name', 'TEXT'), _col('value', 'INTEGER')],
             },
             counts: {'items': 10},
             distinctCounts: {'items': 8},
@@ -2006,6 +2038,76 @@ void main() {
           reason: 'Table-level duplicate_rows should be suppressible',
         );
       });
+    });
+
+    // -------------------------------------------------------
+    // Per-table timeout isolation
+    //
+    // A timeout on one table's scan must skip only that table,
+    // not discard anomalies already collected for prior tables
+    // or abort the whole scan (see plans/history/2026.09/2026.09.07/
+    // BUG_INFRA_ANOMALY_SCAN_UNBOUNDED_SERIAL_TABLE_SCANS.md).
+    // -------------------------------------------------------
+    group('per-table timeout isolation', () {
+      test(
+        'a timeout on one table does not discard anomalies from other tables',
+        () async {
+          final baseQuery = _anomalyQuery(
+            tableColumns: {
+              'good_table': [_col('name', 'TEXT', notnull: 1)],
+              'slow_table': [_col('name', 'TEXT', notnull: 1)],
+            },
+            counts: {'good_table': 10, 'slow_table': 10},
+            nullCounts: {'good_table.name': 3},
+          );
+
+          // Wrap the base query so the combined scan query for
+          // slow_table never resolves before the statement timeout.
+          Future<List<Map<String, dynamic>>> query(String sql) async {
+            if (sql.contains('_row_count') && sql.contains('"slow_table"')) {
+              await Future<void>.delayed(const Duration(seconds: 5));
+            }
+            return baseQuery(sql);
+          }
+
+          final result = await AnomalyDetector.getAnomaliesResult(
+            query,
+            statementTimeout: const Duration(milliseconds: 50),
+          );
+
+          final anomalies = (result['anomalies'] as List)
+              .cast<Map<String, dynamic>>();
+
+          // good_table's anomaly must survive even though slow_table timed
+          // out — a per-table catch, not a scan-wide failure.
+          final nullAnomaly = anomalies
+              .where(
+                (a) => a['type'] == 'null_values' && a['table'] == 'good_table',
+              )
+              .firstOrNull;
+          expect(
+            nullAnomaly,
+            isNotNull,
+            reason:
+                'A timeout on slow_table must not discard good_table anomalies',
+          );
+
+          // slow_table should surface a scan_skipped note rather than
+          // silently vanishing or crashing the whole scan.
+          final skipNote = anomalies
+              .where(
+                (a) =>
+                    a['type'] == 'scan_skipped' && a['table'] == 'slow_table',
+              )
+              .firstOrNull;
+          expect(skipNote, isNotNull);
+
+          // Both tables were still counted as scanned (the loop did not
+          // abort early), and the result is a normal envelope, not an error.
+          expect(result['tablesScanned'], 2);
+          expect(result.containsKey('error'), isFalse);
+        },
+      );
     });
   });
 
@@ -2101,10 +2203,22 @@ Map<String, dynamic> _col(
 /// Creates a query callback for [AnomalyDetector] tests.
 ///
 /// Delegates common patterns (table names, PRAGMA table_info,
-/// PRAGMA foreign_key_list, regular COUNT(*)) to [mockQueryWithTables].
-/// Adds anomaly-specific handlers for NULL count, empty string count,
-/// numeric stats (AVG/MIN/MAX), LEFT JOIN orphan, and DISTINCT count
-/// queries.
+/// PRAGMA foreign_key_list) to [mockQueryWithTables].
+/// Handles the combined scan query (NULL counts, empty-string counts,
+/// outlier pass-1 stats in one SELECT), the combined variance query,
+/// LEFT JOIN orphan queries, DISTINCT queries, and log-scale queries.
+///
+/// The combined scan query shape is:
+///   SELECT COUNT(*) AS _row_count,
+///     SUM("col" IS NULL) AS "null_col",
+///     SUM("col" = '') AS "empty_col",
+///     AVG("col") AS "avg_col", MIN("col") AS "min_col",
+///     MAX("col") AS "max_col", COUNT("col") AS "cnt_col"
+///   FROM "table"
+///
+/// The combined variance query shape is:
+///   SELECT AVG(("col" - avg) * ("col" - avg)) AS "var_col"
+///   FROM "table"
 Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
   required Map<String, List<Map<String, dynamic>>> tableColumns,
   Map<String, int>? counts,
@@ -2116,7 +2230,7 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
   Map<String, int>? distinctCounts,
 }) {
   // Base handler for common PRAGMA patterns (table names, table_info,
-  // foreign_key_list, COUNT(*)).
+  // foreign_key_list).
   final baseQuery = mockQueryWithTables(
     tableColumns: tableColumns,
     tableForeignKeys: tableForeignKeys,
@@ -2125,7 +2239,7 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
 
   return (String sql) async {
     // LEFT JOIN orphan detection query — must be checked before
-    // the generic "IS NULL" handler to avoid collision, since
+    // the combined scan handler to avoid collision, since
     // orphan queries also contain COUNT(*) and IS NULL.
     if (sql.contains('LEFT JOIN') && sql.contains('IS NULL')) {
       if (orphanCounts != null) {
@@ -2147,47 +2261,135 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
       ];
     }
 
-    // NULL count queries (WHERE "col" IS NULL) — excludes LEFT JOIN
-    // queries which are handled above.
-    if (sql.contains('IS NULL') &&
-        sql.contains('COUNT(*)') &&
-        !sql.contains('LEFT JOIN')) {
-      if (nullCounts != null) {
-        for (final entry in nullCounts.entries) {
-          // Key format: "table.column".
-          final parts = entry.key.split('.');
-          if (sql.contains('"${parts[0]}"') &&
-              sql.contains('"${parts[1]}" IS NULL')) {
-            return [
-              <String, dynamic>{'c': entry.value},
-            ];
-          }
-        }
-      }
-      return [
-        <String, dynamic>{'c': 0},
-      ];
-    }
-
-    // Empty string count queries (WHERE "col" = '').
-    if (sql.contains("= ''") && sql.contains('COUNT(*)')) {
-      if (emptyCounts != null) {
-        for (final entry in emptyCounts.entries) {
+    // Log-scale stats query (M2): SELECT AVG(LN(col)) AS log_mean,
+    // AVG(LN(col)*LN(col)) AS log_sqmean. Must be matched before the
+    // combined scan query (both contain AVG).
+    if (sql.contains('AVG(LN(')) {
+      if (numericStats != null) {
+        for (final entry in numericStats.entries) {
           final parts = entry.key.split('.');
           if (sql.contains('"${parts[0]}"') && sql.contains('"${parts[1]}"')) {
-            return [
-              <String, dynamic>{'c': entry.value},
-            ];
+            final lm = entry.value['log_mean'];
+            final ls = entry.value['log_sqmean'];
+            if (lm != null && ls != null) {
+              return [
+                <String, dynamic>{'log_mean': lm, 'log_sqmean': ls},
+              ];
+            }
           }
         }
       }
-      return [
-        <String, dynamic>{'c': 0},
-      ];
+      return <Map<String, dynamic>>[];
     }
 
-    // DISTINCT count queries (SELECT COUNT(*) ... SELECT DISTINCT *).
-    if (sql.contains('SELECT DISTINCT *')) {
+    // Combined variance query: SELECT AVG(("col" - avg) * ("col" - avg))
+    // AS "var_0" FROM "table". Aliases are positional (var_0, var_1, ...),
+    // not derived from the column name, so the real column name is parsed
+    // directly out of the SQL text and matched to its alias per-occurrence.
+    // Must be checked before the combined scan query.
+    if (sql.contains('AS "var_') && !sql.contains('_row_count')) {
+      final row = <String, dynamic>{};
+      final varPattern = RegExp(r'AVG\(\("(\w+)" - .*? AS "(var_\d+)"');
+      for (final match in varPattern.allMatches(sql)) {
+        final colName = match.group(1)!;
+        final alias = match.group(2)!;
+        if (numericStats != null) {
+          for (final entry in numericStats.entries) {
+            final parts = entry.key.split('.');
+            if (parts[1] == colName && sql.contains('"${parts[0]}"')) {
+              row[alias] = entry.value['variance'] ?? 0.0;
+            }
+          }
+        }
+      }
+      // Return a row even if empty — the detector expects one row.
+      return [row];
+    }
+
+    // Combined scan query: SELECT COUNT(*) AS _row_count, SUM(... IS NULL)
+    // AS "null_0", SUM(... = '') AS "empty_0", AVG(...) AS "avg_0", etc.
+    // Aliases are positional, not name-derived, so the real column name is
+    // parsed out of the SQL text and matched to its positional alias.
+    // Identified by the _row_count alias.
+    if (sql.contains('_row_count')) {
+      // Determine which table this query targets.
+      String? targetTable;
+      for (final t in tableColumns.keys) {
+        if (sql.contains('"$t"')) {
+          targetTable = t;
+          break;
+        }
+      }
+      final rowCount = targetTable != null ? (counts?[targetTable] ?? 0) : 0;
+      final row = <String, dynamic>{'_row_count': rowCount};
+
+      // NULL count probes: SUM("col" IS NULL) AS "null_0".
+      final nullPattern = RegExp(r'SUM\("(\w+)" IS NULL\) AS "(null_\d+)"');
+      for (final match in nullPattern.allMatches(sql)) {
+        final colName = match.group(1)!;
+        final alias = match.group(2)!;
+        final entryValue = nullCounts?['$targetTable.$colName'];
+        if (entryValue != null) {
+          row[alias] = entryValue;
+        }
+      }
+
+      // Empty-string probes: SUM("col" = '') AS "empty_0".
+      final emptyPattern = RegExp(r'''SUM\("(\w+)" = ''\) AS "(empty_\d+)"''');
+      for (final match in emptyPattern.allMatches(sql)) {
+        final colName = match.group(1)!;
+        final alias = match.group(2)!;
+        final entryValue = emptyCounts?['$targetTable.$colName'];
+        if (entryValue != null) {
+          row[alias] = entryValue;
+        }
+      }
+
+      // Outlier pass-1 probes: AVG("col") AS "avg_0", MIN("col") AS
+      // "min_0", MAX("col") AS "max_0", COUNT("col") AS "cnt_0".
+      final avgPattern = RegExp(r'AVG\("(\w+)"\) AS "(avg_\d+)"');
+      final minPattern = RegExp(r'MIN\("(\w+)"\) AS "(min_\d+)"');
+      final maxPattern = RegExp(r'MAX\("(\w+)"\) AS "(max_\d+)"');
+      final cntPattern = RegExp(r'COUNT\("(\w+)"\) AS "(cnt_\d+)"');
+      for (final match in avgPattern.allMatches(sql)) {
+        final colName = match.group(1)!;
+        final alias = match.group(2)!;
+        final stats = numericStats?['$targetTable.$colName'];
+        if (stats != null) {
+          row[alias] = stats['avg_val'] ?? 0.0;
+        }
+      }
+      for (final match in minPattern.allMatches(sql)) {
+        final colName = match.group(1)!;
+        final alias = match.group(2)!;
+        final stats = numericStats?['$targetTable.$colName'];
+        if (stats != null) {
+          row[alias] = stats['min_val'] ?? 0.0;
+        }
+      }
+      for (final match in maxPattern.allMatches(sql)) {
+        final colName = match.group(1)!;
+        final alias = match.group(2)!;
+        final stats = numericStats?['$targetTable.$colName'];
+        if (stats != null) {
+          row[alias] = stats['max_val'] ?? 0.0;
+        }
+      }
+      for (final match in cntPattern.allMatches(sql)) {
+        final colName = match.group(1)!;
+        final alias = match.group(2)!;
+        final stats = numericStats?['$targetTable.$colName'];
+        // Default cnt to 50 (above the minimum sample size threshold) so
+        // existing tests pass without specifying cnt explicitly.
+        row[alias] = stats?['cnt'] ?? 50;
+      }
+
+      return [row];
+    }
+
+    // DISTINCT count queries. The new code uses explicit column lists
+    // instead of SELECT DISTINCT *, so match on SELECT DISTINCT.
+    if (sql.contains('SELECT DISTINCT')) {
       if (distinctCounts != null) {
         for (final entry in distinctCounts.entries) {
           if (sql.contains('"${entry.key}"')) {
@@ -2210,67 +2412,6 @@ Future<List<Map<String, dynamic>>> Function(String sql) _anomalyQuery({
       return [
         <String, dynamic>{'c': 0},
       ];
-    }
-
-    // Log-scale stats query (M2): SELECT AVG(LN(col)) AS log_mean,
-    // AVG(LN(col)*LN(col)) AS log_sqmean. When the test supplies `log_mean` /
-    // `log_sqmean` in numericStats, return them so the log-scale suppression can
-    // be exercised; otherwise return no row (simulates a SQLite build without
-    // math functions — the detector then does not suppress).
-    if (sql.contains('AVG(LN(')) {
-      if (numericStats != null) {
-        for (final entry in numericStats.entries) {
-          final parts = entry.key.split('.');
-          if (sql.contains('"${parts[0]}"') && sql.contains('"${parts[1]}"')) {
-            final lm = entry.value['log_mean'];
-            final ls = entry.value['log_sqmean'];
-            if (lm != null && ls != null) {
-              return [
-                <String, dynamic>{'log_mean': lm, 'log_sqmean': ls},
-              ];
-            }
-          }
-        }
-      }
-      return <Map<String, dynamic>>[];
-    }
-
-    // Second-pass variance query (M2): SELECT AVG((col-mean)*(col-mean)) AS
-    // variance. Has AVG( but not MIN(/MAX(, so it is distinct from the stats
-    // query below. Returns the `variance` supplied in numericStats.
-    if (sql.contains('AS variance') && !sql.contains('MIN(')) {
-      if (numericStats != null) {
-        for (final entry in numericStats.entries) {
-          final parts = entry.key.split('.');
-          if (sql.contains('"${parts[0]}"') && sql.contains('"${parts[1]}"')) {
-            return [
-              <String, dynamic>{'variance': entry.value['variance'] ?? 0.0},
-            ];
-          }
-        }
-      }
-      return [
-        <String, dynamic>{'variance': 0.0},
-      ];
-    }
-
-    // AVG/MIN/MAX numeric stats queries.
-    if (sql.contains('AVG(') && sql.contains('MIN(') && sql.contains('MAX(')) {
-      if (numericStats != null) {
-        for (final entry in numericStats.entries) {
-          final parts = entry.key.split('.');
-          if (sql.contains('"${parts[0]}"') && sql.contains('"${parts[1]}"')) {
-            // Default cnt to 50 (above the minimum sample size
-            // threshold) so existing tests pass without needing
-            // to specify cnt explicitly. Tests that want to
-            // exercise the small-sample guard set cnt directly.
-            final stats = Map<String, dynamic>.of(entry.value);
-            stats.putIfAbsent('cnt', () => 50);
-            return [stats];
-          }
-        }
-      }
-      return <Map<String, dynamic>>[];
     }
 
     // Fall through to shared helper for common patterns

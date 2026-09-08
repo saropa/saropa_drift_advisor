@@ -245,11 +245,35 @@ void main() {
           }
           final tableCounts = {for (final t in tableNames) t: 10};
 
-          final query = mockQueryWithTables(
+          final baseQuery = mockQueryWithTables(
             tableColumns: tableColumns,
             tableCounts: tableCounts,
             tableForeignKeys: {},
           );
+
+          // Wrap the base query to handle the combined scan query
+          // format (returns _row_count instead of c).
+          Future<List<Map<String, dynamic>>> query(String sql) async {
+            // Combined scan query: return a row with _row_count and
+            // zero counts for all column probes.
+            if (sql.contains('_row_count')) {
+              String? targetTable;
+              for (final t in tableNames) {
+                if (sql.contains('"$t"')) {
+                  targetTable = t;
+                  break;
+                }
+              }
+              return [
+                <String, dynamic>{
+                  '_row_count': targetTable != null
+                      ? (tableCounts[targetTable] ?? 0)
+                      : 0,
+                },
+              ];
+            }
+            return baseQuery(sql);
+          }
 
           const timeoutSeconds = 15;
           final stopwatch = Stopwatch()..start();
@@ -263,6 +287,80 @@ void main() {
           expect(
             stopwatch.elapsedMilliseconds,
             lessThan(timeoutSeconds * 1000),
+          );
+        },
+      );
+
+      test(
+        'query count is bounded by O(tables), not O(tables × columns)',
+        () async {
+          // Regression test: the old code issued thousands of serial
+          // per-column queries. The refactored code collapses them into
+          // combined queries, so total query count should scale with
+          // table count, not table × column count.
+          const tableCount = 40;
+          const colsPerTable = 15;
+          final tableNames = List.generate(tableCount, (i) => 'tbl_$i');
+          final tableColumns = <String, List<Map<String, dynamic>>>{};
+          for (final name in tableNames) {
+            tableColumns[name] = List.generate(
+              colsPerTable,
+              (i) => {
+                'name': 'col_$i',
+                'type': i % 3 == 0 ? 'TEXT' : 'INTEGER',
+                'pk': i == 0 ? 1 : 0,
+                'notnull': i < 5 ? 1 : 0,
+              },
+            );
+          }
+          final tableCounts = {for (final t in tableNames) t: 100};
+
+          var queryCount = 0;
+          final baseQuery = mockQueryWithTables(
+            tableColumns: tableColumns,
+            tableCounts: tableCounts,
+            tableForeignKeys: {},
+          );
+
+          // Count every query the detector issues.
+          Future<List<Map<String, dynamic>>> countingQuery(String sql) async {
+            queryCount++;
+            // Handle combined scan query format.
+            if (sql.contains('_row_count')) {
+              String? targetTable;
+              for (final t in tableNames) {
+                if (sql.contains('"$t"')) {
+                  targetTable = t;
+                  break;
+                }
+              }
+              return [
+                <String, dynamic>{
+                  '_row_count': targetTable != null
+                      ? (tableCounts[targetTable] ?? 0)
+                      : 0,
+                },
+              ];
+            }
+            return baseQuery(sql);
+          }
+
+          await AnomalyDetector.getAnomaliesResult(countingQuery);
+
+          // With combined queries: 1 getTableNames + per table:
+          //   1 PRAGMA table_info + 1 combined scan + 1 PRAGMA
+          //   foreign_key_list = 3 per table → total ≈ 1 + 3T.
+          // Tables with a PK (all of them here) skip the duplicate
+          // check. Allow generous headroom for future detectors.
+          // The old code would have issued ~2000 queries for this
+          // schema; the bound here guarantees it stays under 10×T.
+          final maxAllowedQueries = 10 * tableCount;
+          expect(
+            queryCount,
+            lessThanOrEqualTo(maxAllowedQueries),
+            reason:
+                'Query count $queryCount should be O(tables), '
+                'not O(tables × columns). Max allowed: $maxAllowedQueries',
           );
         },
       );
