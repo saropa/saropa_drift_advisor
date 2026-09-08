@@ -212,6 +212,12 @@ A self-describing index of the read API for non-UI clients. Also matched at
 link to this reference, and a `{method, path, description}` list of the
 endpoints an external agent uses to inspect a live database.
 
+Unlike `GET /api/health`, this endpoint is **not** exempt from authentication
+— reaching it at all already implies the caller is authenticated (or no auth
+is configured). `authRequired`/`authScheme` here are of no use for discovery;
+they let a client already talking to several servers confirm which scheme a
+given one expects.
+
 **Response** `200 OK`
 
 ```json
@@ -225,7 +231,9 @@ endpoints an external agent uses to inspect a live database.
   "endpoints": [
     { "method": "GET", "path": "/api/health", "description": "Liveness probe; reports version, flags, capabilities, endpoints." },
     { "method": "POST", "path": "/api/sql", "description": "Run read-only SQL. Body {\"sql\":\"SELECT ...\"}; returns {\"rows\":[...]}." }
-  ]
+  ],
+  "authRequired": true,
+  "authScheme": "bearer"
 }
 ```
 
@@ -238,6 +246,8 @@ endpoints an external agent uses to inspect a live database.
 | `loopbackOnly` | boolean | Whether the server bound 127.0.0.1 only |
 | `docs` | string | URL to this full REST reference (version-pinned on the CDN) |
 | `endpoints` | array | `{ method, path, description }` for each read endpoint |
+| `authRequired` | boolean | Present and `true` when auth is configured; absent otherwise. See the same field on [`GET /api/health`](#get-apihealth). |
+| `authScheme` | string | `"basic"` or `"bearer"`; present whenever `authRequired` is present. |
 
 ---
 
@@ -263,7 +273,7 @@ Body: the raw Markdown content of this document.
 
 Health check. Always succeeds when the server is running. **This endpoint is exempt from authentication** so unauthenticated probes can detect the server and negotiate auth.
 
-When auth is configured and the request carries no valid credentials, a **reduced** payload is returned: only `ok`, `version`, `schemaVersion`, and `authRequired`. Internal fields (`capabilities`, `endpoints`, `writeEnabled`, etc.) are withheld so the unauthenticated response leaks strictly less than a 401 would. This response also carries the same `WWW-Authenticate` header a 401 would (see [Authentication](#authentication)) so HTTP-spec-aware clients get the standard signal alongside the JSON field.
+When auth is configured and the request carries no valid credentials, a **reduced** payload is returned: only `ok`, `version`, `schemaVersion`, `authRequired`, and `authScheme`. Internal fields (`capabilities`, `endpoints`, `writeEnabled`, etc.) are withheld so the unauthenticated response leaks strictly less than a 401 would. This response also carries the same `WWW-Authenticate` header a 401 would (see [Authentication](#authentication)) so HTTP-spec-aware clients get the standard signal alongside the JSON fields.
 
 **Response** `200 OK` — unauthenticated, auth configured (reduced payload):
 
@@ -272,7 +282,8 @@ When auth is configured and the request carries no valid credentials, a **reduce
   "ok": true,
   "version": "4.4.0",
   "schemaVersion": 1,
-  "authRequired": true
+  "authRequired": true,
+  "authScheme": "bearer"
 }
 ```
 
@@ -290,7 +301,8 @@ When auth is configured and the request carries no valid credentials, a **reduce
   "loopbackOnly": true,
   "capabilities": ["issues"],
   "endpoints": ["/api/health", "/api/", "/api/sql", "/api/sql/explain", "/api/tables", "/api/table/", "/api/schema", "/api/schema/metadata", "/api/views", "/api/issues", "/api/generation"],
-  "authRequired": true
+  "authRequired": true,
+  "authScheme": "bearer"
 }
 ```
 
@@ -315,6 +327,7 @@ When auth is configured and the request carries no valid credentials, a **reduce
 |-------|------|-------------|
 | `ok` | boolean | Always `true` |
 | `authRequired` | boolean | Present and `true` when the server requires credentials (Bearer or Basic) for non-health endpoints. Absent when no auth is configured. Lets a probe distinguish "server found, auth required" from "open server". |
+| `authScheme` | string | `"basic"` or `"bearer"`, naming which `Authorization` scheme this server expects. Present whenever `authRequired` is present (i.e. whenever auth is configured); absent otherwise. Lets a client pick the right scheme without guessing or parsing `WWW-Authenticate`. |
 | `extensionConnected` | boolean | Whether a VS Code extension client has connected recently (detected via `X-Drift-Client: vscode` header). Omitted in reduced payload. |
 | `version` | string | Package version from `pubspec.yaml` |
 | `schemaVersion` | int | Saropa Diagnostic Envelope version (see [`GET /api/issues`](#get-apiissues)). Lets a suite client (Saropa Lints, Saropa Log Capture) confirm the issue shape before parsing. Bumped only on a breaking change; consumers ignore unknown fields and refuse a higher major. |

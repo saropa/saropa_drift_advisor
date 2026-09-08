@@ -169,6 +169,14 @@ final class ServerContext {
   /// configured while [AuthHandler.isAuthenticated]'s own `isNotEmpty` guard
   /// could never succeed, locking out every request. Matching that guard
   /// here keeps the two in agreement.
+  ///
+  /// Deliberately asymmetric — mirrors [AuthHandler.isAuthenticated] exactly:
+  /// the username must be non-empty, but the password is only required to be
+  /// non-null. A configured *empty* password (`basicAuthPassword: ''` with a
+  /// real username) is a legitimate, if weak, dev-tunnel configuration —
+  /// `isAuthenticated` lets a request with an empty Basic password through
+  /// when that is genuinely what was configured, so this getter must agree
+  /// that auth is configured in that case rather than treating it as absent.
   bool get _hasBasicAuth =>
       basicAuthUser != null &&
       basicAuthUser!.isNotEmpty &&
@@ -180,6 +188,29 @@ final class ServerContext {
   /// payload-reduction decision — see
   /// BUG_INFRA_AUTH_TOKEN_BLOCKS_SIBLING_SERVER_DISCOVERY.
   bool get authConfigured => authToken != null || _hasBasicAuth;
+
+  /// `'basic'` or `'bearer'` when [authConfigured], else null. Lets a client
+  /// that already knows auth is required (from [authConfigured] /
+  /// `authRequired` in a response body) pick the right `Authorization`
+  /// scheme without guessing or parsing `WWW-Authenticate`. Basic takes
+  /// precedence when both are configured, matching [wwwAuthenticateChallenge]
+  /// and [AuthHandler]'s existing precedence.
+  String? get authScheme {
+    if (_hasBasicAuth) return 'basic';
+    if (authToken != null) return 'bearer';
+    return null;
+  }
+
+  /// `{authRequired: true, authScheme: ...}` when [authConfigured], else an
+  /// empty map. Single source of truth for the `authRequired`/`authScheme`
+  /// pair spread into `GET /api/health` and `GET /api/` response bodies, so
+  /// both endpoints stay in lockstep as this pair evolves.
+  Map<String, dynamic> get authStatusFields => authConfigured
+      ? <String, dynamic>{
+          ServerConstants.jsonKeyAuthRequired: true,
+          ServerConstants.jsonKeyAuthScheme: authScheme,
+        }
+      : const <String, dynamic>{};
 
   /// The `WWW-Authenticate` challenge for this server's configured scheme.
   /// Single source of truth for [AuthHandler.sendUnauthorized] (401s) and

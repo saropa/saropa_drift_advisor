@@ -99,8 +99,9 @@ void main() {
         contains('issues'),
         reason: 'Health must advertise GET /api/issues support',
       );
-      // authRequired absent when no auth configured.
+      // authRequired/authScheme absent when no auth configured.
       expect(r.body.containsKey('authRequired'), isFalse);
+      expect(r.body.containsKey('authScheme'), isFalse);
     });
 
     test('GET /api/health writeEnabled when writeQuery configured', () async {
@@ -301,6 +302,7 @@ void main() {
         expect(r.status, HttpStatus.ok);
         expect(r.body['ok'], isTrue);
         expect(r.body['authRequired'], isTrue);
+        expect(r.body['authScheme'], 'bearer');
         expect(r.body['version'], isA<String>());
         // Internal fields withheld from unauthenticated response.
         expect(r.body.containsKey('capabilities'), isFalse);
@@ -319,10 +321,25 @@ void main() {
         expect(r.status, HttpStatus.ok);
         expect(r.body['ok'], isTrue);
         expect(r.body['authRequired'], isTrue);
+        expect(r.body['authScheme'], 'bearer');
         expect(r.body['capabilities'], isA<List<dynamic>>());
         expect(r.body['endpoints'], isA<List<dynamic>>());
         expect(r.body.containsKey('writeEnabled'), isTrue);
         expect(r.body.containsKey('loopbackOnly'), isTrue);
+      });
+
+      test('GET /api/ index includes authRequired/authScheme when '
+          'authenticated', () async {
+        // The index route is not auth-exempt, so this is only reachable
+        // once authenticated.
+        final r = await httpGet(
+          port!,
+          '/api/',
+          headers: {'Authorization': 'Bearer secret-token-123'},
+        );
+        expect(r.status, HttpStatus.ok);
+        expect(r.body['authRequired'], isTrue);
+        expect(r.body['authScheme'], 'bearer');
       });
     });
 
@@ -365,6 +382,16 @@ void main() {
         );
         expect(r.status, HttpStatus.unauthorized);
       });
+
+      test(
+        'health reports authScheme "basic" when Basic auth is set',
+        () async {
+          final r = await httpGet(port!, '/api/health');
+          expect(r.status, HttpStatus.ok);
+          expect(r.body['authRequired'], isTrue);
+          expect(r.body['authScheme'], 'basic');
+        },
+      );
     });
 
     group('no auth configured', () {

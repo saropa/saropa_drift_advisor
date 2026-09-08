@@ -402,6 +402,12 @@ abstract final class ServerConstants {
   /// See BUG_INFRA_AUTH_TOKEN_BLOCKS_SIBLING_SERVER_DISCOVERY.
   static const String jsonKeyAuthRequired = 'authRequired';
 
+  /// Health + API-index field: `"basic"` or `"bearer"` when [jsonKeyAuthRequired]
+  /// is true, naming which `Authorization` scheme this server expects — lets a
+  /// client pick the right scheme without guessing or parsing `WWW-Authenticate`.
+  /// Absent when auth is not configured. See ServerContext.authScheme.
+  static const String jsonKeyAuthScheme = 'authScheme';
+
   /// Health + API-index field listing the server's read endpoints so a non-UI
   /// client can discover the API from one response (E1 discoverability).
   static const String jsonKeyEndpoints = 'endpoints';

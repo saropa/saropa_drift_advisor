@@ -90,9 +90,14 @@ final class GenerationHandler {
   /// GET /api/health — returns {"ok": true}.
   ///
   /// When [authenticated] is false and auth is configured, returns a reduced
-  /// payload (ok, version, schemaVersion, authRequired) so unauthenticated
-  /// probes can detect the server without leaking internal configuration.
-  /// `authRequired` is also included in the full (authenticated) payload —
+  /// payload (ok, version, schemaVersion, authRequired, authScheme) so
+  /// unauthenticated probes can detect the server without leaking internal
+  /// configuration. `version` and `schemaVersion` are deliberately still
+  /// exposed pre-auth — this is a local dev/debug tool advertising its own
+  /// package version for discovery, the same information a 401 would already
+  /// reveal via response shape/behavior differences across versions, not a
+  /// hardened production service where version fingerprinting is a material
+  /// concern. `authRequired` is also included in the full (authenticated) payload —
   /// deliberately, so a client that always reads the full shape (rather than
   /// branching on payload size) still learns the server's auth posture, and
   /// so adding a field to the reduced-payload allowlist later does not
@@ -136,7 +141,7 @@ final class GenerationHandler {
           ServerConstants.jsonKeyVersion: ServerConstants.packageVersion,
           ServerConstants.jsonKeySchemaVersion:
               ServerConstants.issuesSchemaVersion,
-          ServerConstants.jsonKeyAuthRequired: true,
+          ..._ctx.authStatusFields,
         }),
       );
       await res.close();
@@ -179,7 +184,7 @@ final class GenerationHandler {
         ServerConstants.jsonKeyEndpoints: ServerConstants.healthEndpoints,
         // Signal whether this server requires auth, so the full payload
         // also carries the field for consistent parsing.
-        if (_ctx.authConfigured) ServerConstants.jsonKeyAuthRequired: true,
+        ..._ctx.authStatusFields,
       }),
     );
     await res.close();
@@ -192,6 +197,13 @@ final class GenerationHandler {
   /// external agent uses to inspect a live database. This closes the
   /// discoverability gap where a headless client had to grep the bundled web
   /// assets to learn the `/api/sql` contract (E1).
+  ///
+  /// Unlike health, this route is NOT auth-exempt (see the scope note on
+  /// `isHealthPath` in router.dart), so `authRequired`/`authScheme` here are
+  /// only ever seen by a caller who is already authenticated (or a server
+  /// with no auth configured) — of no use for discovery, but useful for a
+  /// client managing several servers to confirm which scheme *this* one
+  /// expects without re-deriving it from how it originally authenticated.
   Future<void> sendApiIndex(HttpResponse response) async {
     final res = response;
     _ctx.setJsonHeaders(res);
@@ -207,6 +219,7 @@ final class GenerationHandler {
             '${ServerConstants.cdnBaseUrl}@v'
             '${ServerConstants.packageVersion}/doc/API.md',
         ServerConstants.jsonKeyEndpoints: ServerConstants.apiIndexEndpoints,
+        ..._ctx.authStatusFields,
       }),
     );
     await res.close();
