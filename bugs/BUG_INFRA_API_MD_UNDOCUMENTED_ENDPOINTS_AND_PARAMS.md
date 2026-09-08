@@ -1,6 +1,6 @@
 # BUG: `doc/API.md` omits `GET /api/compare/{id}`, the `?slowThresholdMs=` parameter, and points at a file that no longer holds the code
 
-**Status: Open**
+**Status: Partially Fixed**
 
 Created: 2026-09-02
 Component: Documentation / Server
@@ -233,7 +233,28 @@ grep -c "slowThresholdMs" lib/src/server/performance_handler.dart   # 5
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+### Fixed (doc/API.md)
+
+1. **Stale implementation pointer** (line 567): `assets/web/app.js` → `assets/web/sql-runner.ts`.
+2. **Undocumented `slowThresholdMs` parameter**: added a Query Parameters table to `GET /api/analytics/performance` documenting the optional `slowThresholdMs` int param (default 100).
+3. **Missing `slowThresholdMs` response field**: added to the example JSON and field table as an echo of the requested threshold.
+4. **Hardcoded threshold in `slowQueries` description**: changed from "Queries exceeding 100 ms" to "Queries exceeding `slowThresholdMs`".
+
+### Rejected from Fix Sketch
+
+- **Fix Sketch item 1 (`GET /api/compare/{id}` section):** The router's prefix match (`pathApiComparePrefix`) routes all `/api/compare/*` paths to `handleCompareReport`, but the handler (`compare_handler.dart:45-46`) explicitly rejects anything that isn't exactly `/api/compare/report` with a 404. There is no working `GET /api/compare/{id}` endpoint — the router comment is misleading but the behaviour is correct. No doc section added.
+- **Fix Sketch item 4 (dead `pathApiCompareReport` constant):** The constant IS used — `compare_handler.dart:45-46` references it to validate the exact path. The bug's `grep` searched only `router.dart` and missed the handler. No change needed.
+- **Fix Sketch item 5 (doc gate script):** Out of scope for a doc fix; deferred.
+
+---
+
+## Finish Report (2026-09-07)
+
+Three of the five documented gaps were genuine drift between `doc/API.md` and the server implementation; two claims in the original report (the `GET /api/compare/{id}` endpoint and the "dead" `pathApiCompareReport` constant) did not hold up against `compare_handler.dart` and were rejected with evidence rather than fixed.
+
+`doc/API.md` was corrected in three places: the `?slowThresholdMs=` query parameter and its response-field echo are now documented on `GET /api/analytics/performance`, the `slowQueries` field description no longer hardcodes a fixed 100 ms cutoff, and the SQL-runner implementation pointer was repointed from the pre-migration `assets/web/app.js` to `assets/web/sql-runner.ts`. A subsequent review pass (during `/finish`) also caught a fourth, unrelated doc/code mismatch introduced by other in-flight work in the same file — the health-endpoint example unconditionally showed `authRequired: true` when `generation_handler.dart` only emits that field `if (authConfigured)` — split into two labeled response examples (auth configured vs. not) to match the field table's own "absent when no auth is configured" note.
+
+Item 5 of the fix sketch (a CI doc-drift gate comparing routed vs. documented `/api/...` paths) remains unimplemented; it is a scripting task, not a doc fix, and is left for separate follow-up. Status stays **Partially Fixed** rather than **Fixed** because of this open item and the two rejected sketch items above.
 
 ---
 

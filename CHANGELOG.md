@@ -51,6 +51,25 @@ browse source on
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Suppress a diagnostic by column name across every table** — a new `driftViewer.diagnostics.columnNameExclusions` setting silences a rule wherever a given column name occurs, without listing every `table.column` pair. Nullable-by-design columns that recur across a schema (`lastModified`, `updatedAt`) no longer need a `// drift-advisor:ignore` on each table that carries them. Matching is case-insensitive.
+
+### Improved
+
+- **Anomaly scan collapses ~2 000 serial queries into ~5 per table** — NULL counts, empty-string counts, and outlier pass-1 aggregates are now folded into a single combined SELECT per table; variance queries are similarly combined. A 40-table, 15-column schema drops from ~2 000 serial full-table scans to ~200, eliminating the multi-minute hang that wedged every other endpoint. Tables with a primary key skip the duplicate-row check entirely (the answer is provably zero). BLOB columns are excluded from the DISTINCT projection. A per-statement timeout and a 60-second wall-clock budget prevent any single scan from blocking the connection indefinitely.
+
+### Fixed
+
+- **`drift-advisor:ignore` false positive with multi-line rationale** — a `// drift-advisor:ignore code -- rationale` whose rationale wrapped onto continuation comment lines failed to suppress the diagnostic. Two independent fixes: the directive regex now tolerates arbitrary rationale text (`:`, parentheses, etc.) by stripping everything after ` -- `; and the target-line resolver now skips comment-only lines between the directive and the code it targets.
+- **Auth-protected servers invisible to Saropa Lints discovery** — `GET /api/health` was blocked by the auth gate, so unauthenticated probes (e.g. Saropa Lints integration) treated an authenticated server as absent. Health is now exempt from auth; when credentials are not supplied, it returns a reduced payload (`ok`, `version`, `schemaVersion`, `authRequired: true`) that leaks no internal configuration. The full payload is returned when authenticated. New `authRequired` field documented in `doc/API.md`.
+- **`doc/API.md` — document `slowThresholdMs`** — the `GET /api/analytics/performance` endpoint accepts an optional `?slowThresholdMs=<int>` query parameter (default 100) and echoes it in the response, but neither was documented; the `slowQueries` description hardcoded "100 ms" as if the threshold were fixed.
+- **`doc/API.md` — stale implementation pointer** — the SQL-from-query-string reference pointed at the pre-migration `assets/web/app.js` instead of `assets/web/sql-runner.ts`.
+
+---
+
 ## [4.4.0]
 
 A SQL box now lives in the sidebar, so quick queries no longer need the full notebook panel. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.4.0/CHANGELOG.md)

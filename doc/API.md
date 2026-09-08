@@ -121,7 +121,7 @@ See [API Index (`GET /api/`)](#api-index) below.
 
 ## Authentication
 
-Authentication is **optional**. When `authToken` or `basicAuthUser`/`basicAuthPassword` are passed to `DriftDebugServer.start()`, **all** requests require one of:
+Authentication is **optional**. When `authToken` or `basicAuthUser`/`basicAuthPassword` are passed to `DriftDebugServer.start()`, **all** requests except `GET /api/health` require one of:
 
 | Scheme | Header |
 |--------|--------|
@@ -253,9 +253,40 @@ Body: the raw Markdown content of this document.
 
 ### `GET /api/health`
 
-Health check. Always succeeds when the server is running.
+Health check. Always succeeds when the server is running. **This endpoint is exempt from authentication** so unauthenticated probes can detect the server and negotiate auth.
 
-**Response** `200 OK`
+When auth is configured and the request carries no valid credentials, a **reduced** payload is returned: only `ok`, `version`, `schemaVersion`, and `authRequired`. Internal fields (`capabilities`, `endpoints`, `writeEnabled`, etc.) are withheld so the unauthenticated response leaks strictly less than a 401 would.
+
+**Response** `200 OK` — unauthenticated, auth configured (reduced payload):
+
+```json
+{
+  "ok": true,
+  "version": "4.4.0",
+  "schemaVersion": 1,
+  "authRequired": true
+}
+```
+
+**Response** `200 OK` — authenticated (full payload, auth configured):
+
+```json
+{
+  "ok": true,
+  "extensionConnected": false,
+  "version": "4.4.0",
+  "schemaVersion": 1,
+  "writeEnabled": false,
+  "compareEnabled": false,
+  "monitoringEnabled": true,
+  "loopbackOnly": true,
+  "capabilities": ["issues"],
+  "endpoints": ["/api/health", "/api/", "/api/sql", "/api/sql/explain", "/api/tables", "/api/table/", "/api/schema", "/api/schema/metadata", "/api/views", "/api/issues", "/api/generation"],
+  "authRequired": true
+}
+```
+
+**Response** `200 OK` — no auth configured (full payload, `authRequired` absent):
 
 ```json
 {
@@ -275,15 +306,16 @@ Health check. Always succeeds when the server is running.
 | Field | Type | Description |
 |-------|------|-------------|
 | `ok` | boolean | Always `true` |
-| `extensionConnected` | boolean | Whether a VS Code extension client has connected recently (detected via `X-Drift-Client: vscode` header) |
+| `authRequired` | boolean | Present and `true` when the server requires credentials (Bearer or Basic) for non-health endpoints. Absent when no auth is configured. Lets a probe distinguish "server found, auth required" from "open server". |
+| `extensionConnected` | boolean | Whether a VS Code extension client has connected recently (detected via `X-Drift-Client: vscode` header). Omitted in reduced payload. |
 | `version` | string | Package version from `pubspec.yaml` |
 | `schemaVersion` | int | Saropa Diagnostic Envelope version (see [`GET /api/issues`](#get-apiissues)). Lets a suite client (Saropa Lints, Saropa Log Capture) confirm the issue shape before parsing. Bumped only on a breaking change; consumers ignore unknown fields and refuse a higher major. |
-| `writeEnabled` | boolean | Whether write endpoints (`/api/cell/update`, `/api/edits/apply`, `/api/import`) are configured |
-| `compareEnabled` | boolean | Whether a comparison database (`queryCompare`) is configured |
-| `monitoringEnabled` | boolean | Global monitoring & logging kill-switch state. `false` = the server is deliberately dormant: no query recording, timing capture, or change-detection sweeps, and every data-inspection endpoint answers `403 Forbidden`. Health keeps answering so probes can tell "dormant" from "gone". Toggle via [`POST /api/monitoring`](#post-apimonitoring). |
-| `loopbackOnly` | boolean | Whether the server bound 127.0.0.1 only. Lets a remote probe tell "up but loopback-only" from "absent" |
-| `capabilities` | array of strings | Server feature flags. Contains `"issues"` when `GET /api/issues` is supported; clients can use this to prefer the merged issues endpoint over separate index-suggestions and anomalies calls. |
-| `endpoints` | array of strings | Compact list of read endpoint paths (the richer form is at [`GET /api/`](#api-index)) |
+| `writeEnabled` | boolean | Whether write endpoints (`/api/cell/update`, `/api/edits/apply`, `/api/import`) are configured. Omitted in reduced payload. |
+| `compareEnabled` | boolean | Whether a comparison database (`queryCompare`) is configured. Omitted in reduced payload. |
+| `monitoringEnabled` | boolean | Global monitoring & logging kill-switch state. `false` = the server is deliberately dormant: no query recording, timing capture, or change-detection sweeps, and every data-inspection endpoint answers `403 Forbidden`. Health keeps answering so probes can tell "dormant" from "gone". Toggle via [`POST /api/monitoring`](#post-apimonitoring). Omitted in reduced payload. |
+| `loopbackOnly` | boolean | Whether the server bound 127.0.0.1 only. Lets a remote probe tell "up but loopback-only" from "absent". Omitted in reduced payload. |
+| `capabilities` | array of strings | Server feature flags. Contains `"issues"` when `GET /api/issues` is supported; clients can use this to prefer the merged issues endpoint over separate index-suggestions and anomalies calls. Omitted in reduced payload. |
+| `endpoints` | array of strings | Compact list of read endpoint paths (the richer form is at [`GET /api/`](#api-index)). Omitted in reduced payload. |
 
 **Note:** The VS Code extension’s **port discovery** treats a host as a Saropa Drift server only when **`ok` is true and `version` is a non-empty string**, so it does not need a follow-up schema request per port.
 
@@ -564,7 +596,7 @@ Loading the viewer in a browser with a **`sql`** query parameter opens the **Run
 
 **Privacy / limits:** The query string may appear in the address bar and browser history until stripped; avoid secrets in `?sql=`. Very long SQL may exceed browser or proxy URL limits—use **`POST /api/sql`** for programmatic execution instead.
 
-**Implementation:** `assets/web/app.js` (`applySqlFromQueryString` inside `initSqlRunner`).
+**Implementation:** `assets/web/sql-runner.ts` (`applySqlFromQueryString`).
 
 <a id="api-post-sql"></a>
 
@@ -1526,6 +1558,12 @@ When a host relationship manifest is supplied (via `startDriftViewer`), manifest
 
 Returns query performance statistics collected since server start (or last clear).
 
+**Query Parameters**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `slowThresholdMs` | int | `100` | Minimum duration (ms) for a query to be classified as "slow" |
+
 **Response** `200 OK`
 
 ```json
@@ -1533,6 +1571,7 @@ Returns query performance statistics collected since server start (or last clear
   "totalQueries": 150,
   "totalDurationMs": 2340,
   "avgDurationMs": 16,
+  "slowThresholdMs": 100,
   "slowQueries": [
     {
       "sql": "SELECT * FROM large_table",
@@ -1566,7 +1605,8 @@ Returns query performance statistics collected since server start (or last clear
 | `totalQueries` | int | Total number of queries recorded |
 | `totalDurationMs` | int | Sum of all query durations |
 | `avgDurationMs` | int | Average duration (rounded) |
-| `slowQueries` | array | Queries exceeding 100 ms, sorted by duration desc (max 20) |
+| `slowThresholdMs` | int | Echo of the requested threshold (default 100) |
+| `slowQueries` | array | Queries exceeding `slowThresholdMs`, sorted by duration desc (max 20) |
 | `queryPatterns` | array | Grouped query patterns, sorted by total duration desc (max 20) |
 | `recentQueries` | array | Most recent queries in reverse chronological order (max 50). Each has a `source` of `app`, `browser`, or `internal`. |
 | `hint` | string | Present ONLY when no `source: "app"` query has been captured — advises installing a Drift `QueryInterceptor` (via `DriftDebugServer.reportAppQuery`) so the report reflects real app traffic. Clears once any app query is recorded. Absent otherwise. |
