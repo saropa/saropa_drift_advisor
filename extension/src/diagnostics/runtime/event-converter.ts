@@ -3,7 +3,7 @@
  */
 
 import * as vscode from 'vscode';
-import type { IDiagnosticIssue } from '../diagnostic-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 import type { IRuntimeEvent } from './runtime-event-store';
 
 /**

@@ -1,6 +1,6 @@
 # Saropa Drift Advisor — REST API Reference
 
-**API version:** 4.4.0 (synced with `ServerConstants.packageVersion`)
+**API version:** 4.4.1 (synced with `ServerConstants.packageVersion`)
 **Base URL:** `http://localhost:{port}` (default port: **8642**)
 
 > **Finding a running server (non-UI clients):** on startup the server writes a
@@ -64,7 +64,7 @@ user's home directory:
 {
   "host": "127.0.0.1",
   "port": 8642,
-  "version": "4.4.0",
+  "version": "4.4.1",
   "schemaVersion": 1,
   "writeEnabled": false,
   "loopbackOnly": true,
@@ -223,11 +223,11 @@ given one expects.
 ```json
 {
   "name": "Saropa Drift Advisor",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "schemaVersion": 1,
   "writeEnabled": false,
   "loopbackOnly": true,
-  "docs": "https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v4.4.0/doc/API.md",
+  "docs": "https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v4.4.1/doc/API.md",
   "endpoints": [
     { "method": "GET", "path": "/api/health", "description": "Liveness probe; reports version, flags, capabilities, endpoints." },
     { "method": "POST", "path": "/api/sql", "description": "Run read-only SQL. Body {\"sql\":\"SELECT ...\"}; returns {\"rows\":[...]}." }
@@ -280,7 +280,7 @@ When auth is configured and the request carries no valid credentials, a **reduce
 ```json
 {
   "ok": true,
-  "version": "4.4.0",
+  "version": "4.4.1",
   "schemaVersion": 1,
   "authRequired": true,
   "authScheme": "bearer"
@@ -293,7 +293,7 @@ When auth is configured and the request carries no valid credentials, a **reduce
 {
   "ok": true,
   "extensionConnected": false,
-  "version": "4.4.0",
+  "version": "4.4.1",
   "schemaVersion": 1,
   "writeEnabled": false,
   "compareEnabled": false,
@@ -312,7 +312,7 @@ When auth is configured and the request carries no valid credentials, a **reduce
 {
   "ok": true,
   "extensionConnected": false,
-  "version": "4.4.0",
+  "version": "4.4.1",
   "schemaVersion": 1,
   "writeEnabled": false,
   "compareEnabled": false,

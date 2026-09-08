@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import type { TableMetadata } from '../../api-types';
 import type { IDartTable } from '../../schema-diff/dart-schema';
-import type { IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
+import type { IDartFileInfo } from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 import { TableNameMapper } from '../../codelens/table-name-mapper';
 
 /**

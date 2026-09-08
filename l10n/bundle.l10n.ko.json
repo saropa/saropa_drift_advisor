@@ -72,6 +72,8 @@
   "Annotations": "주석",
   "Anomalies": "이상징후",
   "Anomaly Detection": "이상 감지",
+  "Anomaly scan stopped early after hitting its time budget — some tables were not checked. Findings below are partial.": "어놀러지 스캔은 시간 예산에 도달한 후 조기에 중지되었습니다. 일부 테이블이 확인되지 않았습니다. 아래의 결과는 부분적입니다.",
+  "Anomaly scan was partial — open Drift Health for details": "비정상 스캔은 부분적으로  ⁇  열려 있었다 Drift 자세한 내용은 건강.",
   "Any data changes": "데이터 변경사항",
   "Append": "부가",
   "Applied the {0} statement in one transaction.": "한 트랜잭션에서 {0} 문장을 적용했습니다.",

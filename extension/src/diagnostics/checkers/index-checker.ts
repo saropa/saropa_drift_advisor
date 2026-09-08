@@ -13,7 +13,8 @@
 
 import * as vscode from 'vscode';
 import type { IndexSuggestion } from '../../api-types';
-import type { IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
+import type { IDartFileInfo } from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
 
 /**

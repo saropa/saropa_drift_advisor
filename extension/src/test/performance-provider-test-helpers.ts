@@ -7,7 +7,7 @@
  */
 
 import { Uri } from './vscode-mock-classes';
-import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-types';
+import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-context-types';
 import { emptySuppressions } from '../diagnostics/suppression';
 import type { IDartTable } from '../schema-diff/dart-schema';
 

@@ -15,7 +15,7 @@ import {
   fireSelectionChanged,
 } from './vscode-mock';
 import { registerSuppressionCommands } from '../diagnostics/suppression-commands';
-import { DIAGNOSTIC_SOURCE } from '../diagnostics/diagnostic-types';
+import { DIAGNOSTIC_SOURCE } from '../diagnostics/diagnostic-defaults';
 
 const FILE_URI = Uri.parse('file:///lib/database/tables/user_data_table.dart');
 // suppressInColumn/suppressInFile re-parse `document.uri.toString()` via

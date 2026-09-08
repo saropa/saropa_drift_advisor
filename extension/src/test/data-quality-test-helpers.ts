@@ -1,4 +1,4 @@
-import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-types';
+import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-context-types';
 
 /**
  * Builds an IDiagnosticContext with a stubbed API client for DataQualityProvider

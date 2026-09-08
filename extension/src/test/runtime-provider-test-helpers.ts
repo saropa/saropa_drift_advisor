@@ -7,7 +7,7 @@
  * file stays comfortably under 300 lines.
  */
 
-import type { IDiagnosticContext } from '../diagnostics/diagnostic-types';
+import type { IDiagnosticContext } from '../diagnostics/diagnostic-context-types';
 
 // ───────────────────────────────────────────────────────────
 // Pubspec fixture strings

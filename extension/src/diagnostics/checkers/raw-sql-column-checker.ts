@@ -20,7 +20,8 @@ import * as vscode from 'vscode';
 import type { TableMetadata } from '../../api-types';
 import { TableNameMapper } from '../../codelens/table-name-mapper';
 import { findClosestMatches } from '../../terminal/fuzzy-match';
-import type { IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
+import type { IDartFileInfo } from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 import { extractRawSqlColumnRefs } from './raw-sql-parser';
 
 /** Convert an absolute character offset into a zero-based line/character. */

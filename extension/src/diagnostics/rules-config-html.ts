@@ -15,7 +15,7 @@
 
 import { t } from '../l10n';
 import { escapeHtml } from '../shared-utils';
-import type { DiagnosticCategory } from './diagnostic-types';
+import type { DiagnosticCategory } from './diagnostic-code-types';
 import { RULES_CONFIG_CLIENT_SCRIPT } from './rules-config-client';
 import { RULES_CONFIG_STYLES } from './rules-config-styles';
 

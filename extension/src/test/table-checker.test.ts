@@ -11,7 +11,8 @@
 
 import * as assert from 'assert';
 import { Uri } from './vscode-mock-classes';
-import type { IDartFileInfo, IDiagnosticIssue } from '../diagnostics/diagnostic-types';
+import type { IDartFileInfo } from '../diagnostics/diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostics/diagnostic-issue-types';
 import { emptySuppressions } from '../diagnostics/suppression';
 import type { TableMetadata } from '../api-types';
 import { createDartFile } from './diagnostic-test-helpers';

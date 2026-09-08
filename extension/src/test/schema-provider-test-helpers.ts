@@ -2,7 +2,7 @@
  * Test helpers for SchemaProvider tests.
  */
 
-import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-types';
+import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-context-types';
 
 export interface CreateContextOptions {
   dartFiles: IDartFileInfo[];

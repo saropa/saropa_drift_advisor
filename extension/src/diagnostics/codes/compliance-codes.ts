@@ -5,7 +5,7 @@
  */
 
 import * as vscode from 'vscode';
-import type { IDiagnosticCode } from '../diagnostic-types';
+import type { IDiagnosticCode } from '../diagnostic-code-types';
 
 export const COMPLIANCE_CODES: Record<string, IDiagnosticCode> = {
   'compliance-table-naming': {

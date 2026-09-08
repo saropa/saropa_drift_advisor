@@ -3,7 +3,7 @@
  */
 
 import * as vscode from 'vscode';
-import type { IDiagnosticCode } from '../diagnostic-types';
+import type { IDiagnosticCode } from '../diagnostic-code-types';
 
 export const PERFORMANCE_CODES: Record<string, IDiagnosticCode> = {
   'full-table-scan': {

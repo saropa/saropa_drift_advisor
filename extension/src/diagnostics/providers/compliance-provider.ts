@@ -11,12 +11,9 @@ import type {
   ComplianceSeverity,
   IComplianceViolation,
 } from '../../compliance/compliance-types';
-import type {
-  DiagnosticCategory,
-  IDiagnosticContext,
-  IDiagnosticIssue,
-  IDiagnosticProvider,
-} from '../diagnostic-types';
+import type { DiagnosticCategory } from '../diagnostic-code-types';
+import type { IDiagnosticContext, IDiagnosticProvider } from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
 
 export class ComplianceProvider implements IDiagnosticProvider {

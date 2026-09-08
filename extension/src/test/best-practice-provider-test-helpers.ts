@@ -6,7 +6,7 @@
  * same `createContext` factory without duplication.
  */
 
-import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-types';
+import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-context-types';
 
 /**
  * Build a minimal `IDiagnosticContext` for BestPracticeProvider tests.

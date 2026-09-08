@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { DIAGNOSTIC_SOURCE } from './diagnostic-types';
+import { DIAGNOSTIC_SOURCE } from './diagnostic-defaults';
 
 /** Minimal interface for code action delegation (avoids circular dependency). */
 export interface ICodeActionDelegate {

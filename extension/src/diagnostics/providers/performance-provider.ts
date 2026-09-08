@@ -5,12 +5,9 @@
  */
 
 import * as vscode from 'vscode';
-import type {
-  DiagnosticCategory,
-  IDiagnosticContext,
-  IDiagnosticIssue,
-  IDiagnosticProvider,
-} from '../diagnostic-types';
+import type { DiagnosticCategory } from '../diagnostic-code-types';
+import type { IDiagnosticContext, IDiagnosticProvider } from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 import { checkNPlusOnePatterns } from '../checkers/n-plus-one-checker';
 import { checkQueryPatterns } from '../checkers/query-pattern-checker';
 import { checkSlowQueries } from '../checkers/slow-query-checker';

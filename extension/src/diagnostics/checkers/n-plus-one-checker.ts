@@ -7,7 +7,8 @@
 
 import * as vscode from 'vscode';
 import type { PerformanceData, QueryEntry } from '../../api-types';
-import { createTypedIssue, type ICallerPinnedData, type IDartFileInfo, type IDiagnosticIssue } from '../diagnostic-types';
+import { createTypedIssue, type ICallerPinnedData, type IDiagnosticIssue } from '../diagnostic-issue-types';
+import type { IDartFileInfo } from '../diagnostic-context-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
 import { areSimilarQueries, extractTableFromSql, isReadQuery } from '../utils/sql-utils';
 import { resolveCallerLocation } from '../utils/caller-location-utils';

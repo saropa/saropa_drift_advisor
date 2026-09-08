@@ -1,0 +1,336 @@
+import * as assert from 'assert';
+import * as sinon from 'sinon';
+import { DiagnosticSeverity } from './vscode-mock-classes';
+import { resetMocks } from './vscode-mock';
+import { DataQualityProvider } from '../diagnostics/providers/data-quality-provider';
+import { createDartFile } from './diagnostic-test-helpers';
+import { createContext } from './data-quality-test-helpers';
+
+describe('DataQualityProvider null-rate', () => {
+  let provider: DataQualityProvider;
+  let fetchStub: sinon.SinonStub;
+
+  beforeEach(() => {
+    fetchStub = sinon.stub(global, 'fetch');
+    fetchStub.resolves(new Response(JSON.stringify([]), { status: 200 }));
+
+    provider = new DataQualityProvider();
+    resetMocks();
+  });
+
+  afterEach(() => {
+    provider.dispose();
+    sinon.restore();
+  });
+
+  describe('collectDiagnostics', () => {
+    it('should report high-null-rate for columns with >50% nulls', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'bio'])],
+        tables: [
+          {
+            name: 'users',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'bio', type: 'TEXT', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { bio: 75 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'high-null-rate');
+      assert.ok(issue, 'Should report high-null-rate');
+      assert.ok(issue.message.includes('bio'));
+      assert.ok(issue.message.includes('75%'));
+      // High-null-rate is advisory, reported at Information (not a defect).
+      assert.strictEqual(issue.severity, DiagnosticSeverity.Information);
+    });
+
+    it('should report unused-column (not high-null-rate) for a 100% NULL column', async () => {
+      // A column where every row is NULL is "unused" — a distinct finding from
+      // a merely high null rate. It must surface as unused-column so users can
+      // act on / suppress it separately.
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'middle_name'])],
+        tables: [
+          {
+            name: 'users',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'middle_name', type: 'TEXT', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { middle_name: 100 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const unused = issues.find((i) => i.code === 'unused-column');
+      assert.ok(unused, 'Should report unused-column for a 100% NULL column');
+      assert.ok(unused.message.includes('middle_name'));
+      assert.ok(unused.message.includes('100%'));
+      // The 100% case must NOT also fire the partial high-null-rate code.
+      const highNull = issues.find((i) => i.code === 'high-null-rate');
+      assert.ok(!highNull, 'A 100% NULL column should not also be high-null-rate');
+    });
+
+    it('should report high-null-rate (not unused-column) for a 94% NULL column', async () => {
+      // Just-below-100% stays high-null-rate even though it rounds to "94%" —
+      // the split keys on the raw count, not the rounded percentage.
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'middle_name'])],
+        tables: [
+          {
+            name: 'users',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'middle_name', type: 'TEXT', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { middle_name: 94 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        issues.find((i) => i.code === 'high-null-rate'),
+        'Should report high-null-rate for a 94% NULL column',
+      );
+      assert.ok(
+        !issues.find((i) => i.code === 'unused-column'),
+        'A 94% NULL column is not unused',
+      );
+    });
+
+    it('should not report high-null-rate for columns with low null percentage', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('users', ['id', 'bio'])],
+        tables: [
+          {
+            name: 'users',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'bio', type: 'TEXT', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { bio: 10 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'high-null-rate');
+      assert.ok(!issue, 'Should not report low null rate');
+    });
+
+    it('should skip null rate check for small tables', async () => {
+      const ctx = createContext({
+        dartFiles: [createDartFile('configs', ['id', 'value'])],
+        tables: [
+          {
+            name: 'configs',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'value', type: 'TEXT', pk: false },
+            ],
+            rowCount: 5,
+          },
+        ],
+        nullCounts: { value: 4 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'high-null-rate');
+      assert.ok(!issue, 'Should skip small tables');
+    });
+
+    it('should skip null-rate analysis for tables listed in userDataTables', async () => {
+      // FP-1: a table whose live debug rows are unrepresentative (user/demo
+      // data, or a partially-loaded static table) must be skipped entirely —
+      // a null rate measured on a partial table says nothing about the source.
+      const ctx = createContext({
+        dartFiles: [createDartFile('contacts', ['id', 'bio'])],
+        tables: [
+          {
+            name: 'contacts',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'bio', type: 'TEXT', pk: false },
+            ],
+            rowCount: 339,
+          },
+        ],
+        nullCounts: { bio: 339 },
+        userDataTables: ['contacts'],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        !issues.find((i) => i.code === 'high-null-rate' || i.code === 'unused-column'),
+        'Should not report null findings for an unrepresentative user-data table',
+      );
+    });
+
+    it('should not flag a nullable null-by-design column (*_at / *_phonetic)', async () => {
+      // FP-2: nullable event timestamps and phonetic search-helper columns are
+      // correct to be mostly/entirely NULL. They must not surface as findings.
+      const ctx = createContext({
+        dartFiles: [
+          createDartFile('contacts', [
+            'id',
+            { name: 'blocked_at', nullable: true },
+            { name: 'name_phonetic', nullable: true },
+          ]),
+        ],
+        tables: [
+          {
+            name: 'contacts',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'blocked_at', type: 'INTEGER', pk: false },
+              { name: 'name_phonetic', type: 'TEXT', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { blocked_at: 100, name_phonetic: 90 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        !issues.find((i) => i.data?.column === 'blocked_at'),
+        'A nullable *_at column should not be flagged',
+      );
+      assert.ok(
+        !issues.find((i) => i.data?.column === 'name_phonetic'),
+        'A nullable *_phonetic column should not be flagged',
+      );
+    });
+
+    it('should still flag a non-nullable *_at column with a high null rate', async () => {
+      // The null-by-design suffix only applies to nullable columns. A column the
+      // schema declares NOT-NULL that is nonetheless measured mostly NULL is a
+      // genuine anomaly and must keep reporting.
+      const ctx = createContext({
+        dartFiles: [createDartFile('events', ['id', { name: 'occurred_at', nullable: false }])],
+        tables: [
+          {
+            name: 'events',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'occurred_at', type: 'INTEGER', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { occurred_at: 80 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        issues.find((i) => i.data?.column === 'occurred_at'),
+        'A non-nullable *_at column with high nulls is a real finding',
+      );
+    });
+
+    it('should not flag a column declared with a default (.withDefault/.clientDefault)', async () => {
+      // FP-2: a defaulted column is null-by-design — unset rows take the default,
+      // so a high NULL rate is expected, not a content gap.
+      const ctx = createContext({
+        dartFiles: [createDartFile('settings', ['id', { name: 'sort_order', hasDefault: true }])],
+        tables: [
+          {
+            name: 'settings',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'sort_order', type: 'INTEGER', pk: false },
+            ],
+            rowCount: 100,
+          },
+        ],
+        nullCounts: { sort_order: 100 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        !issues.find((i) => i.data?.column === 'sort_order'),
+        'A defaulted column should not be flagged',
+      );
+    });
+
+    it('should still flag a plain high-null column on a representative table', async () => {
+      // Guard against over-suppression: a normal column (not by-design NULL) on a
+      // table not in userDataTables must keep reporting — the true positives the
+      // checker correctly surfaces (e.g. public_figures.description) stay intact.
+      const ctx = createContext({
+        dartFiles: [createDartFile('public_figures', ['id', { name: 'description', nullable: true }])],
+        tables: [
+          {
+            name: 'public_figures',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'description', type: 'TEXT', pk: false },
+            ],
+            rowCount: 746,
+          },
+        ],
+        nullCounts: { description: 740 },
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      assert.ok(
+        issues.find((i) => i.data?.column === 'description'),
+        'A genuine content gap on a representative table must still report',
+      );
+    });
+
+    it('should skip the null-rate scan for very large tables', async () => {
+      // The null-rate scan is a full-table SUM(CASE WHEN col IS NULL ...)
+      // aggregate that reads every row. Run automatically across all tables on
+      // the app's live debug connection, it was a primary cause of the startup
+      // freeze (BUG_STARTUP_HANG). Tables past MAX_ROWS_FOR_NULL_SCAN (100k) are
+      // skipped entirely — verify the expensive scan is never issued, even when
+      // the data would otherwise trip the high-null-rate warning.
+      const ctx = createContext({
+        dartFiles: [createDartFile('public_figure_events', ['id', 'wikidata_id'])],
+        tables: [
+          {
+            name: 'public_figure_events',
+            columns: [
+              { name: 'id', type: 'INTEGER', pk: true },
+              { name: 'wikidata_id', type: 'TEXT', pk: false },
+            ],
+            rowCount: 200_000,
+          },
+        ],
+        // 75% NULL — would emit high-null-rate if the table were not skipped.
+        nullCounts: { wikidata_id: 150_000 },
+      });
+      const sqlSpy = sinon.spy(ctx.client, 'sql');
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issuedNullScan = sqlSpy
+        .getCalls()
+        .some((c) => typeof c.args[0] === 'string' && c.args[0].includes('IS NULL'));
+      assert.ok(!issuedNullScan, 'Should not issue a full-table null scan on a very large table');
+      const issue = issues.find((i) => i.code === 'high-null-rate');
+      assert.ok(!issue, 'Should not report high-null-rate for a skipped large table');
+    });
+  });
+});

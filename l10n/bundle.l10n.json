@@ -72,6 +72,8 @@
   "Annotations": "Annotations",
   "Anomalies": "Anomalies",
   "Anomaly Detection": "Anomaly Detection",
+  "Anomaly scan stopped early after hitting its time budget — some tables were not checked. Findings below are partial.": "Anomaly scan stopped early after hitting its time budget — some tables were not checked. Findings below are partial.",
+  "Anomaly scan was partial — open Drift Health for details": "Anomaly scan was partial — open Drift Health for details",
   "Any data changes": "Any data changes",
   "Append": "Append",
   "Applied the {0} statement in one transaction.": "Applied the {0} statement in one transaction.",

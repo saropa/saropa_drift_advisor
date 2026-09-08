@@ -46,208 +46,35 @@
 //   sqlConsole.reason.mutation           - accepted write; warn before running
 //
 // An empty `reason` ('') is emitted only for `readOnly`, per the plan contract.
+//
+// ---------------------------------------------------------------------------
+// MODULE LAYOUT (kept under the 300-line advisory cap)
+// ---------------------------------------------------------------------------
+// This file holds the orchestration (`classifySql` and its private helpers).
+// The pieces it composes live alongside it in this directory:
+//   sql-masking.ts            - maskCommentsAndLiterals (comment/quote lexer)
+//   sql-classifier-patterns.ts - forbidden-keyword sets and verb-shape regexes
+//   sql-classifier-types.ts    - SqlKind/SqlSeverity/SqlClassification + the
+//                                 classification() builder
+// Both are re-exported here so existing import paths (`'../sql/sql-classifier'`)
+// keep working unchanged.
 
-/** Coarse classification of a single SQL string entered in the console. */
-export type SqlKind = 'empty' | 'readOnly' | 'mutation' | 'forbidden';
-
-/** Severity vocabulary shared with the diagnostics UI (error/warning/info). */
-export type SqlSeverity = 'info' | 'warning' | 'error';
-
-/** Result of classifying one SQL string. */
-export interface SqlClassification {
-  kind: SqlKind;
-  /** readOnly -> info, mutation -> warning, forbidden/empty -> error. */
-  severity: SqlSeverity;
-  /** Stable l10n KEY (never English); '' when kind is readOnly. */
-  reason: string;
-  /** Uppercased leading keyword (SELECT, WITH, UPDATE, ...), '' when empty. */
-  verb: string;
-  /** True only when kind === 'readOnly' or 'mutation'. */
-  executable: boolean;
-}
-
-// Keywords that can never appear anywhere in a read-only statement. Mirrors the
-// 14-entry set in `SqlValidator.isReadOnlySql` step 7 exactly. Matched only
-// against whole words of the MASKED text, so a table named `analyze_results` or
-// a quoted identifier "delete" cannot trip it.
-const READ_ONLY_FORBIDDEN = new Set<string>([
-  'INSERT',
-  'UPDATE',
-  'DELETE',
-  'REPLACE',
-  'TRUNCATE',
-  'CREATE',
-  'ALTER',
-  'DROP',
-  'ATTACH',
-  'DETACH',
-  'PRAGMA',
-  'VACUUM',
-  'ANALYZE',
-  'REINDEX',
-]);
-
-// The four DML verbs that are legal mutations — used both to derive
-// MUTATION_FORBIDDEN (set subtraction) and at the classifySql call site to
-// distinguish "malformed mutation" from "forbidden statement". Declared before
-// MUTATION_FORBIDDEN because it depends on this.
-const DML_VERBS = new Set<string>(['INSERT', 'UPDATE', 'DELETE', 'REPLACE']);
-
-// Keywords forbidden inside a data mutation. Derived from READ_ONLY_FORBIDDEN
-// minus the four DML verbs so a new keyword added to the read-only set
-// automatically propagates here — a review finding (2026-09-07) showed the two
-// hand-maintained sets had drifted-apart potential. REPLACE is deliberately
-// absent: it is legal DML both as a leading verb (`REPLACE INTO`) and as a
-// conflict clause (`INSERT OR REPLACE INTO`).
-const MUTATION_FORBIDDEN = new Set<string>(
-  [...READ_ONLY_FORBIDDEN].filter((kw) => !DML_VERBS.has(kw)),
-);
-
-// Leading-verb shapes accepted as a single data mutation. Ported verbatim from
-// the hoisted patterns in sql_validator.dart, including the deliberate absence
-// of a trailing \b on the UPDATE pattern: masking turns a quoted table name into
-// `?`, and `\b` fails before a non-word character, which would reject
-// `UPDATE "my table" SET ...`.
-const INSERT_PATTERN = /^INSERT\s+(OR\s+(REPLACE|IGNORE|ABORT|ROLLBACK|FAIL)\s+)?INTO\b/;
-const REPLACE_PATTERN = /^REPLACE\s+INTO\b/;
-const UPDATE_PATTERN = /^UPDATE\s+(OR\s+(REPLACE|IGNORE|ABORT|ROLLBACK|FAIL)\s+)?/;
-const DELETE_PATTERN = /^DELETE\s+FROM\b/;
-
-// Alias for readability at the call site in classifySql — DML_VERBS is also
-// used to distinguish "malformed mutation" from "forbidden statement".
-const MUTATION_VERBS = DML_VERBS;
-
-// Requires ANY whitespace after the verb, not a literal space. A query formatted
-// as `SELECT\n  id, ...` is normal pretty-printer output and perfectly valid;
-// `startsWith('SELECT ')` rejected every multi-line query, which was a real
-// server-side bug (see sql_validator.dart step 6).
-const READ_ONLY_PREFIX = /^(SELECT|WITH)\s/;
-
-// Whole-word scanner used for the forbidden-keyword passes.
-const WORD_BOUNDARY = /\b\w+\b/g;
-
-// First identifier-shaped token, used to report the leading verb.
-const LEADING_WORD = /^[A-Za-z_][A-Za-z0-9_]*/;
-
-/**
- * Masks comments and quoted runs in [sql] in a SINGLE left-to-right pass that
- * tracks lexical state: comments become one space, every quoted run becomes `?`.
- *
- * WHY A STATE MACHINE AND NOT A CHAIN OF REGEXES: a chain (strip `--`, strip
- * `/* *\/`, then replace `'...'`) processes each construct in ignorance of the
- * others. Stripping comments first lets an apostrophe inside a comment — or a
- * `--` inside a string literal — desynchronize quote pairing, after which a
- * trailing `; DROP TABLE t` is invisible to the multi-statement check. The
- * canonical failure is `SELECT 'a -- b' ; DROP TABLE t --`, which the regex
- * chain classified as a safe read-only query. That was a real audit finding on
- * the Dart side (see the H1 entry in
- * plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md) and the
- * reason this port must not "simplify" back to regexes. One pass cannot desync
- * because it only enters a comment when it is not already inside a string, and
- * only enters a string when it is not already inside a comment.
- *
- * Exported for direct unit testing of the masking traps; callers outside tests
- * should use {@link classifySql}.
- */
-export function maskCommentsAndLiterals(sql: string): string {
-  let out = '';
-  const n = sql.length;
-  let i = 0;
-  while (i < n) {
-    const c = sql[i];
-
-    // Line comment `-- ... <newline>` collapses to a single space. The newline
-    // itself is left in place so line structure (and thus whitespace after a
-    // verb) survives masking.
-    if (c === '-' && i + 1 < n && sql[i + 1] === '-') {
-      i += 2;
-      while (i < n && sql[i] !== '\n') {
-        i++;
-      }
-      out += ' ';
-      continue;
-    }
-
-    // Block comment `/* ... */` collapses to a single space. An unterminated
-    // block runs to the end of input, matching SQLite's tolerance and the Dart
-    // implementation.
-    if (c === '/' && i + 1 < n && sql[i + 1] === '*') {
-      i += 2;
-      while (i < n && !(sql[i] === '*' && i + 1 < n && sql[i + 1] === '/')) {
-        i++;
-      }
-      i += 2; // step over the closing */
-      if (i > n) {
-        i = n; // clamp when the block was unterminated
-      }
-      out += ' ';
-      continue;
-    }
-
-    // Single-quoted string literal, with `''` as the embedded-quote escape.
-    if (c === "'") {
-      i = skipQuoted(sql, i, "'");
-      out += '?';
-      continue;
-    }
-
-    // Double-quoted identifier, with `""` as the embedded-quote escape.
-    if (c === '"') {
-      i = skipQuoted(sql, i, '"');
-      out += '?';
-      continue;
-    }
-
-    // Backtick identifier (MySQL-compatible quoting SQLite also accepts), with
-    // ``` `` ``` as the escape.
-    if (c === '`') {
-      i = skipQuoted(sql, i, '`');
-      out += '?';
-      continue;
-    }
-
-    // Bracket identifier `[ ... ]`. SQLite defines no escape inside brackets —
-    // the first `]` closes the run — so doubling is not honored here.
-    if (c === '[') {
-      i++;
-      while (i < n && sql[i] !== ']') {
-        i++;
-      }
-      if (i < n) {
-        i++; // step over the closing ]
-      }
-      out += '?';
-      continue;
-    }
-
-    out += c;
-    i++;
-  }
-  return out;
-}
-
-/**
- * Consumes a quoted run starting at [start] (which must index the opening
- * quote) and returns the index just past its closing quote, or the end of input
- * when the run is unterminated. Shared by the three doubling-escaped quote
- * styles so the escape rule is written once rather than three times.
- */
-function skipQuoted(sql: string, start: number, quote: string): number {
-  const n = sql.length;
-  let i = start + 1; // step over the opening quote
-  while (i < n) {
-    if (sql[i] === quote) {
-      // A doubled quote is an escaped quote, not the terminator — stay inside.
-      if (i + 1 < n && sql[i + 1] === quote) {
-        i += 2;
-        continue;
-      }
-      return i + 1; // past the closing quote
-    }
-    i++;
-  }
-  return n; // unterminated run: everything to end of input was quoted
-}
+export type { SqlKind, SqlSeverity, SqlClassification } from './sql-classifier-types';
+import { classification, type SqlClassification } from './sql-classifier-types';
+export { maskCommentsAndLiterals } from './sql-masking';
+import { maskCommentsAndLiterals } from './sql-masking';
+import {
+  READ_ONLY_FORBIDDEN,
+  MUTATION_FORBIDDEN,
+  INSERT_PATTERN,
+  REPLACE_PATTERN,
+  UPDATE_PATTERN,
+  DELETE_PATTERN,
+  MUTATION_VERBS,
+  READ_ONLY_PREFIX,
+  WORD_BOUNDARY,
+  LEADING_WORD,
+} from './sql-classifier-patterns';
 
 /**
  * Outcome of reducing raw input to a single analyzable statement. A plain
@@ -332,38 +159,6 @@ function containsForbiddenWord(upper: string, forbidden: Set<string>): boolean {
     match = WORD_BOUNDARY.exec(upper);
   }
   return false;
-}
-
-/**
- * Builds a classification, deriving BOTH `severity` and `executable` from
- * `kind` in one place. Both are deterministic: empty/forbidden -> error,
- * readOnly -> info, mutation -> warning; executable = readOnly | mutation.
- * Callers no longer pass severity, which eliminates the risk of a contradictory
- * kind/severity pair drifting in over time (review finding, 2026-09-07).
- */
-function classification(
-  kind: SqlKind,
-  reason: string,
-  verb: string,
-): SqlClassification {
-  // Severity is fully derivable from kind — there is no case where the two
-  // should disagree, so computing it here prevents a future caller from passing
-  // a contradictory pair.
-  const severityMap: Record<SqlKind, SqlSeverity> = {
-    empty: 'error',
-    forbidden: 'error',
-    readOnly: 'info',
-    mutation: 'warning',
-  };
-  return {
-    kind,
-    severity: severityMap[kind],
-    reason,
-    verb,
-    // Single source of truth for the executable rule from the plan contract:
-    // only readOnly and mutation can be sent to a server endpoint.
-    executable: kind === 'readOnly' || kind === 'mutation',
-  };
 }
 
 /**

@@ -24,9 +24,11 @@ Environment overrides:
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import threading
-import urllib.error
+import time
 import urllib.request
 
 _MODEL = "qwen2.5:7b"
@@ -34,6 +36,16 @@ _DEFAULT_TIMEOUT_SEC = 90.0
 # How long Ollama keeps the model in memory after the last request. Was 30m,
 # which holds 9-16 GB for half an hour after a run that no longer needs it.
 _DEFAULT_KEEP_ALIVE = "5m"
+
+# How long to wait for a freshly-spawned `ollama serve` to start answering
+# /api/tags before giving up and falling back to NLLB for this run.
+_AUTOSTART_WAIT_SEC = 15.0
+_AUTOSTART_POLL_INTERVAL_SEC = 0.5
+
+# Set once per process: True after we've already tried (successfully or not) to
+# auto-start Ollama, so a run that stays down doesn't retry the spawn on every
+# single string.
+_autostart_attempted = False
 
 # Tokens that must survive translation intact — masked to __PHn__ before the model
 # sees the text, then restored after. Two families:
@@ -172,6 +184,81 @@ def _record_failure() -> None:
             sys.stderr.flush()
 
 
+def _probe_tags(base: str, timeout: float = 5.0) -> dict | None:
+    """Single GET /api/tags attempt. Returns the parsed body, or None on failure."""
+    req = urllib.request.Request(f"{base}/api/tags", method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except Exception:
+        return None
+
+
+def _try_autostart_ollama(base: str) -> dict | None:
+    """Spawn `ollama serve` detached and poll until it answers, once per process.
+
+    Ollama ships as a background service on most installs (tray icon on Windows,
+    launchd/systemd elsewhere), but a fresh shell or a machine where the tray app
+    isn't running otherwise forces the operator to manually run `ollama serve`
+    before every translate pass. Auto-starting it here means the Qwen->NLLB
+    cascade in engines.py can prefer Qwen without a manual step. Only the local
+    default host is auto-started — a remote OLLAMA_HOST is never something this
+    process can start.
+
+    Returns the /api/tags body once the server answers, or None if the `ollama`
+    binary isn't on PATH, the spawn fails, or it doesn't come up within
+    _AUTOSTART_WAIT_SEC. Runs at most once per process (see _autostart_attempted).
+    """
+    global _autostart_attempted
+    if _autostart_attempted:
+        return None
+    _autostart_attempted = True
+
+    if base != "http://localhost:11434":
+        return None  # non-default/remote host — nothing local to start
+
+    ollama_bin = shutil.which("ollama")
+    if not ollama_bin:
+        return None
+
+    try:
+        popen_kwargs: dict = {
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "stdin": subprocess.DEVNULL,
+        }
+        if sys.platform == "win32":
+            # DETACHED_PROCESS + CREATE_NEW_PROCESS_GROUP so `ollama serve` outlives
+            # this script and isn't killed if the parent console is closed/Ctrl-C'd.
+            popen_kwargs["creationflags"] = (
+                subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+        else:
+            popen_kwargs["start_new_session"] = True
+        subprocess.Popen([ollama_bin, "serve"], **popen_kwargs)
+    except Exception:
+        return None
+
+    sys.stderr.write("[qwen] Ollama not running — auto-starting `ollama serve'...\n")
+    sys.stderr.flush()
+
+    deadline = time.monotonic() + _AUTOSTART_WAIT_SEC
+    while time.monotonic() < deadline:
+        time.sleep(_AUTOSTART_POLL_INTERVAL_SEC)
+        data = _probe_tags(base, timeout=2.0)
+        if data is not None:
+            sys.stderr.write("[qwen] Ollama is up.\n")
+            sys.stderr.flush()
+            return data
+
+    sys.stderr.write(
+        f"[qwen] Ollama did not respond within {_AUTOSTART_WAIT_SEC:.0f}s of "
+        "starting — falling back to NLLB for this run.\n"
+    )
+    sys.stderr.flush()
+    return None
+
+
 def diagnose() -> tuple[str, str, str]:
     """Check Qwen prerequisites and return (status, summary, fix).
 
@@ -188,26 +275,18 @@ def diagnose() -> tuple[str, str, str]:
         )
 
     base = _ollama_base()
-    url = f"{base}/api/tags"
-    req = urllib.request.Request(url, method="GET")
+    data = _probe_tags(base)
+    if data is None:
+        # Not up yet — try starting it ourselves before giving up on Qwen.
+        data = _try_autostart_ollama(base)
 
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read())
-    except urllib.error.URLError:
+    if data is None:
         return (
             "no_server",
             f"Ollama is not running (no response from {base}).",
             "Install Ollama from https://ollama.com/download, then start it.\n"
             "  On Windows: the Ollama app runs as a system tray icon after install.\n"
             "  Verify with: ollama list",
-        )
-    except Exception:
-        return (
-            "no_server",
-            f"Ollama is not reachable at {base}.",
-            "Install Ollama from https://ollama.com/download, then start it.\n"
-            "  If Ollama is on a non-default host, set OLLAMA_HOST=http://host:port",
         )
 
     models = [m.get("name", "") for m in data.get("models", [])]

@@ -7,13 +7,13 @@
 
 import * as vscode from 'vscode';
 import type { TableMetadata } from '../../api-types';
+import type { DiagnosticCategory } from '../diagnostic-code-types';
 import type {
-  DiagnosticCategory,
   IDartFileInfo,
   IDiagnosticContext,
-  IDiagnosticIssue,
   IDiagnosticProvider,
-} from '../diagnostic-types';
+} from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 import { checkAnomalies } from '../checkers/anomaly-checker';
 import { checkColumnDrift } from '../checkers/column-checker';
 import { checkMissingIndexes } from '../checkers/index-checker';

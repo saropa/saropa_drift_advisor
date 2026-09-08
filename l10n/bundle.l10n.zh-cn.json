@@ -72,6 +72,8 @@
   "Annotations": "注解",
   "Anomalies": "异常",
   "Anomaly Detection": "异常检测",
+  "Anomaly scan stopped early after hitting its time budget — some tables were not checked. Findings below are partial.": "异常扫描在达到时间预算后提前停止了检查,一些表没有被检查.下面的发现是部分的.",
+  "Anomaly scan was partial — open Drift Health for details": "异常扫描是部分的 ⁇ 开Drift健康详情请查看.",
   "Any data changes": "任何数据变更",
   "Append": "追加",
   "Applied the {0} statement in one transaction.": "在一个交易中应用了 {0} 语句.",

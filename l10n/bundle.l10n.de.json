@@ -72,6 +72,8 @@
   "Annotations": "Anmerkungen Annotationen",
   "Anomalies": "Anomalien sind Anomalie.",
   "Anomaly Detection": "Anomalie-Erkennung mit Anomalienerkennung",
+  "Anomaly scan stopped early after hitting its time budget — some tables were not checked. Findings below are partial.": "Anomalie-Scan wurde frühzeitig nach Erreichen des Zeitbudgets gestoppt  ⁇  einige Tabellen wurden nicht überprüft.",
+  "Anomaly scan was partial — open Drift Health for details": "Anomalie-Scan war teilweise  ⁇  offen Drift Gesundheit für Details.",
   "Any data changes": "Alle Datenänderungen, die sich ergeben.",
   "Append": "Append Anlage",
   "Applied the {0} statement in one transaction.": "Die {0} Anweisung in einer Transaktion angewendet.",

@@ -11,7 +11,7 @@
 import * as assert from 'assert';
 import type { Anomaly } from '../api-types';
 import { checkAnomalies } from '../diagnostics/checkers/anomaly-checker';
-import type { IDiagnosticIssue } from '../diagnostics/diagnostic-types';
+import type { IDiagnosticIssue } from '../diagnostics/diagnostic-issue-types';
 import { createDartFile } from './diagnostic-test-helpers';
 
 describe('checkAnomalies', () => {

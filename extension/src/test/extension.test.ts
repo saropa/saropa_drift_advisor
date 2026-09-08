@@ -171,7 +171,7 @@ describe('Extension activation', () => {
     //   changed elsewhere (+2). The listener is constructed once with the
     //   provider, NOT per resolveWebviewView, so re-expanding the sidebar
     //   section does not accumulate listeners.
-    assert.strictEqual(subscriptions.length, 259, `expected 259 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 262, `expected 262 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

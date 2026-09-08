@@ -16,7 +16,7 @@ import {
   DiagnosticManager,
   DiagnosticCodeActionProvider,
 } from '../diagnostics/diagnostic-manager';
-import type { IDiagnosticProvider } from '../diagnostics/diagnostic-types';
+import type { IDiagnosticProvider } from '../diagnostics/diagnostic-context-types';
 
 describe('DiagnosticCodeActionProvider', () => {
   let client: DriftApiClient;

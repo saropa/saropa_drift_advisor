@@ -4,6 +4,118 @@ For newer and current changes see [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
+## [4.1.12]
+
+Rewind a table in Time Travel, then save that moment as a branch you can diff or restore later. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.12/CHANGELOG.md)
+
+### Added
+
+- **"Create Branch Here" in Time Travel.** While scrubbing a table's history in the Time-Travel panel, a new button saves the database state at the current snapshot position as a named data branch — which you can then diff, generate merge/rollback SQL from, or restore, exactly like a branch captured from live state. The button appears only when Data Branching is available. Snapshots cap rows per table, so a branch made from a large historical snapshot is flagged as truncated rather than passed off as complete.
+
+### Internal
+
+- **Fixed flaky rate-limiting integration test.** `handler_integration_test.dart`'s "returns 429 when rate limit exceeded" test fired three sequential HTTP requests and assumed all three landed in the same one-second window; on a slow CI runner the third request crossed into the next wall-clock window, where the fixed-window counter reset to 1 and returned 200, failing the assertion. The test now fires a burst of concurrent requests so they cluster densely in one window and asserts at least one is throttled (and at least one succeeds), which holds regardless of where second boundaries fall.
+
+---
+
+## [4.1.11]
+
+Raw SQL strings in your Drift code now get the same column checking as the typed query builder — if a `customSelect`/`customStatement` query names a column that does not exist on the table, you see a warning while editing instead of a crash at runtime. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.11/CHANGELOG.md)
+
+### Added
+
+- **New diagnostic `raw-sql-unknown-column`.** Validates column references inside `customSelect(...)` / `customStatement(...)` raw SQL against the live profiled schema and flags any column absent from the referenced table, suggesting the closest real column name. Catches the case where a hardcoded name does not match Drift's generated column (e.g. an acronym getter `contactSaropaUUID` produces `contact_saropa_u_u_i_d`, not `contact_saropa_uuid`) — a bug invisible to the existing Dart-vs-DB drift checks because it lives in an opaque string. Conservative by design: only single-table queries are checked (JOINs and comma-FROM are skipped), aliases and function names are excluded, and unknown tables are ignored. Default severity Warning; suppress per line/file with `// drift-advisor:ignore raw-sql-unknown-column`.
+- **Host-side discovery for device-hosted servers.** When your app runs on a physical device or emulator, the server's own discovery file (`~/.saropa_drift_advisor/server.json`) is written on the *device* and never appears on your computer, so an external agent or `curl` client could not find it without scanning ports or running `adb forward` by hand. The extension now publishes a host-side manifest with the forwarded, host-reachable port and a `transport` field (`adb-forward` or `loopback`) the moment a server becomes reachable, and removes it when the server goes away or the extension shuts down. An agent reads one well-known file and connects. The extension never overwrites a manifest a same-machine (desktop) app wrote for itself.
+
+### Fixed
+
+- **Activity bar icon slightly undersized.** The database glyph in `media/icon-activitybar.svg` spanned 14 of the 24-unit viewBox width (`cx=12, rx=7`), so VS Code drew it a touch narrow next to the codicons around it. Nudged the cylinder width up (`rx=8`) to bring it in line with the neighboring sidebar icons.
+
+### Internal
+
+- **Split three over-cap source files to satisfy the 300-line quality gate; no behavior change.**
+  - `server-discovery-core.ts` (346 → 290): extracted the once-per-session "server lost" flap debouncer into `server-discovery-lost-debounce.ts` (`ServerLostDebouncer`) and the searching/backoff/connected cadence into a pure, independently testable `server-discovery-state-machine.ts` (`nextDiscoveryState` / `pollIntervalForState`).
+  - `diagnostics/rules-config-html.ts` (317 → 164): moved the inline panel CSS into `rules-config-styles.ts` and the client `postMessage` script into `rules-config-client.ts`, matching the pure-builder pattern of the other `*-html.ts` panels.
+  - `diagnostics/checkers/raw-sql-parser.ts` (321 → 249): extracted the lexer (literal/comment masking + tokenizer) into `raw-sql-tokenizer.ts`, leaving the parser to do table/column resolution only.
+- **Publish line-limit gate now offers retry / continue / ignore instead of a yes/no.** The Step 7 quality check previously asked "Continue anyway? [Y/n]" where No aborted the publish. It now prompts `[R]etry` (default — re-scan after trimming files), `[C]ontinue` (proceed, keep the warning on record), or `[I]gnore` (proceed, drop the warning). A line-limit overrun is advisory, so there is no abort path; a closed stdin (CI) maps to continue so it cannot loop on retry.
+- **Host discovery manifest writer (`host-discovery-manifest.ts`).** New extension module: `writeHostManifest` / `removeHostManifest` publish and tear down `~/.saropa_drift_advisor/server.json` on the host. It mirrors the in-app manifest JSON schema (so a reader parses one format) plus two host-only fields — a `source: "vscode-extension"` ownership stamp and `transport`. The writer fetches `/api/health` best-effort to enrich the file but always writes a valid (host, port, transport) manifest even when health is unreachable. The ownership stamp gates both write and remove: the extension never clobbers or deletes a manifest written by an in-app (desktop/emulator-on-host) server. Wired into `bootstrapExtension`'s discovery lifecycle (write on first reachable server, deduped by port; remove when servers go empty and on deactivation). 11 injected-IO unit tests cover the schema, the app-owned guard, the unreachable-health path, and error swallowing. Resolves Finding 1 / Enhancement E1+E3 of `plans/history/2026.06/2026.06.24/BUG_agent_discovery_and_resilience_for_device_hosted_server.md`; Finding 2 (SQL resilience: statement timeout, row cap, error-envelope, never-empty body) was already in place.
+
+---
+
+## [4.1.10]
+
+Github CI cleanup tasks. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.10/CHANGELOG.md)
+
+### Internal
+
+- **Discovery-manifest cleanup no longer swallows its errors.** The best-effort manifest delete in `stop()` caught and discarded any failure (satisfying `avoid_swallowing_exceptions` / `require_catch_logging`). The server now captures the context's `logError` sink on start and routes a cleanup failure through the same channel (dart:developer + the caller's `onError`), so a recurring delete failure is diagnosable instead of silent.
+- Tightened `ServerUtils.jsonEncodeFallback` return type from `Object?` to `Object` — it never returns null (a null input encodes to the string `"null"`), so callers no longer carry a redundant null check (`avoid_unnecessary_nullable_return_type`).
+- **Publish pre-flight analyze now matches CI exactly, so it can no longer ship one store while the other fails.** The Dart analysis step in `scripts/publish.py` used to strip the `plugins:` block from `analysis_options.yaml` and run `flutter analyze --fatal-infos`, which disabled saropa_lints locally — the exact rules CI enforces with `flutter analyze --fatal-warnings`. The local gate passed on code CI would reject, the script committed/tagged/pushed, the VS Code extension published, and only then did CI catch the warnings and block the pub.dev publish. The step now runs `flutter analyze --fatal-warnings` with the plugins block intact, byte-for-byte the CI command, before any commit/tag/push — a lint failure now stops the publish locally instead of after a tag triggers CI.
+
+---
+
+## [4.1.9]
+
+The debug server can now tell tools and AI agents what it offers and where to find it, a runaway query can't knock it offline anymore, and the web viewer's sidebar labels and Run SQL screen got a tidy-up. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.9/CHANGELOG.md)
+
+### Added
+
+- **The debug server now advertises its own API so external tools and AI agents can find it.** `GET /api/health` lists the read endpoints, and a new `GET /api/` returns a self-describing index (version, flags, each endpoint with a one-line description, and a link to the full reference) — so a non-UI client learns the API from one request instead of having to read the source. On startup the server also writes a small discovery file at `~/.saropa_drift_advisor/server.json` (host, port, version, flags, workspace) so a tool can find the running server without being told the port; it is removed on shutdown.
+
+### Fixed
+
+- **A single bad or slow query can no longer take the debug server offline.** Each `POST /api/sql` (and `/api/sql/explain`) now has a 30-second statement timeout: a query that hangs returns a clear error and frees the connection instead of wedging the server so that even the health check stops answering. `POST /api/sql` also always returns valid JSON — either `{"rows":[...]}` or `{"error":"..."}` — even when a result holds a value that previously broke encoding and produced an empty response. Very wide results are capped (with a `truncated` flag and the true row count) so one query cannot stream an unbounded body.
+
+### Changed
+
+- Activity-bar label mode (web viewer): when the sidebar strip shows text labels, every button is now the same width with its icon and label left-aligned, and the rows have vertical spacing so the labels read as a clean aligned list.
+- Run SQL screen (web viewer): redesigned the controls above the editor. The Template, Table and Fields pickers are now a clean aligned card instead of a cramped wrapping toolbar, and the Fields list is a compact fixed-height scroll box rather than the tall narrow column it used to balloon into. Saved-query actions are grouped together with "Show as" pushed to the right. The query box also opens taller by default (about seven lines instead of three) so a typical formatted query fits without scrolling; it is still drag-resizable.
+
+### Internal
+
+- **Publish pipeline: format Dart sources at stage time so the husky pre-commit hook never aborts the release commit.** The hook runs `dart format --set-exit-if-changed .` whenever `.dart` files are staged; the analysis phase formatted early, but `--resume` runs skip analysis and any step (or manual edit) between analysis and commit could re-dirty a file, leaving an unformatted file in the index and failing the commit. `git_commit_and_push` now runs `dart format .` immediately before `git add` (gated by a new `TargetConfig.format_before_stage`, Dart-only), so the staged content always matches what the hook checks.
+- **Fixed a flaky discovery-manifest test that passed alone but failed in the full suite.** The discovery manifest is written to a single global path (`$home/.saropa_drift_advisor/server.json`), and dart's `pid` is identical across the in-process suite isolates, so the other server-starting test files running concurrently overwrote or deleted this test's manifest between its write and its assertions. `DriftDebugServer.start` now accepts an optional `discoveryDirectory` override (threaded as instance state and reused on `stop` so write and remove target the same file); the test points each run at its own temp directory, making the manifest lifecycle deterministic and removing the prior "home not resolvable" skip.
+
+---
+
+## [4.1.8]
+
+Internal tooling only — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.8/CHANGELOG.md)
+
+### Internal
+
+- **Publish pipeline now stops on diverged history instead of blind-merging.** The pre-flight remote-sync check mislabeled a truly diverged branch (origin's history rewritten, local on old SHAs) as "ahead," and the push step then recovered a non-fast-forward by running `git pull --no-edit` (a merge) — tangling two near-duplicate ~240-commit histories into a 25-conflict merge mid-release. The pre-flight now detects divergence explicitly and fails with a rebase hint, and the push recovery uses `git pull --ff-only` (which cannot merge), stopping loudly on divergence so reconciliation stays a deliberate manual rebase.
+- **Publish pipeline now catches committed-and-gitignored files before tagging.** A file that is both tracked and matched by `.gitignore` makes `dart pub publish --dry-run` exit 65 — previously only in CI, after the git tag and GitHub release were already created. A new `git ls-files -i -c --exclude-standard` guard runs in the local pre-flight (Dart and extension legs) and as a CI step before the dry-run, naming the offending files and the `git rm --cached` fix instead of failing with a cryptic exit code.
+- **Fixed pub.dev "Pass static analysis" deductions for dangling library doc comments.** Three server files (`html_content.dart`, `mutation_handler.dart`, `mutation_tracker.dart`) opened with a top-of-file `///` doc comment but no `library;` directive, so pana flagged them as dangling library doc comments and docked static-analysis points. Each now carries a `library;` directive after its header comment.
+- **Enabled `dangling_library_doc_comments` in `analysis_options.yaml`.** This core Dart lint is scored by pana/pub.dev but was not in the package's base lint set, so local `dart analyze` (and the publish pipeline's analyze step) passed while pub.dev still deducted points. Enabling it closes that gap — the lint now fires locally and `dart fix` can auto-insert the `library;` directive.
+
+The debug server now tells you how to reach it when you debug on a physical device over Wi-Fi, instead of leaving a silent connection-refused when you try the device's network address. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.7/CHANGELOG.md)
+
+### Added
+
+- **Drift Tools Hub.** A new single-page panel that puts the whole toolbox on one screen. Read-only live previews of your Dashboard and Health Score sit side by side at the top — each with an "Open full screen" button to the full interactive panel, and Health-card actions still drill down from inside the hub. Below them, every tool in the sidebar is indexed in a grouped, collapsible launcher: the same six categories (Getting Started, Schema & Migrations, Health & Quality, Data Management, Visualization, Tools), each with an icon, a tool count, and a one-line note on what it does. Tiles carry semantic icons, and destructive actions (Clear All Tables) get a caution accent. A hero bar adds Rescan and a link to the Saropa website. Open it from the top of the Drift Tools sidebar ("Drift Tools Hub") or the command palette. The two preview panes load concurrently behind one cancellable progress notification; if one fails it shows a placeholder without blanking the other, and the launcher is usable immediately while they load.
+
+### Changed
+
+- **The "Drift Tools" sidebar panel is now a slim launcher** and moved to the top of the Saropa activity-bar container (above Database). It shows a prominent "Drift Tools Hub" entry (with the extension version), the "Add Saropa Drift Advisor" setup item when the package is missing, and a connection-status row that opens connection help when no server is connected. The previous category-per-tool list was redundant with the new Hub — open the Hub for the full, grouped tool catalog.
+- **Configure Diagnostic Rules screen.** A new full-page panel replaces the old "Drift Advisor Rules" sidebar list. Every rule is grouped by category with its live finding count; each has an enable/disable toggle and a severity dropdown (Default / Error / Warning / Info / Hint). A filter box narrows the list by code or description, and one-click "Enable All" / "Reset Severities" buttons clear your overrides. Open it from the Drift Tools sidebar ("Configure Rules") or the command palette. Changes save to your workspace settings and re-run analysis immediately.
+- **Startup banner now explains LAN-IP access.** With the secure default (`loopbackOnly: true`), the banner states that connecting by the device's network IP is off and how to turn it on (`loopbackOnly: false` + an `authToken`). When you do bind a non-loopback interface, the banner prints the reachable `http://<lan-ip>:<port>` URL(s) beside the existing `adb forward` hint, so a Wi-Fi-by-IP user gets a copy-paste address instead of guessing the device IP.
+- **`GET /api/health` advertises the bind mode** via a new `loopbackOnly` field. A remote client (e.g. Saropa Lints) can now tell "server up but loopback-only" from "no server" — previously both looked like a bare connection-refused.
+- **Clicking "Offline" in the Database sidebar now opens a live connection panel.** The "Offline — cached schema" (and "Disconnected") row used to do nothing when clicked. It now opens the Troubleshooting panel showing your actual state: a status banner with the precise next step (start a debug session, or — if one is already running — check that the app calls `DriftDebugServer.start()` and is a debug build), plus a configuration grid (target host/port, discovery range, debug-session status, offline-cache setting) above the existing setup guidance.
+- **"Good to know" explainers in the connection panel.** A new collapsible section answers the questions that previously lived only in code comments and the changelog: why the server is private to your machine, what "Offline — cached schema" means, why the app must be a debug build, why your Wi-Fi debug port keeps changing, and whether it reconnects after a hot restart.
+
+### Fixed
+
+- **Wi-Fi-by-IP debugging looked like a dead server.** Reaching the debug server by a physical device's LAN IP failed silently under the loopback-only default, with nothing in-product explaining that the IP route is closed by design. The banner and health endpoint now make the bind mode and the two supported access paths explicit. Documentation-only on the security side — the loopback-only default is unchanged.
+- **Toggling a rule in the Drift Advisor Rules sidebar errored out.** Clicking a rule (e.g. "no-primary-key") to mute it failed with "…is not a registered configuration" because the settings the extension reads and writes — `driftViewer.diagnostics.disabledRules`, `driftViewer.diagnostics.severityOverrides`, and `driftViewer.logVerbosity` — were never declared in the manifest, so VS Code refused to save them. All three are now registered, so muting/unmuting rules, severity overrides, and the Set Log Verbosity command write successfully.
+- **Repeated "no longer responding" popups while Wi-Fi debugging.** On a flaky link the debug server drops and reconnects over and over, and each cycle used to fire a "Drift debug server on port … is no longer responding" warning plus a "detected" toast on recovery — a steady stream of popups to dismiss. Now you get **at most one** "lost" warning per debug session: a brief blip that recovers within a short grace window produces no popup at all, the first sustained drop warns once, and after that the session stays silent no matter how many times the connection flaps. Starting a new debug session or running **Retry Discovery** re-arms the single warning. Disconnect detection is unchanged, so the sidebar/status still reflect the connection state in real time.
+
+### Internal
+
+- **Publish pipeline runs only the affected tests, selected by import graph.** `scripts/modules/dart_build.py` `run_tests` diffs the working tree against the last release tag, builds the package's transitive import graph, and runs every `*_test.dart` whose dependency closure includes a changed file (resolving relative and `package:` imports, including multi-line conditional exports). This is the "outdated tests" set the editor's Test Explorer shows, computed without the editor — so a change to a core file with no same-named test still runs every test that imports it through any chain. A changed library file that no test reaches is logged as a genuine coverage gap. The only full-suite paths are unreadable git history and an explicit `PUBLISH_FULL_TESTS=1`; `PUBLISH_TEST_BASELINE=<rev>` overrides the diff baseline.
+
+---
+
 ## [4.1.6]
 
 Internal code cleanup only — no user-facing change. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.1.6/CHANGELOG.md)

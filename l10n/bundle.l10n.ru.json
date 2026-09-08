@@ -72,6 +72,8 @@
   "Annotations": "Аннотации",
   "Anomalies": "Аномалии",
   "Anomaly Detection": "Детектирование аномалий",
+  "Anomaly scan stopped early after hitting its time budget — some tables were not checked. Findings below are partial.": "Сканирование аномалий было остановлено на ранней стадии после того, как он достиг своего временного бюджета  ⁇  некоторые таблицы не были проверены.",
+  "Anomaly scan was partial — open Drift Health for details": "Сканирование аномалий было частичным  ⁇  открытым Drift Здоровье для деталей.",
   "Any data changes": "Любые изменения данных",
   "Append": "Добавить",
   "Applied the {0} statement in one transaction.": "Применен {0}-заявление в одной транзакции.",

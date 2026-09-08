@@ -17,7 +17,8 @@ import {
 import { resetMocks } from './vscode-mock';
 import { buildDiagnosticsByFile } from '../diagnostics/diagnostic-apply';
 import { parseInlineSuppressions, emptySuppressions } from '../diagnostics/suppression';
-import type { IDartFileInfo, IDiagnosticConfig, IDiagnosticIssue } from '../diagnostics/diagnostic-types';
+import type { IDartFileInfo, IDiagnosticConfig } from '../diagnostics/diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostics/diagnostic-issue-types';
 
 // Minimal config with all rules enabled and no exclusions.
 function defaultConfig(): IDiagnosticConfig {

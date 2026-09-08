@@ -4,10 +4,8 @@ import type { TableMetadata } from '../api-types';
 import { checkRawSqlColumns } from '../diagnostics/checkers/raw-sql-column-checker';
 import { TableNameMapper } from '../codelens/table-name-mapper';
 import { emptySuppressions } from '../diagnostics/suppression';
-import type {
-  IDartFileInfo,
-  IDiagnosticIssue,
-} from '../diagnostics/diagnostic-types';
+import type { IDartFileInfo } from '../diagnostics/diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostics/diagnostic-issue-types';
 
 function col(name: string): { name: string; type: string; pk: boolean } {
   return { name, type: 'TEXT', pk: false };

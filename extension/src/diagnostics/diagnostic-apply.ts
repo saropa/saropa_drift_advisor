@@ -1,14 +1,12 @@
 import * as vscode from 'vscode';
 import { DIAGNOSTIC_CODES } from './diagnostic-codes';
+import { DIAGNOSTIC_PREFIX, DIAGNOSTIC_SOURCE } from './diagnostic-defaults';
 import {
-  DIAGNOSTIC_PREFIX,
-  DIAGNOSTIC_SOURCE,
   hasCallerPinnedData,
   matchesColumnNameExclusion,
-  type IDartFileInfo,
-  type IDiagnosticConfig,
   type IDiagnosticIssue,
-} from './diagnostic-types';
+} from './diagnostic-issue-types';
+import { type IDartFileInfo, type IDiagnosticConfig } from './diagnostic-context-types';
 import { isInlineSuppressed, type IInlineSuppressions } from './suppression';
 
 /**

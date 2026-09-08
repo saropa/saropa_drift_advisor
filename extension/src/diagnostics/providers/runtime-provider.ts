@@ -5,12 +5,9 @@
  */
 
 import * as vscode from 'vscode';
-import type {
-  DiagnosticCategory,
-  IDiagnosticContext,
-  IDiagnosticIssue,
-  IDiagnosticProvider,
-} from '../diagnostic-types';
+import type { DiagnosticCategory } from '../diagnostic-code-types';
+import type { IDiagnosticContext, IDiagnosticProvider } from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 import { isDriftProject } from '../dart-file-parser';
 import { eventToIssue } from '../runtime/event-converter';
 import type { IRuntimeEvent } from '../runtime/runtime-event-store';

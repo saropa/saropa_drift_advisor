@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { DIAGNOSTIC_SOURCE } from './diagnostic-types';
+import { DIAGNOSTIC_SOURCE } from './diagnostic-defaults';
 
 /**
  * Lines above/below the cursor still counted as "near" for both the

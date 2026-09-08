@@ -8,7 +8,7 @@
 
 import * as vscode from 'vscode';
 import { parseDartTables } from '../schema-diff/dart-parser';
-import type { IDartFileInfo } from './diagnostic-types';
+import type { IDartFileInfo } from './diagnostic-context-types';
 import { parseInlineSuppressions } from './suppression';
 
 /**

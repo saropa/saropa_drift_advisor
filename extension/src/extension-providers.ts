@@ -9,7 +9,7 @@ import type { AnnotationStore } from './annotations/annotation-store';
 import { DriftFileDecorationProvider, buildTableFileMap } from './decorations/file-decoration-provider';
 import { DriftCodeLensProvider } from './codelens/drift-codelens-provider';
 import { TableNameMapper } from './codelens/table-name-mapper';
-import type { IDiagnosticIssue } from './diagnostics/diagnostic-types';
+import type { IDiagnosticIssue } from './diagnostics/diagnostic-issue-types';
 import { LogCaptureBridge } from './debug/log-capture-bridge';
 import { DriftDefinitionProvider } from './definition/drift-definition-provider';
 import { DriftSourceLocatorCache } from './definition/drift-source-locator-cache';

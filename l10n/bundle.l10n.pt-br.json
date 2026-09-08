@@ -72,6 +72,8 @@
   "Annotations": "Anotações",
   "Anomalies": "Anomalias",
   "Anomaly Detection": "Detecção de Anomalia",
+  "Anomaly scan stopped early after hitting its time budget — some tables were not checked. Findings below are partial.": "Anomalia de varredura parou cedo depois de bater o seu orçamento de tempo  ⁇  algumas tabelas não foram verificadas.",
+  "Anomaly scan was partial — open Drift Health for details": "Anomalia de varredura foi parcial  ⁇  aberto Drift Saúde para detalhes.",
   "Any data changes": "Qualquer alteração de dados",
   "Append": "Adicione",
   "Applied the {0} statement in one transaction.": "Aplicou a instrução {0} em uma transação.",

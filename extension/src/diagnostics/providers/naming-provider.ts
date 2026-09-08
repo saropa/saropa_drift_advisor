@@ -2,11 +2,13 @@ import * as vscode from 'vscode';
 import { isSqlReservedWord, isSnakeCase } from '../diagnostic-codes';
 import type {
   DiagnosticCategory,
+} from '../diagnostic-code-types';
+import type {
   IDartFileInfo,
   IDiagnosticContext,
-  IDiagnosticIssue,
   IDiagnosticProvider,
-} from '../diagnostic-types';
+} from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 
 /**
  * Naming convention diagnostic provider.

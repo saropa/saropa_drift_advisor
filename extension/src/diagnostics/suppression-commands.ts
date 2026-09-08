@@ -38,7 +38,7 @@
  */
 
 import * as vscode from 'vscode';
-import { DIAGNOSTIC_SOURCE } from './diagnostic-types';
+import { DIAGNOSTIC_SOURCE } from './diagnostic-defaults';
 import {
   IColumnArgs,
   IFileArgs,

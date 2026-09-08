@@ -72,6 +72,8 @@
   "Annotations": "注釈",
   "Anomalies": "異常",
   "Anomaly Detection": "異常検出",
+  "Anomaly scan stopped early after hitting its time budget — some tables were not checked. Findings below are partial.": "異常スキャンは,時間予算を打つ後に早期に停止しました. いくつかのテーブルがチェックされませんでした. 下の結果は部分的です.",
+  "Anomaly scan was partial — open Drift Health for details": "アノマリースキャンは部分的だった  ⁇ 開いた Drift詳細については健康について.",
   "Any data changes": "任意のデータ変更",
   "Append": "追加",
   "Applied the {0} statement in one transaction.": "1 つのトランザクションで {0} ステートメントを適用しました.",

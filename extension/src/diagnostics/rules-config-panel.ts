@@ -20,7 +20,7 @@ import * as vscode from 'vscode';
 import { t } from '../l10n';
 import { secureWebviewHtml } from '../webview-csp';
 import { DIAGNOSTIC_CODES } from './diagnostic-codes';
-import type { DiagnosticCategory } from './diagnostic-types';
+import type { DiagnosticCategory } from './diagnostic-code-types';
 import {
   buildRulesConfigHtml,
   type RuleCategoryModel,

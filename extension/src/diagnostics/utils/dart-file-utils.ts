@@ -3,7 +3,7 @@
  * Extracted for Phase 2 modularization.
  */
 
-import type { IDartFileInfo } from '../diagnostic-types';
+import type { IDartFileInfo } from '../diagnostic-context-types';
 
 /**
  * Finds the Dart file that defines the given SQL table name.

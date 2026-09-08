@@ -4,7 +4,8 @@
 
 import * as vscode from 'vscode';
 import type { IPatternIndexSuggestion } from '../../engines/query-intelligence-types';
-import type { IDartFileInfo, IDiagnosticIssue } from '../diagnostic-types';
+import type { IDartFileInfo } from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
 
 const MIN_PATTERN_COUNT = 3;

@@ -1,11 +1,9 @@
 import * as vscode from 'vscode';
-import type {
-  DiagnosticCategory,
-  IDiagnosticContext,
-  IDiagnosticIssue,
-  IDiagnosticProvider,
-} from '../diagnostic-types';
-import { checkDataSkew, checkHighNullRates } from './data-quality-checks';
+import type { DiagnosticCategory } from '../diagnostic-code-types';
+import type { IDiagnosticContext, IDiagnosticProvider } from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
+import { checkDataSkew } from './data-quality-skew';
+import { checkHighNullRates } from './data-quality-null-checks';
 
 /**
  * Data quality diagnostic provider.
@@ -15,7 +13,8 @@ import { checkDataSkew, checkHighNullRates } from './data-quality-checks';
  * - Statistical outliers
  *
  * The check logic (SQL probing, false-positive suppression) lives in
- * data-quality-checks.ts; this class is the VS Code provider wiring.
+ * data-quality-skew.ts and data-quality-null-checks.ts; this class is the
+ * VS Code provider wiring.
  */
 export class DataQualityProvider implements IDiagnosticProvider {
   readonly id = 'dataQuality';

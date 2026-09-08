@@ -5,7 +5,8 @@
 
 import * as vscode from 'vscode';
 import type { PerformanceData } from '../../api-types';
-import { createTypedIssue, type ICallerPinnedData, type IDartFileInfo, type IDiagnosticIssue } from '../diagnostic-types';
+import { createTypedIssue, type ICallerPinnedData, type IDiagnosticIssue } from '../diagnostic-issue-types';
+import type { IDartFileInfo } from '../diagnostic-context-types';
 import { findDartFileForTable } from '../utils/dart-file-utils';
 import { extractTableFromSql, truncateSql } from '../utils/sql-utils';
 import { resolveCallerLocation } from '../utils/caller-location-utils';

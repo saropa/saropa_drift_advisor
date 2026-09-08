@@ -3,13 +3,10 @@
  */
 
 import * as vscode from 'vscode';
-import {
-  DEFAULT_DIAGNOSTIC_CONFIG,
-  type DiagnosticCategory,
-  type IColumnNameExclusionSet,
-  type IColumnNameGlobPattern,
-  type IDiagnosticConfig,
-} from './diagnostic-types';
+import { DEFAULT_DIAGNOSTIC_CONFIG } from './diagnostic-defaults';
+import type { DiagnosticCategory } from './diagnostic-code-types';
+import type { IColumnNameExclusionSet, IColumnNameGlobPattern } from './diagnostic-issue-types';
+import type { IDiagnosticConfig } from './diagnostic-context-types';
 
 /**
  * Compile a `columnNameExclusions` glob entry (e.g. `*_at`, `created*`,

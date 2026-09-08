@@ -16,14 +16,15 @@ export {
   DIAGNOSTIC_COLLECTION_NAME,
   DIAGNOSTIC_PREFIX,
   DIAGNOSTIC_SOURCE,
-  type DiagnosticCategory,
+} from './diagnostic-defaults';
+export { type DiagnosticCategory, type IDiagnosticCode } from './diagnostic-code-types';
+export { type IDiagnosticIssue } from './diagnostic-issue-types';
+export {
   type IDartFileInfo,
-  type IDiagnosticCode,
   type IDiagnosticConfig,
   type IDiagnosticContext,
-  type IDiagnosticIssue,
   type IDiagnosticProvider,
-} from './diagnostic-types';
+} from './diagnostic-context-types';
 
 // Providers
 export { SchemaProvider } from './providers/schema-provider';

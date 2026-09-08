@@ -3,7 +3,7 @@
  */
 
 import * as vscode from 'vscode';
-import { DIAGNOSTIC_PREFIX, DIAGNOSTIC_SOURCE } from '../diagnostics/diagnostic-types';
+import { DIAGNOSTIC_PREFIX, DIAGNOSTIC_SOURCE } from '../diagnostics/diagnostic-defaults';
 import type { InvariantManager } from './invariant-manager';
 import type { IInvariant } from './invariant-types';
 

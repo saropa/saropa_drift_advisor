@@ -2,7 +2,7 @@
  * Composed diagnostic code registry and lookup helpers.
  */
 
-import type { IDiagnosticCode } from '../diagnostic-types';
+import type { IDiagnosticCode } from '../diagnostic-code-types';
 import { BEST_PRACTICE_CODES } from './best-practice-codes';
 import { COMPLIANCE_CODES } from './compliance-codes';
 import { DATA_QUALITY_CODES } from './data-quality-codes';

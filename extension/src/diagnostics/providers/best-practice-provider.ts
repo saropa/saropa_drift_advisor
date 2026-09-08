@@ -3,11 +3,13 @@ import type { ForeignKey, TableMetadata } from '../../api-types';
 import type { IDartTable } from '../../schema-diff/dart-schema';
 import type {
   DiagnosticCategory,
+} from '../diagnostic-code-types';
+import type {
   IDartFileInfo,
   IDiagnosticContext,
-  IDiagnosticIssue,
   IDiagnosticProvider,
-} from '../diagnostic-types';
+} from '../diagnostic-context-types';
+import type { IDiagnosticIssue } from '../diagnostic-issue-types';
 import { checkCircularFks, checkNoForeignKeys } from './best-practice-fk-checks';
 
 /**

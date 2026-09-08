@@ -5,11 +5,13 @@ import type { QueryIntelligence } from '../engines/query-intelligence';
 import { DIAGNOSTIC_CODES } from './diagnostic-codes';
 import {
   DIAGNOSTIC_COLLECTION_NAME,
+} from './diagnostic-defaults';
+import {
   type IDiagnosticConfig,
   type IDiagnosticContext,
-  type IDiagnosticIssue,
   type IDiagnosticProvider,
-} from './diagnostic-types';
+} from './diagnostic-context-types';
+import { type IDiagnosticIssue } from './diagnostic-issue-types';
 import { parseDartFilesInWorkspace, readDateTimeAsText } from './dart-file-parser';
 import { loadDiagnosticConfig } from './diagnostic-config';
 import { isMonitoringKilled } from '../monitoring/monitoring-state';
