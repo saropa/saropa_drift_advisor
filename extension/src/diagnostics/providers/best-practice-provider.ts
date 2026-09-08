@@ -32,6 +32,11 @@ export class BestPracticeProvider implements IDiagnosticProvider {
       await this._checkSchemaSnapshots(issues);
     }
 
+    // Source-only check — no server/table data needed, so run unconditionally.
+    for (const file of ctx.dartFiles) {
+      this._checkUnreachableIgnoreDirectives(issues, file);
+    }
+
     try {
       const tables = await ctx.client.schemaMetadata();
       const userTables = tables.filter((t) => !t.name.startsWith('sqlite_'));
@@ -163,6 +168,28 @@ export class BestPracticeProvider implements IDiagnosticProvider {
       fileUri: pubspecUri,
       range: new vscode.Range(0, 0, 0, 999),
     });
+  }
+
+  /**
+   * Warns on `drift-advisor:ignore` directives that resolved to no target
+   * line (nothing but blank/comment lines follow them in the file). Such a
+   * directive silently suppresses nothing, which looks identical to a
+   * working suppression until the diagnostic it was meant to silence
+   * reappears — a trap this check surfaces immediately instead.
+   */
+  private _checkUnreachableIgnoreDirectives(
+    issues: IDiagnosticIssue[],
+    file: IDartFileInfo,
+  ): void {
+    for (const line of file.suppressions.unreachableDirectiveLines) {
+      issues.push({
+        code: 'unreachable-ignore-directive',
+        message:
+          'This "drift-advisor:ignore" directive has no code line to target and suppresses nothing',
+        fileUri: file.uri,
+        range: new vscode.Range(line, 0, line, 999),
+      });
+    }
   }
 
   private _checkAutoIncrementNotPk(

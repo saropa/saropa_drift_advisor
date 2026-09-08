@@ -75,4 +75,15 @@ export const BEST_PRACTICE_CODES: Record<string, IDiagnosticCode> = {
       'No Drift schema snapshots found — run "dart run drift_dev schema dump" to enable migration path testing with SchemaVerifier',
     hasFix: true,
   },
+  // A directive with nothing left to target suppresses nothing at all — the
+  // opposite of what the author intended, and easy to miss since it fails
+  // silently. See BUG_HIGH_NULL_RATE_FALSE_POSITIVE_MULTILINE_IGNORE_COMMENT.md.
+  'unreachable-ignore-directive': {
+    code: 'unreachable-ignore-directive',
+    category: 'bestPractices',
+    defaultSeverity: vscode.DiagnosticSeverity.Warning,
+    messageTemplate:
+      'This "drift-advisor:ignore" directive has no code line to target and suppresses nothing',
+    hasFix: false,
+  },
 };

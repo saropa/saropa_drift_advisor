@@ -16,6 +16,7 @@ import { resetMocks, workspace } from './vscode-mock';
 import { BestPracticeProvider } from '../diagnostics/providers/best-practice-provider';
 import { createDartFile } from './diagnostic-test-helpers';
 import { createContext } from './best-practice-provider-test-helpers';
+import { parseInlineSuppressions } from '../diagnostics/suppression';
 
 describe('BestPracticeProvider', () => {
   let provider: BestPracticeProvider;
@@ -79,6 +80,59 @@ describe('BestPracticeProvider', () => {
 
       const issue = issues.find((i) => i.code === 'autoincrement-not-pk');
       assert.ok(!issue, 'Should not report when autoIncrement is on PK');
+    });
+
+    it('should report unreachable-ignore-directive when a directive targets no code', async () => {
+      const dartFile = createDartFile('users', ['id', 'name']);
+      dartFile.text = [
+        'class Users extends Table {}',
+        '// drift-advisor:ignore high-null-rate',
+      ].join('\n');
+      dartFile.suppressions = parseInlineSuppressions(dartFile.text);
+
+      const ctx = createContext({
+        dartFiles: [dartFile],
+        tables: [{
+          name: 'users',
+          columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            { name: 'name', type: 'TEXT', pk: false },
+          ],
+          rowCount: 10,
+        }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'unreachable-ignore-directive');
+      assert.ok(issue, 'Should report unreachable-ignore-directive');
+      assert.strictEqual(issue.range.start.line, 1);
+    });
+
+    it('should not report unreachable-ignore-directive when a directive targets code', async () => {
+      const dartFile = createDartFile('users', ['id', 'name']);
+      dartFile.text = [
+        '// drift-advisor:ignore high-null-rate',
+        'class Users extends Table {}',
+      ].join('\n');
+      dartFile.suppressions = parseInlineSuppressions(dartFile.text);
+
+      const ctx = createContext({
+        dartFiles: [dartFile],
+        tables: [{
+          name: 'users',
+          columns: [
+            { name: 'id', type: 'INTEGER', pk: true },
+            { name: 'name', type: 'TEXT', pk: false },
+          ],
+          rowCount: 10,
+        }],
+      });
+
+      const issues = await provider.collectDiagnostics(ctx);
+
+      const issue = issues.find((i) => i.code === 'unreachable-ignore-directive');
+      assert.ok(!issue, 'Should not report when the directive successfully targets code');
     });
 
     it('should not report no-foreign-keys for intentionally isolated tables', async () => {

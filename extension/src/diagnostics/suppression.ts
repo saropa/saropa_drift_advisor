@@ -34,6 +34,13 @@ export interface IInlineSuppressions {
   lineAll: Set<number>;
   /** 0-based line -> codes named by `ignore <codes>` targeting that line. */
   lineCodes: Map<number, Set<string>>;
+  /**
+   * 0-based lines of field-level directives that resolved to no target
+   * (no code line follows anywhere after them in the file). These suppress
+   * nothing and are almost always a mistake — e.g. accidentally left at the
+   * end of a file after a table/class was deleted or reordered.
+   */
+  unreachableDirectiveLines: number[];
 }
 
 /** Empty suppression set (file with no directives). */
@@ -43,6 +50,7 @@ export function emptySuppressions(): IInlineSuppressions {
     fileCodes: new Set(),
     lineAll: new Set(),
     lineCodes: new Map(),
+    unreachableDirectiveLines: [],
   };
 }
 
@@ -55,12 +63,13 @@ const DIRECTIVE_RE =
 
 /**
  * Split a captured code list (`a, b c`) into a normalized set.
- * Strips a `-- rationale` suffix first, so `high-null-rate -- by design: ...`
- * yields only `['high-null-rate']`.
+ * Strips a rationale suffix first, so `high-null-rate -- by design: ...`
+ * yields only `['high-null-rate']`. Accepts `--`, `—` (em dash), or `–` (en
+ * dash) as the separator, with any amount of surrounding whitespace —
+ * developers don't consistently type a single ASCII space-hyphen-hyphen.
  */
 function parseCodes(raw: string): string[] {
-  // Strip rationale after a ` -- ` separator (space-hyphen-hyphen-space).
-  const codesPart = raw.replace(/\s--\s.*$/, '');
+  const codesPart = raw.replace(/\s+(--|—|–)\s+.*$/, '');
   return codesPart
     .split(/[\s,]+/)
     .map((c) => c.trim().toLowerCase())
@@ -105,7 +114,13 @@ export function parseInlineSuppressions(source: string): IInlineSuppressions {
     // Skip past any continuation comment lines between the directive and
     // the actual code line it targets (e.g. wrapped rationale text).
     const targetLine = trailing ? i : nextCodeLine(lines, i + 1);
-    if (targetLine < 0) continue;
+    if (targetLine < 0) {
+      // Directive has nothing left to target — record it as unreachable
+      // instead of silently dropping it, so it can be surfaced as a
+      // diagnostic (see best-practice-provider.ts).
+      result.unreachableDirectiveLines.push(i);
+      continue;
+    }
 
     if (codes.length === 0) {
       result.lineAll.add(targetLine);
@@ -121,15 +136,27 @@ export function parseInlineSuppressions(source: string): IInlineSuppressions {
 
 /**
  * First code line index at or after `from`, or -1 if none.
- * Skips blank lines AND comment-only lines (whitespace + `//`), so a
- * directive with a wrapped rationale targets the actual code, not the
- * continuation comment.
+ * Skips blank lines AND comment-only lines, so a directive with a wrapped
+ * rationale targets the actual code, not the continuation comment. Handles
+ * both `//` line comments and block comments (including `*`-prefixed
+ * continuation lines in the doc-comment style), since a rationale could
+ * in principle wrap inside either style.
  */
 function nextCodeLine(lines: string[], from: number): number {
+  let inBlockComment = false;
   for (let i = from; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-    // Skip blank lines and lines that are nothing but a `//` comment.
-    if (trimmed.length === 0 || trimmed.startsWith('//')) continue;
+    if (inBlockComment) {
+      if (trimmed.endsWith('*/')) inBlockComment = false;
+      continue;
+    }
+    if (trimmed.length === 0 || trimmed.startsWith('//') || trimmed.startsWith('*')) {
+      continue;
+    }
+    if (trimmed.startsWith('/*')) {
+      if (!trimmed.endsWith('*/')) inBlockComment = true;
+      continue;
+    }
     return i;
   }
   return -1;

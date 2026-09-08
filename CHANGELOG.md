@@ -56,6 +56,7 @@ browse source on
 ### Added
 
 - **Suppress a diagnostic by column name across every table** — a new `driftViewer.diagnostics.columnNameExclusions` setting silences a rule wherever a given column name occurs, without listing every `table.column` pair. Nullable-by-design columns that recur across a schema (`lastModified`, `updatedAt`) no longer need a `// drift-advisor:ignore` on each table that carries them. Matching is case-insensitive.
+- **New diagnostic: `unreachable-ignore-directive`** — warns when a `// drift-advisor:ignore` directive has no code line left to target (e.g. the column or table it was suppressing was since deleted or moved). Previously such a directive silently suppressed nothing, with no indication anything was wrong.
 
 ### Improved
 
@@ -63,8 +64,8 @@ browse source on
 
 ### Fixed
 
-- **`drift-advisor:ignore` false positive with multi-line rationale** — a `// drift-advisor:ignore code -- rationale` whose rationale wrapped onto continuation comment lines failed to suppress the diagnostic. Two independent fixes: the directive regex now tolerates arbitrary rationale text (`:`, parentheses, etc.) by stripping everything after ` -- `; and the target-line resolver now skips comment-only lines between the directive and the code it targets.
-- **Auth-protected servers invisible to Saropa Lints discovery** — `GET /api/health` was blocked by the auth gate, so unauthenticated probes (e.g. Saropa Lints integration) treated an authenticated server as absent. Health is now exempt from auth; when credentials are not supplied, it returns a reduced payload (`ok`, `version`, `schemaVersion`, `authRequired: true`) that leaks no internal configuration. The full payload is returned when authenticated. New `authRequired` field documented in `doc/API.md`.
+- **`drift-advisor:ignore` false positive with multi-line rationale** — a `// drift-advisor:ignore code -- rationale` whose rationale wrapped onto continuation comment lines failed to suppress the diagnostic. Two independent fixes: the directive regex now tolerates arbitrary rationale text (`:`, parentheses, etc.) by stripping everything after the `--`/`—`/`–` separator; and the target-line resolver now skips comment-only lines — both `//` and `/* ... */` styles — between the directive and the code it targets.
+- **Auth-protected servers invisible to Saropa Lints discovery** — `GET /api/health` was blocked by the auth gate, so unauthenticated probes (e.g. Saropa Lints integration) treated an authenticated server as absent. Health is now exempt from auth; when credentials are not supplied, it returns a reduced payload (`ok`, `version`, `schemaVersion`, `authRequired: true`) that leaks no internal configuration, plus a `WWW-Authenticate` header naming the configured scheme. The full payload is returned when authenticated. A 401 on any other endpoint now also always carries `WWW-Authenticate` (previously only when Basic auth was configured), so a server challenges identically whichever endpoint is hit. New `authRequired` field and the header behavior documented in `doc/API.md`.
 - **`doc/API.md` — document `slowThresholdMs`** — the `GET /api/analytics/performance` endpoint accepts an optional `?slowThresholdMs=<int>` query parameter (default 100) and echoes it in the response, but neither was documented; the `slowQueries` description hardcoded "100 ms" as if the threshold were fixed.
 - **`doc/API.md` — stale implementation pointer** — the SQL-from-query-string reference pointed at the pre-migration `assets/web/app.js` instead of `assets/web/sql-runner.ts`.
 

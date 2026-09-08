@@ -51,6 +51,99 @@ describe('inline suppression directives', () => {
     });
   });
 
+  describe('field-level (dash-variant rationale separators)', () => {
+    it('accepts an em dash separator', () => {
+      const src = [
+        '// drift-advisor:ignore high-null-rate — by design: rationale text',
+        'TextColumn get x => text().nullable()();',
+      ].join('\n');
+      const s = parseInlineSuppressions(src);
+      assert.ok(isInlineSuppressed(s, 'high-null-rate', 1));
+    });
+
+    it('accepts an en dash separator', () => {
+      const src = [
+        '// drift-advisor:ignore high-null-rate – by design: rationale text',
+        'TextColumn get x => text().nullable()();',
+      ].join('\n');
+      const s = parseInlineSuppressions(src);
+      assert.ok(isInlineSuppressed(s, 'high-null-rate', 1));
+    });
+
+    it('accepts multiple spaces around the -- separator', () => {
+      const src = [
+        '// drift-advisor:ignore high-null-rate   --   by design: rationale text',
+        'TextColumn get x => text().nullable()();',
+      ].join('\n');
+      const s = parseInlineSuppressions(src);
+      assert.ok(isInlineSuppressed(s, 'high-null-rate', 1));
+    });
+  });
+
+  describe('field-level (multi-line rationale wraps into a block comment)', () => {
+    const src = [
+      'class Users extends Table {', // 0
+      '  // drift-advisor:ignore high-null-rate -- by design: most activity types', // 1
+      '  /* screen visits, searches, games, nav history have no contact. */', // 2
+      '  TextColumn get contactSaropaUUID => text().nullable()();', // 3 (target)
+    ].join('\n');
+
+    it('skips a single-line block comment continuation', () => {
+      const s = parseInlineSuppressions(src);
+      assert.ok(isInlineSuppressed(s, 'high-null-rate', 3));
+      assert.ok(!isInlineSuppressed(s, 'high-null-rate', 2));
+    });
+
+    it('skips a multi-line block comment continuation', () => {
+      const multiLine = [
+        'class Users extends Table {', // 0
+        '  // drift-advisor:ignore high-null-rate -- by design:', // 1
+        '  /* screen visits, searches, games,', // 2
+        '     nav history have no contact. */', // 3
+        '  TextColumn get contactSaropaUUID => text().nullable()();', // 4 (target)
+      ].join('\n');
+      const s = parseInlineSuppressions(multiLine);
+      assert.ok(isInlineSuppressed(s, 'high-null-rate', 4));
+      assert.ok(!isInlineSuppressed(s, 'high-null-rate', 2));
+      assert.ok(!isInlineSuppressed(s, 'high-null-rate', 3));
+    });
+  });
+
+  describe('field-level (unreachable directive)', () => {
+    it('records a directive with no code line after it as unreachable', () => {
+      const src = [
+        'class Users extends Table {}', // 0
+        '// drift-advisor:ignore high-null-rate', // 1 (unreachable)
+      ].join('\n');
+      const s = parseInlineSuppressions(src);
+      assert.deepStrictEqual(s.unreachableDirectiveLines, [1]);
+    });
+
+    it('records a directive followed only by trailing comments as unreachable', () => {
+      const src = [
+        '// drift-advisor:ignore high-null-rate', // 0 (unreachable)
+        '// just a trailing comment, no code follows', // 1
+      ].join('\n');
+      const s = parseInlineSuppressions(src);
+      assert.deepStrictEqual(s.unreachableDirectiveLines, [0]);
+    });
+
+    it('does not record a directive that successfully targets code', () => {
+      const src = [
+        '// drift-advisor:ignore high-null-rate',
+        'TextColumn get x => text().nullable()();',
+      ].join('\n');
+      const s = parseInlineSuppressions(src);
+      assert.deepStrictEqual(s.unreachableDirectiveLines, []);
+    });
+
+    it('does not record a trailing directive (targets its own line, always reachable)', () => {
+      const src = '  TextColumn get x => text()(); // drift-advisor:ignore high-null-rate';
+      const s = parseInlineSuppressions(src);
+      assert.deepStrictEqual(s.unreachableDirectiveLines, []);
+    });
+  });
+
   describe('field-level (trailing directive)', () => {
     it('suppresses on its own line', () => {
       const src =

@@ -151,6 +151,37 @@ comments)` with two assertions:
 - Directive targets the code line (line 3), not the continuation comment (line 2)
 - The continuation comment line itself is NOT suppressed
 
+### Hardening pass (post-fix reflection)
+
+Two further gaps identified during the finish-report reflection were closed
+in the same change set:
+
+1. **Dash-variant rationale separators** — `parseCodes` originally required
+   exactly one ASCII space, `--`, one ASCII space. Widened to accept `—`
+   (em dash) and `–` (en dash), and any amount of surrounding whitespace.
+2. **Block-comment continuation lines** — `nextCodeLine` originally only
+   skipped `//` line comments. It now also skips `/* ... */` block comments
+   (single- and multi-line) and `*`-prefixed doc-comment continuation lines,
+   in case a wrapped rationale spans a block comment instead of `//` lines.
+
+### New diagnostic: `unreachable-ignore-directive`
+
+While investigating the false positive, a related silent-failure mode was
+found: a field-level directive with **no code line anywhere after it in the
+file** (e.g. left dangling after the table it targeted was deleted or moved)
+was silently dropped — it suppressed nothing, with no indication to the
+author. Added:
+
+- `IInlineSuppressions.unreachableDirectiveLines` — lines of directives that
+  resolved to no target, tracked by `parseInlineSuppressions` instead of
+  being discarded.
+- New diagnostic code `unreachable-ignore-directive` (`bestPractices`
+  category, Warning severity) in `codes/best-practice-codes.ts`.
+- `BestPracticeProvider._checkUnreachableIgnoreDirectives`, run
+  unconditionally per Dart file (no server/table data required).
+- Tests: 4 new assertions in `suppression.test.ts` (unit) and 2 in
+  `best-practice-provider.test.ts` (provider integration).
+
 ---
 
 ## Commits
