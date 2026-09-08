@@ -59,7 +59,13 @@ export function getWebviewTokens(): string {
   --border-strong: color-mix(in srgb, var(--vscode-focusBorder) 35%, var(--border));
 
   /* Semantic / status — bind to the editor's diagnostic colors (§3.5),
-     never an invented green/red. Fallbacks are the guide's brand palette. */
+     never an invented green/red. Fallbacks are the guide's brand palette.
+     --accent-warning in particular resolves to VS Code's own editor-warning
+     squiggle color: every built-in theme (including high-contrast) is
+     required to keep that token readable against --vscode-editor-background,
+     since VS Code uses it for its own diagnostics UI. Readability across
+     themes is therefore delegated to the host, not re-verified per theme
+     here. */
   --status-good: var(--vscode-testing-iconPassed, var(--vscode-charts-green, #16a34a));
   --status-bad: var(--vscode-editorError-foreground, #dc2626);
   --accent-critical: var(--vscode-editorError-foreground, #dc2626);

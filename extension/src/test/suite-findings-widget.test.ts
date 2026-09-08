@@ -137,6 +137,17 @@ describe('renderSuiteFindingsHtml — truncated badge', () => {
     assert.ok(html.includes('title='));
   });
 
+  it('badge is accessible to assistive tech, not just hover', () => {
+    // title alone is invisible to a screen reader without a hover event on a
+    // bare span; role="img" + aria-label surfaces the same text without one.
+    const html = renderSuiteFindingsHtml(
+      data({ total: 2, tables: 1, advisor: 2 }, true),
+    );
+    assert.ok(html.includes('role="img"'));
+    assert.ok(html.includes('aria-label="'));
+    assert.ok(html.includes('data-testid="suite-trunc-badge"'));
+  });
+
   it('does NOT show clean state when zero findings but truncated', () => {
     // Zero findings + truncated means the scan stopped before finding anything;
     // that is NOT a clean bill of health — the widget must not claim all-clear.

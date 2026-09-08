@@ -1499,6 +1499,7 @@ The list is wrapped in the **Saropa Diagnostic Envelope** — the shared cross-t
 | `producer` | object | yes | `{ "name": "saropa_drift_advisor", "version": "<package semver>" }` — attributes the issues when merged into a multi-tool list. |
 | `generatedAt` | string | yes | ISO 8601 UTC timestamp of when the list was produced. |
 | `issues` | array | yes | The merged issue list (envelope carrier key; equivalent to `diagnostics` in the shared spec). |
+| `truncated` | bool | no | Present and `true` only when the live anomaly scan hit its wall-clock budget (60s) and stopped before checking every table — the `anomaly`-sourced issues above are then partial, not a complete scan. Absent when the scan finished in budget. Purely additive: a consumer that ignores it sees the same issue list as before this field existed. |
 
 **Issue object fields**
 
@@ -1513,7 +1514,7 @@ The list is wrapped in the **Saropa Diagnostic Envelope** — the shared cross-t
 | `title` | string | yes | Localized one-line summary. Same text as `message` today; emitted as the suite-standard field so cross-tool consumers read one key. |
 | `message` | string | yes | Human-readable description (retained for backward compatibility; alias of `title`) |
 | `suggestedSql` | string | no | Ready-to-run SQL: `CREATE INDEX` for index suggestions, `DROP TABLE` for orphan tables |
-| `type` | string | no | Anomalies: `null_values`, `empty_strings`, `orphaned_fk`, `duplicate_rows`, `potential_outlier`, `outlier_check_hint`. Orphan tables: `orphan_table` |
+| `type` | string | no | Anomalies: `null_values`, `empty_strings`, `orphaned_fk`, `duplicate_rows`, `potential_outlier`, `outlier_check_hint`, `scan_skipped` (per-table statement timeout — this one table's anomaly checks were skipped, distinct from the top-level `truncated` wall-clock-budget flag). Orphan tables: `orphan_table` |
 | `count` | int | no | Anomalies only: number of affected rows (not present for `potential_outlier`) |
 | `priority` | string | no | Index suggestions only: `"high"`, `"medium"`, or `"low"` |
 | `fix` | object | no | Primary action for a table-scoped issue: `{ "kind": "command", "command": "driftViewer.goToDefinitionForTable", "args": [{ "table": "<name>" }], "title": "Go to table definition" }`. A consumer renders this as a button (gated on the command being registered). Absent on issues with no table. |

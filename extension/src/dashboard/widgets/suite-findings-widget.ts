@@ -85,8 +85,15 @@ export function renderSuiteFindingsHtml(data: SuiteFindingsData): string {
   // Warning badge shown next to the total when Advisor's anomaly scan was
   // truncated — a compact counterpart to the full banner in the Drift Health
   // panel, so a user doesn't have to open it just to learn the scan was partial.
+  // `title` alone is hover-only and invisible to screen readers on a bare
+  // <span>; role="img" + aria-label gives assistive tech the same text without
+  // requiring a hover. data-testid is a stable hook for future UI automation
+  // (there is none of that yet, but a bare `.suite-trunc` class is not a safe
+  // contract to assert on — the class also names the CSS rule).
+  const truncTitle = esc(t('panel.suiteFindings.truncated'));
   const truncBadge = truncated
-    ? ` <span class="suite-trunc" title="${esc(t('panel.suiteFindings.truncated'))}">⚠</span>`
+    ? ` <span class="suite-trunc" role="img" aria-label="${truncTitle}" `
+      + `title="${truncTitle}" data-testid="suite-trunc-badge">⚠</span>`
     : '';
 
   if (clean) {

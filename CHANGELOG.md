@@ -61,7 +61,7 @@ browse source on
 ### Improved
 
 - **Anomaly scan collapses ~2 000 serial queries into ~5 per table** — NULL counts, empty-string counts, and outlier pass-1 aggregates are now folded into a single combined SELECT per table; variance queries are similarly combined. A 40-table, 15-column schema drops from ~2 000 serial full-table scans to ~200, eliminating the multi-minute hang that wedged every other endpoint. Tables with a primary key skip the duplicate-row check entirely (the answer is provably zero). BLOB columns are excluded from the DISTINCT projection. A per-statement timeout and a 60-second wall-clock budget prevent any single scan from blocking the connection indefinitely.
-- **Anomaly-scan truncation surfaces through the full stack** — when the 60-second wall-clock budget expires mid-scan, the partial-result flag now propagates from the Dart server through `/api/issues`, the HTML report, the Drift Health panel (as a warning banner), and the Suite Findings dashboard widget (as a ⚠ badge next to the total count). Previously a truncated scan returned partial results silently.
+- **Anomaly-scan truncation surfaces through the full stack** — when the 60-second wall-clock budget expires mid-scan, the partial-result flag now propagates from the Dart server through `/api/issues`, the HTML report, the Drift Health panel (as a warning banner), and the Suite Findings dashboard widget (as a ⚠ badge next to the total count, readable by screen readers, not hover-only). Previously a truncated scan returned partial results silently.
 
 ### Fixed
 
