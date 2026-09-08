@@ -1,6 +1,6 @@
 # BUG: Three phase-10 event subscriptions are discarded instead of registered, so their listeners outlive disposal
 
-**Status: Open**
+**Status: Closed**
 
 <!-- Status values: Open → Investigating → Fix Ready → Closed -->
 
@@ -277,13 +277,29 @@ would), so the next occurrence is caught at build time rather than by review.
 
 ## Changes Made
 
-<!-- Fill in when a fix is written. -->
+Wrapped all three discarded handles in `d.context.subscriptions.push(...)` in
+`extension-activation-event-wiring.ts` (lines 95, 158, 176 as originally
+numbered): `serverManager.onDidChangeActive`, `discovery.onDidChangeServers`,
+and `watcher.onDidChange`.
+
+The `GenerationWatcher.dispose()` part of the fix sketch was already present
+in the codebase (`generation-watcher.ts:82-86`, clears `_listeners`) and
+already registered at the bottom of `wireEventListeners`
+(`d.context.subscriptions.push({ dispose: () => d.watcher.dispose() })`) — that
+half of the report was stale by the time of triage; only the three floating
+`Disposable` returns needed fixing.
+
+The custom-lint-rule follow-up (flagging an ignored `Disposable` return) is
+not implemented — noted as a "worth considering" item in the original report,
+not a requirement of this fix.
+
+Verified with `npx tsc --noEmit -p extension/` — no errors.
 
 ---
 
 ## Commits
 
-<!-- Add commit hashes as fixes land. -->
+<!-- Add commit hash once committed. -->
 
 ---
 
@@ -296,3 +312,30 @@ would), so the next occurrence is caught at build time rather than by review.
   expensive listener in the extension permanently attached to its watcher.
 - Data risk: none.
 - Frequency: n/a — static.
+
+---
+
+## Finish Report (2026-09-07)
+
+Three `Disposable` handles returned by `serverManager.onDidChangeActive`,
+`discovery.onDidChangeServers`, and `watcher.onDidChange` in
+`extension-activation-event-wiring.ts` were dropped instead of being pushed
+onto `context.subscriptions`, leaving the extension without a way to detach
+those listeners on deactivation.
+
+All three call sites were wrapped in `d.context.subscriptions.push(...)`,
+matching the convention already used by every other subscription in the same
+file. `GenerationWatcher.dispose()` — the other half of the report's fix
+sketch, clearing `_listeners` on teardown — was found already implemented and
+already registered at the bottom of `wireEventListeners`; that portion of the
+original report predated the current code and required no further change.
+
+Verification: `npx tsc --noEmit -p extension/` passes with no errors. No
+dedicated test file exists for `wireEventListeners`/
+`extension-activation-event-wiring.ts` (grepped `extension/src/test/` for the
+three event names and the module name; no matches), so no existing assertion
+needed updating. No new test was added: the change is disposal bookkeeping
+with no new branchable behavior, and a meaningful regression test would
+require constructing the full `FinalPhaseDeps` graph with a fake
+`context.subscriptions` array — disproportionate to a three-line fix. This is
+a real test-coverage gap for the file, not a decision to treat lightly.
