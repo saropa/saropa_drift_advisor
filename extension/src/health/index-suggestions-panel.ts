@@ -202,11 +202,16 @@ export class IndexSuggestionsPanel {
       // re-open the cell), pipes, and newlines to avoid breaking columns.
       const mdEsc = (v: string) =>
         v.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+      // Inside a backtick code span Markdown does not process backslash
+      // escapes, so doubling a backslash there would render it doubled. GFM
+      // still splits table cells on `|` before inline parsing, so pipes (and
+      // newlines) must be escaped but backslashes left alone.
+      const mdCodeEsc = (v: string) => v.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
       const lines = [
         '| Table | Column | Priority | Reason | SQL |',
         '|-------|--------|----------|--------|-----|',
         ...this._suggestions.map((s) =>
-          `| ${mdEsc(s.table)} | ${mdEsc(s.column)} | ${s.priority} | ${mdEsc(s.reason)} | \`${mdEsc(s.sql)}\` |`,
+          `| ${mdEsc(s.table)} | ${mdEsc(s.column)} | ${s.priority} | ${mdEsc(s.reason)} | \`${mdCodeEsc(s.sql)}\` |`,
         ),
       ];
       text = lines.join('\n');
