@@ -175,12 +175,17 @@ export class ClipboardParser {
         const cellContent = tdMatch[1]
           .replace(/<br\s*\/?>/gi, ' ')
           .replace(/<[^>]*>/g, '')
-          .replace(/&nbsp;/gi, ' ')
-          .replace(/&amp;/gi, '&')
-          .replace(/&lt;/gi, '<')
-          .replace(/&gt;/gi, '>')
-          .replace(/&quot;/gi, '"')
-          .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+          .replace(/&(nbsp|amp|lt|gt|quot|#(\d+));/gi, (whole, name, code) => {
+            if (code !== undefined) return String.fromCharCode(parseInt(code, 10));
+            switch (String(name).toLowerCase()) {
+              case 'nbsp': return ' ';
+              case 'amp': return '&';
+              case 'lt': return '<';
+              case 'gt': return '>';
+              case 'quot': return '"';
+              default: return whole;
+            }
+          })
           .trim();
         cells.push(cellContent);
       }

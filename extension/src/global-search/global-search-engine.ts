@@ -96,9 +96,13 @@ export function buildCondition(
   }
 }
 
-/** Escape LIKE wildcards so they are matched literally. */
+/** Escape LIKE wildcards (and the escape character itself) so they are matched literally. */
 function escapeLike(value: string): string {
-  return value.replace(/%/g, '\\%').replace(/_/g, '\\_');
+  // The backslash must be escaped FIRST: escaping % or _ before it would
+  // introduce new backslashes that then get re-escaped, and any backslash
+  // already present in the input would otherwise be left free to escape the
+  // *next* character once passed to SQL's `LIKE ... ESCAPE '\'`.
+  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
 }
 
 /** Check if a string value matches the search query on the JS side. */

@@ -267,22 +267,38 @@ def _check_publish_credentials(
 
 
 def _save_ovsx_pat_to_env(pat: str) -> None:
-    """Append OVSX_PAT to .env so it persists across runs."""
+    """Append OVSX_PAT to .env so it persists across runs.
+
+    The token is a bearer credential for the Open VSX publish API, so the
+    file it lands in must not be left world/group readable: it is created
+    (or, if it pre-exists, tightened) to mode 0600 — owner read/write only —
+    before the secret is ever written to it. `.env` is also git-ignored
+    (see `.gitignore`), so this never reaches source control.
+    """
     from modules.constants import REPO_ROOT
     from modules.display import fix as fix_msg, info as info_msg
     env_path = os.path.join(REPO_ROOT, ".env")
     try:
         existing = ""
         if os.path.exists(env_path):
+            # Tighten permissions on an existing file before reading/writing it.
+            os.chmod(env_path, 0o600)
             with open(env_path, encoding="utf-8") as f:
                 existing = f.read()
         if "OVSX_PAT=" in existing:
             return  # already present
-        with open(env_path, "a", encoding="utf-8") as f:
-            if existing and not existing.endswith("\n"):
-                f.write("\n")
-            f.write(f"OVSX_PAT={pat}\n")
-        fix_msg(f"Saved OVSX_PAT to {C.WHITE}.env{C.RESET} (won't ask again)")
+
+        to_append = ("\n" if existing and not existing.endswith("\n") else "") + f"OVSX_PAT={pat}\n"
+        # Open with O_CREAT restricted to 0600 from the moment the file is
+        # created, so it is never briefly world-readable (TOCTOU-safe, unlike
+        # open()-then-chmod()).
+        fd = os.open(env_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        try:
+            with os.fdopen(fd, "a", encoding="utf-8") as f:
+                f.write(to_append)
+        finally:
+            os.chmod(env_path, 0o600)
+        fix_msg(f"Saved OVSX_PAT to {C.WHITE}.env{C.RESET} (mode 600, won't ask again)")
     except OSError:
         info_msg("Could not save to .env — you'll be prompted again next time.")
 

@@ -322,7 +322,17 @@ describe('offline shell — G2: every icon has a usable fallback', () => {
       if (!body.includes(ICON_CLASS)) continue;
       const hasLabelAttr = /\b(data-label|aria-label|title)\s*=/.test(attrs);
       // Visible text is any non-whitespace left after removing all child markup.
-      const visibleText = body.replace(/<[^>]*>/g, '').replace(/&\w+;/g, '').trim();
+      // A single non-recursive pass is unsound: stripping `<...>` once can
+      // itself produce a new, unstripped tag out of overlapping fragments
+      // (e.g. `<sc<script>ript>` loses only the inner `<script>` in one pass
+      // and leaves `<script>` behind). Loop until a pass changes nothing.
+      let visibleText = body;
+      let previous;
+      do {
+        previous = visibleText;
+        visibleText = visibleText.replace(/<[^>]*>/g, '').replace(/&\w+;/g, '');
+      } while (visibleText !== previous);
+      visibleText = visibleText.trim();
       if (!hasLabelAttr && visibleText.length === 0) {
         offenders.push(m[0].slice(0, 120));
       }
@@ -361,9 +371,17 @@ describe('offline shell — G3: the only external dependency is the fonts', () =
     // Only subresource-fetching attributes matter. An <a href> is navigation, and a
     // data: URI is self-contained, so both are excluded by construction below.
     const offenders = [];
-    for (const m of shell.matchAll(/<(link|script|img|iframe)\b[^>]*>/g)) {
+    // `[^>]*` alone is unsound: a `>` inside a quoted attribute value (e.g.
+    // `src="x>y"`) ends the match early and lets the rest of a real tag slip
+    // through unchecked. Treat quoted attribute values as opaque runs so an
+    // embedded `>` or `'`/`"` inside them cannot terminate the tag early.
+    const TAG_RE = /<(link|script|img|iframe)\b(?:"[^"]*"|'[^']*'|[^>"'])*>/g;
+    // Match either quoting style for the URL attribute itself, for the same reason.
+    const URL_ATTR_RE = /\b(?:href|src)\s*=\s*(?:"([^"]*)"|'([^']*)')/;
+    for (const m of shell.matchAll(TAG_RE)) {
       const tag = m[0];
-      const url = (tag.match(/\b(?:href|src)\s*=\s*"([^"]*)"/) || [])[1] || '';
+      const attrMatch = tag.match(URL_ATTR_RE);
+      const url = (attrMatch && (attrMatch[1] ?? attrMatch[2])) || '';
       if (!/^https?:\/\//.test(url)) continue; // relative, data:, or interpolated
       const host = url.split('/')[2];
       if (host !== 'fonts.googleapis.com' && host !== 'fonts.gstatic.com') offenders.push(tag.slice(0, 140));

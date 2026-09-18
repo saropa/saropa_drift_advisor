@@ -48,8 +48,13 @@ function formatCell(value: unknown, maxLen: number): string {
   const s = value === null || value === undefined ? 'null' : String(value);
   const truncated =
     s.length > maxLen ? s.substring(0, maxLen - 1) + '\u2026' : s;
-  // Escape pipes so they don't break the markdown table
-  return truncated.replace(/\|/g, '\\|');
+  // Escape backslashes first (Markdown's escape character \u2014 an unescaped one
+  // left in front of an escaped pipe would combine with it and re-open the
+  // cell), then pipes, then flatten newlines so they don't break the table.
+  return truncated
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, ' ');
 }
 
 /**

@@ -197,8 +197,11 @@ export class IndexSuggestionsPanel {
       });
       text = header + '\n' + rows.join('\n');
     } else {
-      // Markdown table — escape pipe characters to avoid breaking columns
-      const mdEsc = (v: string) => v.replace(/\|/g, '\\|');
+      // Markdown table — escape backslashes (Markdown's own escape char, so
+      // it must go first or it would combine with the escaped pipe below and
+      // re-open the cell), pipes, and newlines to avoid breaking columns.
+      const mdEsc = (v: string) =>
+        v.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
       const lines = [
         '| Table | Column | Priority | Reason | SQL |',
         '|-------|--------|----------|--------|-----|',

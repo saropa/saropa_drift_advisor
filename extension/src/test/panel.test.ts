@@ -1,7 +1,10 @@
 import * as assert from 'assert';
 import { createdPanels } from './vscode-mock';
 import { DriftViewerPanel, focusTableHashScript } from '../panel';
-import { latestPanel, setupPanelTest, settle, minimalHtml, titledHtml, htmlResponse, bodyHtml } from './panel.test-helpers';
+import {
+  latestPanel, setupPanelTest, settle, minimalHtml, titledHtml, htmlResponse, bodyHtml,
+  extractCsp, cspAllowsHost,
+} from './panel.test-helpers';
 
 describe('DriftViewerPanel', () => {
   let fetchStub: ReturnType<typeof setupPanelTest>;
@@ -73,8 +76,9 @@ describe('DriftViewerPanel', () => {
 
     const html = latestPanel().webview.html;
     assert.ok(html.includes('font-src'), 'CSP should include font-src');
+    const csp = extractCsp(html);
     assert.ok(
-      html.includes('https://fonts.gstatic.com'),
+      cspAllowsHost(csp, 'fonts.gstatic.com'),
       'CSP font-src must allow Google Fonts files (was font-src only baseUrl+data before drift-enhanced/CDN work)',
     );
   });
@@ -87,15 +91,13 @@ describe('DriftViewerPanel', () => {
     await settle();
 
     const html = latestPanel().webview.html;
-    const cspMatch = html.match(/Content-Security-Policy" content="([^"]+)"/);
-    assert.ok(cspMatch, 'CSP meta content should be present');
-    const csp = cspMatch[1];
+    const csp = extractCsp(html);
     assert.ok(
-      csp.includes('https://cdn.jsdelivr.net'),
+      cspAllowsHost(csp, 'cdn.jsdelivr.net'),
       'style-src and script-src must allow jsDelivr for GitHub-served fallback assets',
     );
     assert.ok(
-      csp.includes('https://fonts.googleapis.com'),
+      cspAllowsHost(csp, 'fonts.googleapis.com'),
       'style-src must allow Google Fonts CSS links from the HTML shell',
     );
     assert.ok(

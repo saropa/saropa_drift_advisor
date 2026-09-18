@@ -24,14 +24,28 @@ export function esc(s: unknown): string {
 }
 
 /**
+ * Per-button stash of the original child nodes, keyed by the button element.
+ *
+ * BUG FIX: this used to round-trip through a `data-busy-restore` attribute
+ * holding `btn.innerHTML` as a string, then restore via `btn.innerHTML =
+ * stashed`. That is a DOM-text-reinterpreted-as-HTML pattern: any markup
+ * captured off the live DOM (which may itself carry escaped user content,
+ * e.g. a table/column name rendered into a button label) gets re-parsed as
+ * HTML on the way back out. Stashing actual DOM nodes and reinserting them
+ * with `replaceChildren` avoids the string round-trip entirely — nothing is
+ * ever re-parsed.
+ */
+const busyRestoreStash = new WeakMap<HTMLElement, Node[]>();
+
+/**
  * Shows a small spinning indicator plus label inside a button while a slow request runs.
  *
- * On the way in we stash the button's ORIGINAL innerHTML (icon span + label) in a
- * data attribute and, on the way out, restore that markup verbatim. Restoring via
+ * On the way in we stash the button's ORIGINAL child nodes (icon span + label) and,
+ * on the way out, reinsert those same nodes verbatim. Restoring via
  * `textContent = label` (the old behavior) discarded any child markup — for the
  * Run button that meant the `<span class="material-symbols-outlined">play_arrow</span>`
  * icon was replaced by the literal ligature text "play_arrow Run" after the first
- * run. Restoring the stashed HTML keeps the icon. The `label` arg is now only a
+ * run. Restoring the stashed nodes keeps the icon. The `label` arg is now only a
  * fallback for buttons that were never stashed (defensive — every caller stashes
  * by going through the loading=true branch first).
  */
@@ -40,19 +54,23 @@ export function setButtonBusy(btn: HTMLElement | null | undefined, loading: bool
   if (loading) {
     // Stash once: a double loading=true (e.g. re-entrant click) must not overwrite
     // the real original markup with the spinner markup.
-    if (btn.getAttribute('data-busy-restore') == null) {
-      btn.setAttribute('data-busy-restore', btn.innerHTML);
+    if (!busyRestoreStash.has(btn)) {
+      busyRestoreStash.set(btn, Array.from(btn.childNodes));
     }
     btn.classList.add('btn-busy');
-    btn.innerHTML =
-      '<span class="btn-busy-spinner" aria-hidden="true"></span>' +
-      '<span class="btn-busy-label">' + esc(label) + '</span>';
+    const spinner = document.createElement('span');
+    spinner.className = 'btn-busy-spinner';
+    spinner.setAttribute('aria-hidden', 'true');
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'btn-busy-label';
+    labelSpan.textContent = label;
+    btn.replaceChildren(spinner, labelSpan);
   } else {
     btn.classList.remove('btn-busy');
-    const stashed = btn.getAttribute('data-busy-restore');
+    const stashed = busyRestoreStash.get(btn);
     if (stashed != null) {
-      btn.innerHTML = stashed;
-      btn.removeAttribute('data-busy-restore');
+      btn.replaceChildren(...stashed);
+      busyRestoreStash.delete(btn);
     } else {
       btn.textContent = label;
     }

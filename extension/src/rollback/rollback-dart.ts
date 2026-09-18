@@ -24,16 +24,32 @@ export function generateDartFromSql(
       lines.push(`// ${stmt.slice(3).trim()}`);
     } else if (stmt.includes('\n')) {
       lines.push("await customStatement('''");
-      lines.push(`  ${stmt}`);
+      lines.push(`  ${_escapeDartLiteral(stmt)}`);
       lines.push("''');");
     } else {
-      const escaped = stmt.replace(/'/g, "\\'");
       lines.push('await customStatement(');
-      lines.push(`  '${escaped}',`);
+      lines.push(`  '${_escapeDartLiteral(stmt)}',`);
       lines.push(');');
     }
     lines.push('');
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Escapes a SQL statement so it is safe to embed in a single- or
+ * triple-quoted Dart string literal.
+ *
+ * Order matters: the backslash (Dart's own escape character) must be
+ * escaped FIRST, otherwise escaping `'` or `$` afterwards would introduce
+ * new backslashes that then get caught by a later backslash pass. `$` is
+ * escaped because an un-escaped `$identifier` or `${expr}` inside a Dart
+ * string literal is interpreted as string interpolation, not literal text.
+ */
+function _escapeDartLiteral(s: string): string {
+  return s
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\$/g, '\\$');
 }

@@ -64,8 +64,15 @@ export class DocsMdRenderer {
     return name.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
   }
 
-  /** Escape pipe characters that would break Markdown table cells. */
+  /** Escape characters that would break or corrupt a Markdown table cell. */
   private _escCell(s: string): string {
-    return s.replace(/\|/g, '\\|');
+    // Backslash first: it is Markdown's escape character, so an unescaped
+    // backslash left before an escaped pipe would combine with it and
+    // re-open the cell as an unescaped delimiter. Newlines are flattened
+    // because a raw line break ends the table row early.
+    return s
+      .replace(/\\/g, '\\\\')
+      .replace(/\|/g, '\\|')
+      .replace(/\r?\n/g, ' ');
   }
 }

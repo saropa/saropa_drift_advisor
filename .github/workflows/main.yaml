@@ -13,6 +13,12 @@ on:
     branches:
       - main
 
+# Least-privilege default: this workflow only checks out the repo, runs
+# Flutter analyze/format/test, and does not push, tag, comment, or use OIDC —
+# so read-only access to repo contents is all any job needs.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

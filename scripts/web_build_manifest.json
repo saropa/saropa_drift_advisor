@@ -1,6 +1,6 @@
 {
   "artifacts": {
-    "assets/web/bundle.js": "b469e3485bff853d55d57159f8bfa63693d99b0f9b989ac4edcd9124a385e11e",
+    "assets/web/bundle.js": "121f5b2e12a5c56de21b2194f272d0ab497ed2cf94c16ccc0f963417aa7475ae",
     "assets/web/style.css": "fb5dc535240fe11dba810cace208e6cde2a9f133eb306b02af07b75e80bb8e5d"
   },
   "buildInputs": {
@@ -112,7 +112,7 @@
     "assets/web/tools-analytics.ts": "4154c1ee4ff800e40797ef5aa236fbbd9b57c685db5fa965e87b807764887877",
     "assets/web/tools-compare.ts": "dd7f1fbb6b27b2fd5b5092b383da0edbb85c90c6b5908ff591305925681ad671",
     "assets/web/tools-import.ts": "8926b53684e889cb01a5b2538e629f9484e3f98bb822d0eae49fb5a465ceddb7",
-    "assets/web/utils.ts": "14c1843bae18f0fdda003dbb18fe27bbea9ac5ac5cf380e4a33d6b2108c9a459",
+    "assets/web/utils.ts": "da5a2a6eb5ff4d1c68d93c14bb4f73733a3a0c0565c48222c732f4eee098b8a8",
     "assets/web/views-screen.ts": "b1b2daed536eb06ec5197e87e82ea1c9344d21d129e79dad3e6c8eb6313fd41c"
   }
 }

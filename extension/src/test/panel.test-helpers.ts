@@ -41,3 +41,37 @@ export function htmlResponse(html: string): Response {
 export function bodyHtml(body: string): string {
   return `<html><head></head><body>${body}</body></html>`;
 }
+
+/** Extracts the `Content-Security-Policy` meta tag's `content` value from rendered HTML. */
+export function extractCsp(html: string): string {
+  const match = html.match(/Content-Security-Policy" content="([^"]+)"/);
+  if (!match) {
+    throw new Error('CSP meta content not found in HTML');
+  }
+  return match[1];
+}
+
+/**
+ * Returns true iff some CSP source in `csp` is exactly `expectedHost`.
+ *
+ * Parses each whitespace-separated directive token as a URL and compares the
+ * parsed `.hostname` rather than doing a substring check on the raw CSP
+ * text — `csp.includes('https://fonts.gstatic.com')` would also pass for an
+ * unrelated host that merely contains that text, e.g.
+ * `https://fonts.gstatic.com.attacker.example` or
+ * `https://evil-fonts.gstatic.com`.
+ */
+export function cspAllowsHost(csp: string, expectedHost: string): boolean {
+  return csp.split(';').some((directive) =>
+    directive
+      .trim()
+      .split(/\s+/)
+      .some((token) => {
+        try {
+          return new URL(token).hostname === expectedHost;
+        } catch {
+          return false;
+        }
+      }),
+  );
+}

@@ -29,7 +29,13 @@ export function dartLiteral(value: unknown): string {
 /** Escape pipe characters and newlines for Markdown table cells. */
 function escapeMdCell(value: unknown): string {
   if (value === null || value === undefined) return '';
-  return String(value).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  // Backslash must be escaped first: it is Markdown's own escape character,
+  // so a literal backslash left in front of an escaped pipe (`\|`) would
+  // combine with it and re-open the cell as an unescaped table delimiter.
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\n/g, ' ');
 }
 
 /** Dispatch to the correct formatter. */

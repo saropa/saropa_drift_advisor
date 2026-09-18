@@ -1932,20 +1932,27 @@
     if (s == null) return "";
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
+  var busyRestoreStash = /* @__PURE__ */ new WeakMap();
   function setButtonBusy(btn, loading, label) {
     if (!btn) return;
     if (loading) {
-      if (btn.getAttribute("data-busy-restore") == null) {
-        btn.setAttribute("data-busy-restore", btn.innerHTML);
+      if (!busyRestoreStash.has(btn)) {
+        busyRestoreStash.set(btn, Array.from(btn.childNodes));
       }
       btn.classList.add("btn-busy");
-      btn.innerHTML = '<span class="btn-busy-spinner" aria-hidden="true"></span><span class="btn-busy-label">' + esc2(label) + "</span>";
+      const spinner = document.createElement("span");
+      spinner.className = "btn-busy-spinner";
+      spinner.setAttribute("aria-hidden", "true");
+      const labelSpan = document.createElement("span");
+      labelSpan.className = "btn-busy-label";
+      labelSpan.textContent = label;
+      btn.replaceChildren(spinner, labelSpan);
     } else {
       btn.classList.remove("btn-busy");
-      const stashed = btn.getAttribute("data-busy-restore");
+      const stashed = busyRestoreStash.get(btn);
       if (stashed != null) {
-        btn.innerHTML = stashed;
-        btn.removeAttribute("data-busy-restore");
+        btn.replaceChildren(...stashed);
+        busyRestoreStash.delete(btn);
       } else {
         btn.textContent = label;
       }
