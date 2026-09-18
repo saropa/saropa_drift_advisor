@@ -207,7 +207,7 @@ final class CompareHandler {
         tablesB: tablesB,
       );
       // Migration steps append to a shared list in presentation order.
-      // ignore: avoid_sequential_awaits -- shared mutations require ordering
+      // ignore: saropa_lints/avoid_sequential_awaits -- shared mutations require ordering
       await _migrationModifiedTables(
         migrations: migrations,
         tablesA: tablesA,
@@ -238,7 +238,7 @@ final class CompareHandler {
     }
   }
 
-  Future<void> _migrationNewTables({
+  static Future<void> _migrationNewTables({
     required List<String> migrations,
     required List<String> tablesA,
     required List<String> tablesB,
@@ -334,7 +334,7 @@ final class CompareHandler {
   /// Builds a `column-name → PRAGMA table_info row` map for [table], used by
   /// the migration diff to look up column metadata (type, notnull, default,
   /// pk) in O(1) when comparing live and target schemas.
-  Future<Map<String, Map<String, dynamic>>> _migrationColumnMap(
+  static Future<Map<String, Map<String, dynamic>>> _migrationColumnMap(
     DriftDebugQuery query,
     String table,
   ) async {
@@ -432,7 +432,7 @@ final class CompareHandler {
     }
   }
 
-  Future<void> _migrationIndexChanges({
+  static Future<void> _migrationIndexChanges({
     required List<String> changes,
     required String table,
     required DriftDebugQuery queryA,

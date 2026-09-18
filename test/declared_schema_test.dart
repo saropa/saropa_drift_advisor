@@ -55,21 +55,21 @@ void main() {
       final res = await httpGet(port!, '/api/schema/declared');
       expect(res.status, 200);
       final body = res.body as Map;
-      expect(body['available'], true);
+      expect(body['available'], isTrue);
       final tables = body['tables'] as List;
-      expect(tables.length, 1);
+      expect(tables, hasLength(1));
       final users = tables.first as Map;
       expect(users['name'], 'users');
       final cols = users['columns'] as List;
-      expect(cols.length, 2);
+      expect(cols, hasLength(2));
       final id = cols.first as Map;
       expect(id['name'], 'id');
       expect(id['sqlType'], 'INTEGER');
-      expect(id['nullable'], false);
-      expect(id['isPk'], true);
+      expect(id['nullable'], isFalse);
+      expect(id['isPk'], isTrue);
       final email = cols[1] as Map;
-      expect(email['nullable'], true); // default
-      expect(email['isPk'], false);
+      expect(email['nullable'], isTrue); // default
+      expect(email['isPk'], isFalse);
       expect(users['indexes'], <String>['idx_users_email']);
     });
 
@@ -108,7 +108,7 @@ void main() {
       expect((cols[1] as Map)['driftType'], 'dateTime');
       expect((cols[2] as Map)['driftType'], 'bool');
       // No driftType supplied for `id` → key omitted (conditional emission).
-      expect((cols.first as Map).containsKey('driftType'), false);
+      expect((cols.first as Map).containsKey('driftType'), isFalse);
     });
 
     test('reports available:false when no callback is supplied', () async {
@@ -118,7 +118,7 @@ void main() {
       final res = await httpGet(port!, '/api/schema/declared');
       expect(res.status, 200);
       final body = res.body as Map;
-      expect(body['available'], false);
+      expect(body['available'], isFalse);
       expect((body['tables'] as List).isEmpty, isTrue);
     });
 

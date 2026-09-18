@@ -217,7 +217,7 @@ bool _readStoreDateTimeAsText(dynamic driftDb) {
     // A missing `options`/`storeDateTimeAsText` getter is the EXPECTED path for a
     // non-Drift db; logging it on every such startup would be misleading noise, and
     // the false default is correct (Drift's default INTEGER DateTime storage).
-    // ignore: require_catch_logging -- expected non-Drift path; false is the correct default, logging would be noise
+    // ignore: saropa_lints/require_catch_logging -- expected non-Drift path; false is the correct default, logging would be noise
   } on Object {
     return false;
   }
@@ -232,7 +232,7 @@ int? _deriveDeclaredSchemaVersion(Object db) {
     final dynamic v = driftDb.schemaVersion;
     return v is int ? v : null;
     // Non-Drift objects lack schemaVersion; null is the correct fallback.
-    // ignore: require_catch_logging -- expected for dynamic dispatch probes
+    // ignore: saropa_lints/require_catch_logging -- expected for dynamic dispatch probes
   } on Object {
     return null;
   }

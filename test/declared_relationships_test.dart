@@ -65,10 +65,10 @@ void main() {
       final res = await httpGet(port!, '/api/schema/relationships');
       expect(res.status, 200);
       final body = res.body as Map;
-      expect(body['available'], true);
+      expect(body['available'], isTrue);
 
       final rels = body['relationships'] as List;
-      expect(rels.length, 3);
+      expect(rels, hasLength(3));
 
       final phones = rels.first as Map;
       expect(phones['fromTable'], 'phones');
@@ -77,16 +77,16 @@ void main() {
       expect(phones['toColumn'], 'saropaUUID');
       expect(phones['label'], 'contact → phones');
       // Default orphanCheckable (true) is omitted, not emitted as true.
-      expect(phones.containsKey('orphanCheckable'), false);
+      expect(phones.containsKey('orphanCheckable'), isFalse);
 
       // Second edge supplied no label → key omitted (conditional emission).
       final emails = rels[1] as Map;
-      expect(emails.containsKey('label'), false);
-      expect(emails.containsKey('orphanCheckable'), false);
+      expect(emails.containsKey('label'), isFalse);
+      expect(emails.containsKey('orphanCheckable'), isFalse);
 
       // Third edge is non-joinable → orphanCheckable:false is carried.
       final groups = rels[2] as Map;
-      expect(groups['orphanCheckable'], false);
+      expect(groups['orphanCheckable'], isFalse);
     });
 
     test('reports available:false when no callback is supplied', () async {
@@ -96,7 +96,7 @@ void main() {
       final res = await httpGet(port!, '/api/schema/relationships');
       expect(res.status, 200);
       final body = res.body as Map;
-      expect(body['available'], false);
+      expect(body['available'], isFalse);
       expect((body['relationships'] as List).isEmpty, isTrue);
     });
 

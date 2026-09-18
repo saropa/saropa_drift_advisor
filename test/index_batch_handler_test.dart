@@ -118,9 +118,9 @@ void main() {
 
         expect(res.status, 200);
         final body = res.body as Map<String, dynamic>;
-        expect((body['valid'] as List).length, 1);
+        expect(body['valid'] as List, hasLength(1));
         final rejected = body['rejected'] as List;
-        expect(rejected.length, 1);
+        expect(rejected, hasLength(1));
         expect((rejected.first as Map)['index'], 1);
       },
     );
@@ -179,14 +179,14 @@ void main() {
           reason: 'only the first index actually created',
         );
         final results = (body['results'] as List).cast<Map<String, dynamic>>();
-        expect(results.length, 3);
-        expect(results[0]['ok'], true);
-        expect(results[1]['ok'], false); // DB failure surfaced per-index
+        expect(results, hasLength(3));
+        expect(results[0]['ok'], isTrue);
+        expect(results[1]['ok'], isFalse); // DB failure surfaced per-index
         expect(results[1]['error'], isNotNull);
-        expect(results[2]['ok'], false); // validator rejection
+        expect(results[2]['ok'], isFalse); // validator rejection
         // The validator-rejected statement must never reach the database.
         expect(executed.any((s) => s.contains('DROP TABLE')), isFalse);
-        expect(executed.length, 2);
+        expect(executed, hasLength(2));
       },
     );
 

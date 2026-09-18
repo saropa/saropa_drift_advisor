@@ -634,7 +634,7 @@ void main() {
           ctx.recordTiming(sql: 'Q$i', durationMs: i, rowCount: 0);
         }
 
-        expect(ctx.queryTimings.length, 500);
+        expect(ctx.queryTimings, hasLength(500));
         // The first 10 should have been evicted.
         expect(ctx.queryTimings[0].sql, 'Q10');
       });

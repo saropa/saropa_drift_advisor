@@ -226,7 +226,7 @@ final class HostStatementCapture {
       ring.addLast(entry);
       while (ring.length > ServerConstants.maxHostStatementsPerTable) {
         // Bounded ring, O(1) eviction (architecture §7); value discarded.
-        // ignore: avoid_ignoring_return_values -- evicting the oldest entry
+        // ignore: saropa_lints/avoid_ignoring_return_values -- evicting the oldest entry
         ring.removeFirst();
       }
     }

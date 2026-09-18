@@ -548,7 +548,7 @@ class _DriftDebugServerImpl {
 
       // Startup banner must reach Android logcat (I/flutter); developer.log
       // and ctx.log do not surface there, so print is the only viable channel.
-      // ignore: avoid_print, avoid_print_in_release -- print() is the only output that surfaces as I/flutter on Android; developer.log/ctx.log/stdout are invisible there, so the startup banner must use print
+      // ignore: avoid_print, saropa_lints/avoid_print_in_release -- print() is the only output that surfaces as I/flutter on Android; developer.log/ctx.log/stdout are invisible there, so the startup banner must use print
       print(
         '${ServerConstants.bannerTop}\n'
         '$title\n'
@@ -615,7 +615,7 @@ class _DriftDebugServerImpl {
     } on Object catch (error, stack) {
       // Print server startup failure visibly — same reasoning as the
       // banner above: developer.log is invisible on Android.
-      // ignore: avoid_print, avoid_print_error, avoid_print_in_release -- startup failure must be visible on Android where developer.log/ctx.log do not surface; print is the only reliable channel
+      // ignore: avoid_print, saropa_lints/avoid_print_error, saropa_lints/avoid_print_in_release -- startup failure must be visible on Android where developer.log/ctx.log do not surface; print is the only reliable channel
       print('[DriftDebugServer] FAILED TO START: $error');
       ctx.logError(error, stack);
     }
@@ -680,7 +680,7 @@ class _DriftDebugServerImpl {
     _router = null;
     _server = null;
     // Shutdown steps must run in order: cancel subscription before closing server.
-    // ignore: avoid_sequential_awaits -- subscription cancel must precede close
+    // ignore: saropa_lints/avoid_sequential_awaits -- subscription cancel must precede close
     await server.close();
 
     // Detach the kill-switch manifest hook BEFORE removing the manifest: a
@@ -846,7 +846,7 @@ class _DriftDebugServerImpl {
 
   @override
   String toString() =>
-      '_DriftDebugServerImpl(port: ${_server?.port}, '
+      '_DriftDebugServerImpl(port: ${_server?.port ?? 'none'}, '
       'running: ${_server != null})';
 }
 

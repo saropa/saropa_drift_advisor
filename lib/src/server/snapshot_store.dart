@@ -38,7 +38,7 @@ abstract final class SnapshotStore {
     try {
       // `path` is trusted host configuration supplied to DriftDebugServer.start,
       // never user or network input, so no traversal sanitization is needed.
-      // ignore: avoid_path_traversal, require_file_path_sanitization -- path is trusted host config passed to DriftDebugServer.start, never user/network input
+      // ignore: saropa_lints/avoid_path_traversal, saropa_lints/require_file_path_sanitization -- path is trusted host config passed to DriftDebugServer.start, never user/network input
       final File file = File(path);
       if (!await file.exists()) return <Snapshot>[];
       final String raw = await file.readAsString();
@@ -77,11 +77,11 @@ abstract final class SnapshotStore {
       });
       // Same trusted-host-config `path` as load(); the temp sibling is derived
       // from it, never from user or network input.
-      // ignore: avoid_path_traversal, require_file_path_sanitization -- path is trusted host config passed to DriftDebugServer.start, never user/network input
+      // ignore: saropa_lints/avoid_path_traversal, saropa_lints/require_file_path_sanitization -- path is trusted host config passed to DriftDebugServer.start, never user/network input
       final File tmp = File('$path.tmp');
       await tmp.parent.create(recursive: true);
       // Must create dir before writing, then write before atomic rename.
-      // ignore: avoid_sequential_awaits -- write depends on dir create above
+      // ignore: saropa_lints/avoid_sequential_awaits -- write depends on dir create above
       await tmp.writeAsString(json, flush: true);
       // rename is atomic on the same filesystem; replaces any existing target.
       await tmp.rename(path);

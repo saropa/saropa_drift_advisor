@@ -236,7 +236,6 @@ final class GenerationHandler {
   /// timeout.
   Future<void> handleGeneration(HttpRequest request) async {
     final req = request;
-    final res = req.response;
 
     await _ctx.checkDataChange();
     final sinceRaw = req.uri.queryParameters[ServerConstants.queryParamSince];
@@ -254,6 +253,7 @@ final class GenerationHandler {
         await _ctx.checkDataChange();
       }
     }
+    final res = req.response;
     _ctx.setJsonHeaders(res);
     res.write(
       jsonEncode(<String, int>{
@@ -338,7 +338,7 @@ final class GenerationHandler {
   /// Mirrors `normalizeLocale` in `assets/web/l10n.ts`: full lowercased tag
   /// first (so `pt-br` / `zh-cn` win), then the Chinese-script and pt-BR special
   /// cases, then the primary subtag; `en` (fail-soft) when nothing matches.
-  String _normalizeLocale(String raw) {
+  static String _normalizeLocale(String raw) {
     final lower = raw.toLowerCase().replaceAll('_', '-');
     if (_knownLocales.contains(lower)) {
       return lower;
@@ -374,7 +374,7 @@ final class GenerationHandler {
     if (packageRoot != null && tag != 'en' && _knownLocales.contains(tag)) {
       // `tag` is guaranteed allow-listed by the guard above (a fixed catalog
       // token like `de`), so no user-controlled path text reaches File().
-      // ignore: avoid_path_traversal, require_file_path_sanitization -- `tag` is allow-listed on the line above (a fixed catalog token like `de`), never user path text, so `../` cannot appear
+      // ignore: saropa_lints/avoid_path_traversal, saropa_lints/require_file_path_sanitization -- `tag` is allow-listed on the line above (a fixed catalog token like `de`), never user path text, so `../` cannot appear
       final file = File('$packageRoot/assets/web/l10n/web.$tag.json');
       try {
         if (await file.exists()) {

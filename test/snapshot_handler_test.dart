@@ -248,7 +248,7 @@ void main() {
         final tableDiff = ((resp.body as Map)['tables'] as List).first as Map;
 
         // Should have PK-based diff info.
-        expect(tableDiff['hasPk'], true);
+        expect(tableDiff['hasPk'], isTrue);
         expect(tableDiff['addedRows'], isA<List<dynamic>>());
         expect(tableDiff['removedRows'], isA<List<dynamic>>());
         expect(tableDiff['changedRows'], isA<List<dynamic>>());

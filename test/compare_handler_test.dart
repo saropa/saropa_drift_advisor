@@ -151,7 +151,7 @@ void main() {
 
         expect(migrationSql, contains('WARNING'));
         expect(migrationSql, contains('"email" removed'));
-        expect(body['hasWarnings'], true);
+        expect(body['hasWarnings'], isTrue);
       });
 
       test('changed column type produces WARNING comment', () async {
@@ -181,7 +181,7 @@ void main() {
         expect(migrationSql, contains('WARNING'));
         expect(migrationSql, contains('"score"'));
         expect(migrationSql, contains('INTEGER -> TEXT'));
-        expect(body['hasWarnings'], true);
+        expect(body['hasWarnings'], isTrue);
       });
 
       test('changed nullability produces WARNING comment', () async {
@@ -210,7 +210,7 @@ void main() {
 
         expect(migrationSql, contains('WARNING'));
         expect(migrationSql, contains('Nullable'));
-        expect(body['hasWarnings'], true);
+        expect(body['hasWarnings'], isTrue);
       });
 
       test('unchanged tables produce no migration statements', () async {
@@ -230,7 +230,7 @@ void main() {
 
         expect(body['migrationSql'], isEmpty);
         expect(body['changeCount'], 0);
-        expect(body['hasWarnings'], false);
+        expect(body['hasWarnings'], isFalse);
       });
 
       test('changeCount excludes comment lines', () async {

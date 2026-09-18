@@ -157,6 +157,12 @@ abstract final class IndexAnalyzer {
   /// table is present — it is likely an external reference ID,
   /// not a foreign key.
   static bool _hasMatchingTable(String colName, Set<String> tableNamesLower) {
+    // Guard against a caller passing a name shorter than the "_id" suffix
+    // this method assumes; callers are expected to have already matched
+    // [ServerConstants.reIdSuffix], but this keeps the substring below safe
+    // even if that invariant is ever violated.
+    if (colName.length < 3) return false;
+
     // Strip the trailing _id to get the prefix
     // (e.g. "category_id" → "category").
     final prefix = colName.substring(0, colName.length - 3).toLowerCase();

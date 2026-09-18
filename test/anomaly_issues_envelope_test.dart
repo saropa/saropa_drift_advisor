@@ -147,7 +147,7 @@ void main() {
       expect(result.containsKey('error'), isFalse);
       expect(
         result['truncated'],
-        true,
+        isTrue,
         reason:
             'A truncated anomaly scan must surface on the merged '
             '/api/issues envelope, not only on the raw scan result',

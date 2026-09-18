@@ -335,7 +335,7 @@ final class SqlErrorEnricher {
       // overwrite (i-1 from the prior iteration), so carry it as the diagonal.
       var diagonal = i - 1;
       // Base case: the first column of DP row i is i by definition.
-      // ignore: avoid_accessing_collections_by_constant_index -- constant [0] is the algorithm's base case, not a loop-index mistake
+      // ignore: saropa_lints/avoid_accessing_collections_by_constant_index -- constant [0] is the algorithm's base case, not a loop-index mistake
       row[0] = i;
       for (var j = 1; j <= b.length; j++) {
         final above = row[j];

@@ -72,8 +72,6 @@ final class ReportHandler {
 
     final bool includeSchema =
         qp[ServerConstants.queryParamSchema] != ServerConstants.valueFalse;
-    final bool includeAnomalies =
-        qp[ServerConstants.queryParamAnomalies] != ServerConstants.valueFalse;
 
     final List<ReportTableData> collected = <ReportTableData>[];
     for (final String table in tables) {
@@ -85,6 +83,8 @@ final class ReportHandler {
       schemaSql = await ServerUtils.getSchemaSql(query);
     }
 
+    final bool includeAnomalies =
+        qp[ServerConstants.queryParamAnomalies] != ServerConstants.valueFalse;
     List<Map<String, dynamic>>? anomalies;
     var anomaliesTruncated = false;
     if (includeAnomalies) {
@@ -114,7 +114,7 @@ final class ReportHandler {
   }
 
   /// Reads one table's columns, a capped page of rows, and its true row count.
-  Future<ReportTableData> _collectTable(
+  static Future<ReportTableData> _collectTable(
     DriftDebugQuery query,
     String table,
     int maxRows,

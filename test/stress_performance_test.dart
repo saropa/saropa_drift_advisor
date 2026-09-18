@@ -45,7 +45,7 @@ void main() {
 
         await ctx.checkDataChange();
 
-        expect(executedSql.length, 2);
+        expect(executedSql, hasLength(2));
         expect(executedSql[0], contains("type IN ('table','view')"));
         final unionSql = executedSql[1];
         expect(unionSql, contains('UNION ALL'));

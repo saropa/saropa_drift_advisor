@@ -29,9 +29,8 @@ final class ImportHandler {
   /// Handles POST /api/import: imports CSV, JSON, or SQL data.
   Future<void> handleImport(HttpRequest request) async {
     final res = request.response;
-    final writeQuery = _ctx.writeQuery;
 
-    if (writeQuery == null) {
+    if (_ctx.writeQuery == null) {
       res.statusCode = HttpStatus.notImplemented;
       _ctx.setJsonHeaders(res);
       res.write(
@@ -122,6 +121,7 @@ final class ImportHandler {
       }
 
       const processor = DriftDebugImportProcessor();
+      final writeQuery = _ctx.writeQuery!;
       final result = await processor.processImport(
         format: format,
         data: data,

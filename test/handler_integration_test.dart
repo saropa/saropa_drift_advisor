@@ -1141,7 +1141,7 @@ void main() {
         expect(list, isNotEmpty);
         final q = list.first as Map<String, dynamic>;
         final params = q['params'] as Map<String, dynamic>;
-        expect((params['positional'] as List<dynamic>).length, 1);
+        expect(params['positional'] as List<dynamic>, hasLength(1));
         expect((params['named'] as Map<String, dynamic>)['x'], 42);
         expect(q['meta'], isA<Map<String, dynamic>>());
         final meta = q['meta'] as Map<String, dynamic>;

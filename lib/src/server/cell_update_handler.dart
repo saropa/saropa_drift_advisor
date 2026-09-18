@@ -105,9 +105,6 @@ final class CellUpdateHandler {
       await _badRequest(res, 'Missing value field (use null for SQL NULL).');
       return;
     }
-    final pkValueRaw = decoded['pkValue'];
-    final valueRaw = decoded['value'];
-
     final tableNames = await ServerUtils.getTableNames(_ctx.instrumentedQuery);
     if (!tableNames.contains(table)) {
       await _badRequest(res, 'Table "$table" not found.');
@@ -166,6 +163,7 @@ final class CellUpdateHandler {
       return;
     }
 
+    final valueRaw = decoded['value'];
     final coerced = _validateAndCoerceColumnValue(colMeta, valueRaw);
     if (coerced.errorMessage != null) {
       await _badRequest(res, coerced.errorMessage!);
@@ -176,6 +174,7 @@ final class CellUpdateHandler {
     // value. Without this a string pkValue against an integer PK (or a JSON
     // list/map) produces a WHERE that matches no row, yet the update reported
     // success — a silent no-op. See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md H5.
+    final pkValueRaw = decoded['pkValue'];
     final pkCoerced = _validateAndCoerceColumnValue(pkMeta, pkValueRaw);
     if (pkCoerced.errorMessage != null) {
       await _badRequest(

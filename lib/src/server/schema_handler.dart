@@ -329,11 +329,6 @@ final class SchemaHandler {
     DriftDebugQuery query, {
     bool includeForeignKeys = false,
   }) async {
-    // Prefer cached table names to avoid a redundant
-    // sqlite_master query.
-    final tableNames =
-        _ctx.cachedTableNames ?? await ServerUtils.getTableNames(query);
-
     // Use cached counts from the last checkDataChange
     // cycle to avoid N individual COUNT(*) queries.
     final cachedCounts = _ctx.cachedTableCounts;
@@ -393,6 +388,11 @@ final class SchemaHandler {
     }
 
     final tables = <Map<String, dynamic>>[];
+
+    // Prefer cached table names to avoid a redundant
+    // sqlite_master query.
+    final tableNames =
+        _ctx.cachedTableNames ?? await ServerUtils.getTableNames(query);
 
     for (final tableName in tableNames) {
       // Quoted identifier (audit H2) — prevents a table name containing a
@@ -614,6 +614,9 @@ final class SchemaHandler {
       return;
     }
     try {
+      // Await the bytes BEFORE setting any success header: if the host's
+      // callback throws, the catch below must not inherit an attachment
+      // Content-Disposition on its JSON error response.
       final bytes = await getBytes();
 
       res.statusCode = HttpStatus.ok;

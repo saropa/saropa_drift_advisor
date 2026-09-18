@@ -38,7 +38,7 @@ final class ServerContext {
   // The capture kill-switch probe closes over `this.monitoringEnabled` (a
   // MUTABLE field), which an initializer list cannot reference — the body is
   // the only place this wiring can live.
-  // ignore: avoid_non_empty_constructor_bodies -- body needed: kill-switch probe closes over mutable monitoringEnabled
+  // ignore: saropa_lints/avoid_non_empty_constructor_bodies -- body needed: kill-switch probe closes over mutable monitoringEnabled
   ServerContext({
     required DriftDebugQuery query,
     DriftDebugQueryWithBindings? queryWithBindings,
@@ -385,7 +385,7 @@ final class ServerContext {
   /// No-op when no snapshot matches [id].
   void replaceSnapshot(String id, Snapshot updated) {
     // Needs index for in-place list mutation via snapshots[i] = updated.
-    // ignore: prefer_asmap_over_indexed_iteration -- in-place list mutation
+    // ignore: saropa_lints/prefer_asmap_over_indexed_iteration -- in-place list mutation
     for (var i = 0; i < snapshots.length; i++) {
       if (snapshots[i].id == id) {
         snapshots[i] = updated;

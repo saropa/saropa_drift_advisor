@@ -2,6 +2,7 @@
 //
 // Tests the data-returning method directly with mock query callbacks.
 
+import 'package:saropa_drift_advisor/src/server/server_context.dart';
 import 'package:saropa_drift_advisor/src/server/table_handler.dart';
 import 'package:test/test.dart';
 
@@ -10,9 +11,15 @@ import 'helpers/test_helpers.dart';
 void main() {
   group('TableHandler', () {
     group('getTableFkMetaList', () {
+      late ServerContext ctx;
+      late TableHandler handler;
+
+      setUp(() {
+        ctx = createTestContext();
+        handler = TableHandler(ctx);
+      });
+
       test('returns FK metadata with fromColumn, toTable, toColumn', () async {
-        final ctx = createTestContext();
-        final handler = TableHandler(ctx);
         final query = mockQueryWithTables(
           tableColumns: {
             'orders': [
@@ -39,8 +46,6 @@ void main() {
       });
 
       test('returns empty list for table with no FKs', () async {
-        final ctx = createTestContext();
-        final handler = TableHandler(ctx);
         final query = mockQueryWithTables(
           tableColumns: {
             'items': [
@@ -58,8 +63,6 @@ void main() {
       });
 
       test('filters out FKs with null fromCol, toTable, or toCol', () async {
-        final ctx = createTestContext();
-        final handler = TableHandler(ctx);
         final query = mockQueryWithTables(
           tableColumns: {
             'orders': [
@@ -91,8 +94,6 @@ void main() {
       });
 
       test('handles multiple FKs on same table', () async {
-        final ctx = createTestContext();
-        final handler = TableHandler(ctx);
         final query = mockQueryWithTables(
           tableColumns: {
             'orders': [

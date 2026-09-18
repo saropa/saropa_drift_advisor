@@ -1701,7 +1701,7 @@ void main() {
           final orphans = (result['anomalies'] as List)
               .where((a) => (a as Map)['type'] == 'orphaned_fk')
               .toList();
-          expect(orphans.length, 1);
+          expect(orphans, hasLength(1));
           expect((orphans.first as Map)['severity'], 'error');
         },
       );
@@ -2146,7 +2146,7 @@ void main() {
             scanBudget: const Duration(milliseconds: 50),
           );
 
-          expect(result['truncated'], true);
+          expect(result['truncated'], isTrue);
           expect(
             result['tablesScanned'],
             lessThan(tableNames.length),

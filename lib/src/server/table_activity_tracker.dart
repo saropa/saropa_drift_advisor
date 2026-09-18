@@ -71,7 +71,7 @@ final class TableActivityTracker {
   /// per-query hook hot. [nowMs] is an injectable clock (defaults to wall
   /// clock) so the lease-expiry test can advance time instead of sleeping
   /// out the real 5 s window.
-  // ignore: avoid_non_empty_constructor_bodies -- the capture module is fed this tracker's own recordRead/recordWrite (instance methods, i.e. `this`), which an initializer list cannot reference; the body is the only place this wiring can live
+  // ignore: saropa_lints/avoid_non_empty_constructor_bodies -- the capture module is fed this tracker's own recordRead/recordWrite (instance methods, i.e. `this`), which an initializer list cannot reference; the body is the only place this wiring can live
   TableActivityTracker({int Function()? nowMs}) {
     // The capture state machine (arm/lease/classification/statement rings)
     // lives in host_statement_capture.dart to keep this file near the
@@ -215,7 +215,7 @@ final class TableActivityTracker {
     );
     while (_recentEvents.length > maxRecentEvents) {
       // Drop the oldest entry to keep the ring bounded; the value is not needed.
-      // ignore: avoid_ignoring_return_values -- evicting the oldest entry; the removed value is intentionally discarded
+      // ignore: saropa_lints/avoid_ignoring_return_values -- evicting the oldest entry; the removed value is intentionally discarded
       _recentEvents.removeFirst();
     }
   }

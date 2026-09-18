@@ -317,8 +317,7 @@ extension type SqlRequestBody._(
     Map<String, dynamic>? dvrNamedArgs,
   })
   _fields
-)
-    implements Object {
+) implements Object {
   /// Public ctor: preserves the original positional `sql`-only form used by
   /// callers and tests. `isInternal` defaults to false — set it only for
   /// extension-owned diagnostic probes.
@@ -370,9 +369,6 @@ extension type SqlRequestBody._(
     if (trimmedSql.isEmpty) {
       return null;
     }
-    final rawInternal = decoded[ServerConstants.jsonKeyInternal];
-    final isInternal = rawInternal == true;
-
     List<dynamic>? args;
     final rawArgs = decoded['args'];
     if (rawArgs is List<dynamic>) {
@@ -389,6 +385,9 @@ extension type SqlRequestBody._(
         namedArgs[e.key.toString()] = e.value;
       }
     }
+
+    final rawInternal = decoded[ServerConstants.jsonKeyInternal];
+    final isInternal = rawInternal == true;
 
     return SqlRequestBody(
       trimmedSql,

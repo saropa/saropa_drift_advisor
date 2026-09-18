@@ -451,7 +451,7 @@ final class AnalyticsHandler {
   /// Maps a detector `source` to the shared diagnostic category (plan 67
   /// §2.1). Unknown sources fall back to `other` rather than echoing the raw
   /// source, so a consumer's category filter never sees an undocumented bucket.
-  String _categoryForSource(String source) {
+  static String _categoryForSource(String source) {
     return switch (source) {
       'index-suggestion' => ServerConstants.categoryPerformance,
       'anomaly' => ServerConstants.categoryData,
@@ -466,7 +466,7 @@ final class AnalyticsHandler {
   /// counterpart to point at. Issues with no table get no fix (nothing to
   /// navigate to). The title is plain English, matching the English-only debug
   /// API surface; consumers may relabel via the command if they localize.
-  void _attachFix(Map<String, dynamic> issue) {
+  static void _attachFix(Map<String, dynamic> issue) {
     final table = issue[ServerConstants.jsonKeyTable] as String? ?? '';
     if (table.isEmpty) return;
     issue[ServerConstants.jsonKeyFix] = <String, dynamic>{
@@ -486,7 +486,7 @@ final class AnalyticsHandler {
   /// regardless of message wording — so `message`/`title`, which localize,
   /// are deliberately excluded. Empty segments are dropped to keep the id
   /// compact.
-  String _issueId(Map<String, dynamic> issue) {
+  static String _issueId(Map<String, dynamic> issue) {
     String field(String key) => issue[key]?.toString() ?? '';
     // Soft relationships carry their endpoint in fk* fields rather than the
     // generic table/column, so fall back to those for table and column.
@@ -514,7 +514,7 @@ final class AnalyticsHandler {
   /// to include. When null/empty, or when no recognized token is present, all
   /// sources are included; otherwise only the recognized tokens present are
   /// included.
-  ({
+  static ({
     bool includeIndexSuggestions,
     bool includeAnomalies,
     bool includeOrphanTables,
@@ -568,10 +568,10 @@ final class AnalyticsHandler {
     try {
       final result = await getIssuesList(query, sources: sources);
       if (result.containsKey(ServerConstants.jsonKeyError)) {
-        final rawError = result[ServerConstants.jsonKeyError];
         res.statusCode = HttpStatus.internalServerError;
         res.headers.contentType = ContentType.json;
         _ctx.setCors(res);
+        final rawError = result[ServerConstants.jsonKeyError];
         res.write(
           jsonEncode(<String, String>{
             ServerConstants.jsonKeyError:

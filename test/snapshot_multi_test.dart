@@ -34,13 +34,14 @@ void main() {
       port = DriftDebugServer.port;
     }
 
+    setUp(start);
+
     tearDown(() async {
       await DriftDebugServer.stop();
       port = null;
     });
 
     test('POST appends and GET /api/snapshots lists all with labels', () async {
-      await start();
       final a = await httpPost(
         port!,
         '/api/snapshot',
@@ -55,7 +56,7 @@ void main() {
       final list = await httpGet(port!, '/api/snapshots');
       expect(list.status, 200);
       final snaps = (list.body as Map)['snapshots'] as List;
-      expect(snaps.length, 3);
+      expect(snaps, hasLength(3));
       // Oldest-first order; labels round-trip; unlabeled stays null.
       expect((snaps[0] as Map)['label'], 'alpha');
       expect((snaps[1] as Map)['label'], 'beta');
@@ -64,7 +65,6 @@ void main() {
     });
 
     test('GET /api/snapshot returns the most recent snapshot', () async {
-      await start();
       await httpPost(port!, '/api/snapshot', json: {'label': 'old'});
       final newest = await httpPost(
         port!,
@@ -80,7 +80,6 @@ void main() {
     });
 
     test('pairwise compare diffs two stored snapshots (from/to)', () async {
-      await start();
       final a = await httpPost(port!, '/api/snapshot');
       final b = await httpPost(port!, '/api/snapshot');
       final fromId = (a.body as Map)['id'];
@@ -100,7 +99,6 @@ void main() {
     test(
       'compare with no params still diffs latest vs live (back-compat)',
       () async {
-        await start();
         await httpPost(port!, '/api/snapshot');
         final cmp = await httpGet(port!, '/api/snapshot/compare');
         expect(cmp.status, 200);
@@ -110,7 +108,6 @@ void main() {
     );
 
     test('compare with an unknown to-id is rejected (400)', () async {
-      await start();
       final a = await httpPost(port!, '/api/snapshot');
       final fromId = (a.body as Map)['id'];
       final cmp = await httpGet(
@@ -123,7 +120,6 @@ void main() {
     test(
       'DELETE /api/snapshot/{id} removes one; bare DELETE clears all',
       () async {
-        await start();
         final a = await httpPost(port!, '/api/snapshot');
         await httpPost(port!, '/api/snapshot');
         final delId = (a.body as Map)['id'];
@@ -131,7 +127,7 @@ void main() {
         final del = await httpDelete(port!, '/api/snapshot/$delId');
         expect(del.status, 200);
         var list = await httpGet(port!, '/api/snapshots');
-        expect(((list.body as Map)['snapshots'] as List).length, 1);
+        expect((list.body as Map)['snapshots'] as List, hasLength(1));
 
         // Unknown id → 404.
         final del404 = await httpDelete(port!, '/api/snapshot/nope');
@@ -141,12 +137,11 @@ void main() {
         final clear = await httpDelete(port!, '/api/snapshot');
         expect(clear.status, 200);
         list = await httpGet(port!, '/api/snapshots');
-        expect(((list.body as Map)['snapshots'] as List).length, 0);
+        expect((list.body as Map)['snapshots'] as List, hasLength(0));
       },
     );
 
     test('PUT /api/snapshot/{id} renames the label', () async {
-      await start();
       final a = await httpPost(
         port!,
         '/api/snapshot',
@@ -177,7 +172,6 @@ void main() {
     });
 
     test('oldest snapshot is evicted past the cap', () async {
-      await start();
       // Capture one more than the cap; the very first must be gone.
       String? firstId;
       for (var i = 0; i < DriftDebugServerSnapshotCap.max + 1; i++) {

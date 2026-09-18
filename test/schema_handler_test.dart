@@ -109,12 +109,12 @@ void main() {
         // id column should have pk: true.
         final idCol =
             columns.firstWhere((c) => (c as Map)['name'] == 'id') as Map;
-        expect(idCol['pk'], true);
+        expect(idCol['pk'], isTrue);
 
         // name column should have pk: false.
         final nameCol =
             columns.firstWhere((c) => (c as Map)['name'] == 'name') as Map;
-        expect(nameCol['pk'], false);
+        expect(nameCol['pk'], isFalse);
       });
 
       test('returns foreign key relationships', () async {
@@ -326,10 +326,10 @@ void main() {
           expect(columns, hasLength(2));
           expect((columns[0] as Map)['name'], 'id');
           expect((columns[0] as Map)['type'], 'INTEGER');
-          expect((columns[0] as Map)['pk'], true);
+          expect((columns[0] as Map)['pk'], isTrue);
           expect((columns[1] as Map)['name'], 'label');
           expect((columns[1] as Map)['type'], 'TEXT');
-          expect((columns[1] as Map)['pk'], false);
+          expect((columns[1] as Map)['pk'], isFalse);
         },
       );
 
@@ -476,7 +476,7 @@ void main() {
         // Verify PK is boolean.
         final idCol =
             columns.firstWhere((c) => (c as Map)['name'] == 'id') as Map;
-        expect(idCol['pk'], true);
+        expect(idCol['pk'], isTrue);
       });
 
       test('enriches columns with driftType from a declared schema', () async {
@@ -524,7 +524,7 @@ void main() {
         expect(col('starts_at')['driftType'], 'dateTime');
         expect(col('is_public')['driftType'], 'bool');
         // No declared driftType for id → key absent, not null.
-        expect(col('id').containsKey('driftType'), false);
+        expect(col('id').containsKey('driftType'), isFalse);
       });
 
       test('handles zero-row table', () async {

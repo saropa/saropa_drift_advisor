@@ -66,7 +66,7 @@ void main() {
       final idx = orderIndexes[0] as Map<String, dynamic>;
       expect(idx['name'], 'idx_orders_user_id');
       expect(idx['columns'], ['user_id']);
-      expect(idx['unique'], false);
+      expect(idx['unique'], isFalse);
     });
 
     test('returns empty index list when table has no indexes', () async {

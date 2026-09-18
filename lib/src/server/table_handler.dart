@@ -31,14 +31,13 @@ final class TableHandler {
     HttpResponse response,
     DriftDebugQuery query,
   ) async {
-    final res = response;
     await _ctx.checkDataChange();
 
     // Prefer cached table names (populated by
     // checkDataChange) to avoid a redundant
     // sqlite_master query.
     // Fallback query depends on checkDataChange populating the cache above.
-    // ignore: avoid_sequential_awaits -- query depends on preceding guard
+    // ignore: saropa_lints/avoid_sequential_awaits -- query depends on preceding guard
     final List<String> names =
         _ctx.cachedTableNames ?? await ServerUtils.getTableNames(query);
 
@@ -48,6 +47,7 @@ final class TableHandler {
     // (before the first checkDataChange cycle).
     final Map<String, int> counts = _ctx.cachedTableCounts ?? <String, int>{};
 
+    final res = response;
     _ctx.setJsonHeaders(res);
     res.write(
       jsonEncode(<String, dynamic>{
@@ -73,7 +73,7 @@ final class TableHandler {
     ))
       return;
     // Query runs only after the guard above confirms the table exists.
-    // ignore: avoid_sequential_awaits -- query depends on preceding guard
+    // ignore: saropa_lints/avoid_sequential_awaits -- query depends on preceding guard
     final dynamic rawInfo = await query(
       'PRAGMA table_info(${ServerUtils.quoteIdent(tableName)})',
     );
@@ -163,7 +163,7 @@ final class TableHandler {
     ))
       return;
     // Query runs only after the guard above confirms the table exists.
-    // ignore: avoid_sequential_awaits -- query depends on preceding guard
+    // ignore: saropa_lints/avoid_sequential_awaits -- query depends on preceding guard
     final dynamic rawCount = await query(
       'SELECT COUNT(*) AS c FROM ${ServerUtils.quoteIdent(tableName)}',
     );
@@ -190,7 +190,7 @@ final class TableHandler {
     ))
       return;
     // Query runs only after the guard above confirms the table exists.
-    // ignore: avoid_sequential_awaits -- query depends on preceding guard
+    // ignore: saropa_lints/avoid_sequential_awaits -- query depends on preceding guard
     final dynamic raw = await query(
       'SELECT * FROM ${ServerUtils.quoteIdent(tableName)} LIMIT $limit OFFSET $offset',
     );

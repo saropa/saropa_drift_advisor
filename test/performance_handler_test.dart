@@ -150,7 +150,7 @@ void main() {
         final patterns = data['queryPatterns'] as List;
         final pattern = (patterns.first as Map)['pattern'] as String;
 
-        expect(pattern.length, 60);
+        expect(pattern, hasLength(60));
       });
 
       test('queryPatterns includes count, avgMs, maxMs, totalMs', () async {

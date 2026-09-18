@@ -232,7 +232,7 @@ class MutationTracker {
     _waiters.clear();
   }
 
-  Future<List<Map<String, dynamic>>?> _captureByWhere({
+  static Future<List<Map<String, dynamic>>?> _captureByWhere({
     required DriftDebugQuery readQuery,
     required String table,
     required String whereClause,
@@ -265,7 +265,7 @@ class MutationTracker {
     }
   }
 
-  Future<List<Map<String, dynamic>>?> _captureAfterInsert({
+  static Future<List<Map<String, dynamic>>?> _captureAfterInsert({
     required DriftDebugQuery readQuery,
     required String table,
   }) async {
@@ -357,7 +357,7 @@ class MutationTracker {
   /// Extracts the WHERE clause body from [sql] (UPDATE / DELETE), stopping
   /// at RETURNING, end of statement, or trailing semicolon. Returns null
   /// when no WHERE is present so unconditional mutations can be detected.
-  String? _extractWhereClause(String sql) {
+  static String? _extractWhereClause(String sql) {
     final match = RegExp(
       r'\bWHERE\b\s+(.+?)\s*(?:\bRETURNING\b|$|;)',
       caseSensitive: false,
@@ -369,7 +369,7 @@ class MutationTracker {
     return where;
   }
 
-  String _unescapeQuotedIdentifier(String raw) {
+  static String _unescapeQuotedIdentifier(String raw) {
     // Import escapes identifiers by doubling embedded quotes: "" -> "
     return raw.replaceAll('""', '"');
   }

@@ -21,7 +21,7 @@ void main() {
       expect(r.minAvailableId, 2);
       expect(r.maxAvailableId, 4);
       final page = r.queriesPage(cursor: -1, limit: 10, direction: 'forward');
-      expect(page.items.length, 3);
+      expect(page.items, hasLength(3));
       expect(page.items.first.id, 2);
       expect(page.items.last.id, 4);
     });

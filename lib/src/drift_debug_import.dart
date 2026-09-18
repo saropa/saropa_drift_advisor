@@ -36,74 +36,17 @@ final class DriftDebugImportProcessor {
   /// are truncated to avoid leaking large schema fragments in HTTP responses.
   static const int _maxErrorSqlLength = 120;
 
-  /// Imports [data] in the given [format] into [table].
-  ///
-  /// [writeQuery] executes a single SQL write statement.
-  /// [sqlLiteral] converts a Dart value to a SQL literal
-  /// string (for quoting).
-  ///
-  /// For CSV, [csvColumnMapping] is optional. When provided, keys are
-  /// CSV header names (source) and values are table column names (target).
-  /// Only mapped columns are inserted; unmapped CSV columns are skipped.
-  /// When null, CSV headers are used as column names (existing behavior).
-  ///
-  /// Throws [FormatException] for unsupported formats or
-  /// malformed CSV. Per-row failures are collected in
-  /// [DriftDebugImportResult.errors].
-  ///
-  /// Returns a [DriftDebugImportResult] with the count of
-  /// imported rows and any per-row error messages.
-  Future<DriftDebugImportResult> processImport({
-    required String format,
-    required String data,
-    required String table,
-    required Future<void> Function(String sql) writeQuery,
-    required String Function(dynamic value) sqlLiteral,
-    Map<String, String>? csvColumnMapping,
-  }) async {
-    switch (format) {
-      case formatJson:
-        return await _importJson(
-          data: data,
-          table: table,
-          writeQuery: writeQuery,
-          sqlLiteral: sqlLiteral,
-        );
-
-      case formatCsv:
-        return await _importCsv(
-          data: data,
-          table: table,
-          writeQuery: writeQuery,
-          sqlLiteral: sqlLiteral,
-          columnMapping: csvColumnMapping,
-        );
-
-      case formatSql:
-        return await _importSql(
-          data: data,
-          table: table,
-          writeQuery: writeQuery,
-        );
-
-      default:
-        throw FormatException(
-          'Unsupported format: $format. Use json, csv, or sql.',
-        );
-    }
-  }
-
   /// Parses a JSON array of objects and inserts each as a table
   /// row via [writeQuery]. Validates that the top-level value
   /// is a list and that each element is a map.
-  Future<DriftDebugImportResult> _importJson({
+  static Future<DriftDebugImportResult> _importJson({
     required String data,
     required String table,
     required Future<void> Function(String sql) writeQuery,
-    required String Function(dynamic value) sqlLiteral,
+    required String Function(Object? value) sqlLiteral,
   }) async {
     // Decode the raw JSON string into a Dart object.
-    final dynamic decoded;
+    final Object? decoded;
 
     try {
       decoded = jsonDecode(data);
@@ -148,90 +91,6 @@ final class DriftDebugImportProcessor {
     );
   }
 
-  Future<DriftDebugImportResult> _importCsv({
-    required String data,
-    required String table,
-    required Future<void> Function(String sql) writeQuery,
-    required String Function(dynamic value) sqlLiteral,
-    Map<String, String>? columnMapping,
-  }) async {
-    final lines = parseCsvLines(data);
-
-    if (lines.length < 2) {
-      throw const FormatException(
-        'CSV must have a header row and at least one data row.',
-      );
-    }
-
-    final headers = lines[0];
-    final List<String> insertHeaders;
-    final List<int> valueIndices;
-
-    if (columnMapping != null && columnMapping.isNotEmpty) {
-      // Build list of table columns and corresponding CSV column indices.
-      // Only include mappings whose CSV header exists in the file.
-      // If multiple CSV columns map to the same table column, last mapping wins.
-      final tableColToCsvIdx = <String, int>{};
-      for (final entry in columnMapping.entries) {
-        final csvHeader = entry.key;
-        final tableCol = entry.value;
-        if (tableCol.isEmpty) continue;
-        final idx = headers.indexOf(csvHeader);
-        if (idx >= 0) tableColToCsvIdx[tableCol] = idx;
-      }
-      if (tableColToCsvIdx.isEmpty) {
-        throw const FormatException(
-          'Column mapping did not match any CSV headers.',
-        );
-      }
-      insertHeaders = tableColToCsvIdx.keys.toList();
-      valueIndices = tableColToCsvIdx.values.toList();
-    } else {
-      insertHeaders = headers;
-      valueIndices = List.generate(headers.length, (i) => i);
-    }
-
-    final cols = insertHeaders.map(_escapeIdentifier).join(', ');
-    int imported = 0;
-    final errors = <String>[];
-
-    // Starts at 1 to skip the header row; 1-based index used in error messages.
-    // ignore: prefer_asmap_over_indexed_iteration -- starts at 1, 1-based error index
-    for (int i = 1; i < lines.length; i++) {
-      try {
-        final rowValues = lines[i];
-
-        if (rowValues.length >= headers.length) {
-          final vals = valueIndices
-              .map((idx) => idx < rowValues.length ? rowValues[idx] : '')
-              .map((v) => sqlLiteral(v))
-              .join(', ');
-
-          await writeQuery(
-            'INSERT INTO ${_escapeIdentifier(table)} ($cols) VALUES ($vals)',
-          );
-          imported++;
-        } else {
-          final colCount = rowValues.length;
-          final headerCount = headers.length;
-
-          errors.add(
-            'Row $i: column count mismatch ($colCount vs $headerCount)',
-          );
-        }
-      } on Object catch (e) {
-        errors.add('Row $i: $e');
-      }
-    }
-
-    return DriftDebugImportResult(
-      imported: imported,
-      errors: errors,
-      format: formatCsv,
-      table: table,
-    );
-  }
-
   /// Imports SQL statements by validating and executing each one individually.
   ///
   /// Note: statements are NOT wrapped in a transaction. The [writeQuery]
@@ -240,7 +99,7 @@ final class DriftDebugImportProcessor {
   /// `BEGIN`/`COMMIT` through it risks nested-transaction errors or Drift
   /// internal state corruption. Transaction wrapping requires a dedicated
   /// `transactionCallback` parameter added to the public API.
-  Future<DriftDebugImportResult> _importSql({
+  static Future<DriftDebugImportResult> _importSql({
     required String data,
     required String table,
     required Future<void> Function(String sql) writeQuery,
@@ -297,9 +156,9 @@ final class DriftDebugImportProcessor {
     var i = 0;
 
     void flush() {
-      final s = buf.toString().trim();
-      if (s.isNotEmpty) {
-        out.add(s);
+      final trimmed = buf.toString().trim();
+      if (trimmed.isNotEmpty) {
+        out.add(trimmed);
       }
       buf.clear();
     }
@@ -367,7 +226,7 @@ final class DriftDebugImportProcessor {
 
   /// Wraps a SQL identifier in double quotes, escaping any
   /// embedded double-quote characters by doubling them.
-  static String _escapeIdentifier(dynamic name) {
+  static String _escapeIdentifier(Object? name) {
     final escaped = name.toString().replaceAll('"', '""');
 
     return '"$escaped"';
@@ -385,6 +244,8 @@ final class DriftDebugImportProcessor {
   /// implementation split on `\n` before parsing quotes (so a quoted newline
   /// broke the record) and trimmed every field (corrupting quoted whitespace).
   /// See plans/history/2026.06/2026.06.12/full-codebase-audit-2026.06.12.md M10.
+  ///
+  /// Returns the parsed rows in file order, each row a list of field strings.
   static List<List<String>> parseCsvLines(String csv) {
     // Strip BOM and normalize line endings.
     String normalized = csv;
@@ -401,8 +262,8 @@ final class DriftDebugImportProcessor {
 
     // Commit the current field to the row; only unquoted content is trimmed.
     void endField() {
-      final raw = field.toString();
-      row.add(fieldWasQuoted ? raw : raw.trim());
+      final fieldRaw = field.toString();
+      row.add(fieldWasQuoted ? fieldRaw : fieldRaw.trim());
       field.clear();
       fieldWasQuoted = false;
     }
@@ -458,6 +319,147 @@ final class DriftDebugImportProcessor {
     }
 
     return result;
+  }
+
+  /// Imports [data] in the given [format] into [table].
+  ///
+  /// [writeQuery] executes a single SQL write statement.
+  /// [sqlLiteral] converts a Dart value to a SQL literal
+  /// string (for quoting).
+  ///
+  /// For CSV, [csvColumnMapping] is optional. When provided, keys are
+  /// CSV header names (source) and values are table column names (target).
+  /// Only mapped columns are inserted; unmapped CSV columns are skipped.
+  /// When null, CSV headers are used as column names (existing behavior).
+  ///
+  /// Throws [FormatException] for unsupported formats or
+  /// malformed CSV. Per-row failures are collected in
+  /// [DriftDebugImportResult.errors].
+  ///
+  /// Returns a [DriftDebugImportResult] with the count of
+  /// imported rows and any per-row error messages.
+  Future<DriftDebugImportResult> processImport({
+    required String format,
+    required String data,
+    required String table,
+    required Future<void> Function(String sql) writeQuery,
+    required String Function(dynamic value) sqlLiteral,
+    Map<String, String>? csvColumnMapping,
+  }) async {
+    switch (format) {
+      case formatJson:
+        return await _importJson(
+          data: data,
+          table: table,
+          writeQuery: writeQuery,
+          sqlLiteral: sqlLiteral,
+        );
+
+      case formatCsv:
+        return await _importCsv(
+          data: data,
+          table: table,
+          writeQuery: writeQuery,
+          sqlLiteral: sqlLiteral,
+          columnMapping: csvColumnMapping,
+        );
+
+      case formatSql:
+        return await _importSql(
+          data: data,
+          table: table,
+          writeQuery: writeQuery,
+        );
+
+      default:
+        throw FormatException(
+          'Unsupported format: $format. Use json, csv, or sql.',
+        );
+    }
+  }
+
+  Future<DriftDebugImportResult> _importCsv({
+    required String data,
+    required String table,
+    required Future<void> Function(String sql) writeQuery,
+    required String Function(Object? value) sqlLiteral,
+    Map<String, String>? columnMapping,
+  }) async {
+    final lines = parseCsvLines(data);
+
+    if (lines.length < 2) {
+      throw const FormatException(
+        'CSV must have a header row and at least one data row.',
+      );
+    }
+
+    final headers = lines.first;
+    final List<String> insertHeaders;
+    final List<int> valueIndices;
+
+    if (columnMapping != null && columnMapping.isNotEmpty) {
+      // Build list of table columns and corresponding CSV column indices.
+      // Only include mappings whose CSV header exists in the file.
+      // If multiple CSV columns map to the same table column, last mapping wins.
+      final tableColToCsvIdx = <String, int>{};
+      for (final entry in columnMapping.entries) {
+        final csvHeader = entry.key;
+        final tableCol = entry.value;
+        if (tableCol.isEmpty) continue;
+        final idx = headers.indexOf(csvHeader);
+        if (idx >= 0) tableColToCsvIdx[tableCol] = idx;
+      }
+      if (tableColToCsvIdx.isEmpty) {
+        throw const FormatException(
+          'Column mapping did not match any CSV headers.',
+        );
+      }
+      insertHeaders = tableColToCsvIdx.keys.toList();
+      valueIndices = tableColToCsvIdx.values.toList();
+    } else {
+      insertHeaders = headers;
+      valueIndices = List.generate(headers.length, (i) => i);
+    }
+
+    final cols = insertHeaders.map(_escapeIdentifier).join(', ');
+    int imported = 0;
+    final errors = <String>[];
+
+    // Starts at 1 to skip the header row; 1-based index used in error messages.
+    // ignore: saropa_lints/prefer_asmap_over_indexed_iteration -- starts at 1, 1-based error index
+    for (int i = 1; i < lines.length; i++) {
+      try {
+        final rowValues = lines[i];
+
+        if (rowValues.length >= headers.length) {
+          final vals = valueIndices
+              .map((idx) => idx < rowValues.length ? rowValues[idx] : '')
+              .map((value) => sqlLiteral(value))
+              .join(', ');
+
+          await writeQuery(
+            'INSERT INTO ${_escapeIdentifier(table)} ($cols) VALUES ($vals)',
+          );
+          imported++;
+        } else {
+          final colCount = rowValues.length;
+          final headerCount = headers.length;
+
+          errors.add(
+            'Row $i: column count mismatch ($colCount vs $headerCount)',
+          );
+        }
+      } on Object catch (e) {
+        errors.add('Row $i: $e');
+      }
+    }
+
+    return DriftDebugImportResult(
+      imported: imported,
+      errors: errors,
+      format: formatCsv,
+      table: table,
+    );
   }
 
   @override

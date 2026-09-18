@@ -72,11 +72,11 @@ void main() {
       );
       final Map<String, dynamic> data = _embeddedData(html);
       final List<dynamic> tables = data['tables'] as List<dynamic>;
-      expect(tables.length, 1);
+      expect(tables, hasLength(1));
       final Map<String, dynamic> t = tables.first as Map<String, dynamic>;
       expect(t['name'], 'users');
       expect(t['totalRowCount'], 7);
-      expect(t['truncated'], true); // total 7 > 1 embedded row
+      expect(t['truncated'], isTrue); // total 7 > 1 embedded row
       expect((t['rows'] as List<dynamic>).first['name'], 'Mallory');
     });
 
@@ -98,8 +98,8 @@ void main() {
       // The raw substring `</script>` appears only as the genuine closing tags
       // of the two <script> elements, never inside the embedded payload.
       expect(
-        '</script>'.allMatches(html).length,
-        2,
+        '</script>'.allMatches(html),
+        hasLength(2),
         reason: 'only the data-island and behavior scripts close the tag',
       );
       // The attack still round-trips intact as data once unescaped.
@@ -139,7 +139,7 @@ void main() {
       final Map<String, dynamic> data = _embeddedData(html);
       expect(data['schema'], contains('CREATE TABLE users'));
       final List<dynamic> anomalies = data['anomalies'] as List<dynamic>;
-      expect(anomalies.length, 1);
+      expect(anomalies, hasLength(1));
       expect((anomalies.first as Map<String, dynamic>)['severity'], 'warning');
     });
 
@@ -150,7 +150,7 @@ void main() {
         tables: <ReportTableData>[table()],
       );
       final Map<String, dynamic> data = _embeddedData(html);
-      expect(data['anomaliesTruncated'], false);
+      expect(data['anomaliesTruncated'], isFalse);
     });
 
     test(
@@ -163,7 +163,7 @@ void main() {
           anomaliesTruncated: true,
         );
         final Map<String, dynamic> data = _embeddedData(html);
-        expect(data['anomaliesTruncated'], true);
+        expect(data['anomaliesTruncated'], isTrue);
       },
     );
 

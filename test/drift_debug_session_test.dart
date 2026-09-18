@@ -20,7 +20,7 @@ void main() {
         expect(result, containsPair('id', isA<String>()));
         expect(result, containsPair('url', contains('?session=')));
         expect(result, containsPair('expiresAt', isA<String>()));
-        expect(store.length, 1);
+        expect(store, hasLength(1));
       });
 
       test('url contains the session id', () {
@@ -125,18 +125,18 @@ void main() {
         // Manually insert a session with an already-expired expiresAt.
         store.create(<String, dynamic>{'fresh': true});
 
-        expect(store.length, 1);
+        expect(store, hasLength(1));
 
         // The session we just created has 1 hour expiry, so it
         // should survive cleanExpired.
         store.cleanExpired();
-        expect(store.length, 1);
+        expect(store, hasLength(1));
       });
 
       test('length is zero after all sessions expire', () {
         // With no sessions, cleanExpired is a no-op.
         store.cleanExpired();
-        expect(store.length, 0);
+        expect(store, hasLength(0));
       });
     });
 
@@ -289,7 +289,7 @@ void main() {
           ids.add(store.create(<String, dynamic>{'i': i})['id'] as String);
         }
 
-        expect(ids.length, 200);
+        expect(ids, hasLength(200));
       });
 
       test('every created session remains retrievable', () {

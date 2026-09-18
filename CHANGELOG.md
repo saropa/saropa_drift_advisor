@@ -53,11 +53,28 @@ browse source on
 
 ## [4.4.2] - Unreleased
 
-A behind-the-scenes cleanup release, plus one fewer stray warning in projects that don't use Drift. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.4.2/CHANGELOG.md)
+Safer handling of unusual characters in exports, pasted data, search and generated rollback code, one fewer stray warning in projects that don't use Drift, and a behind-the-scenes cleanup. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.4.2/CHANGELOG.md)
 
 ### Fixed
 
 - **"Could not write the diagnostics mirror" warning in non-Drift projects.** Other Saropa tools (such as Saropa Log Capture) ask Advisor to refresh its offline diagnostics copy, which surfaced this warning in workspaces with no Drift dependency at all. Advisor now quietly skips the mirror when the workspace doesn't use Drift, and the **Write Diagnostics Mirror (Suite)** command only appears in the Command Palette for Drift projects.
+- **Generated rollback code broke on SQL containing `$` or `\`.** A `$name` in a statement was read by Dart as string interpolation, and a backslash escaped whatever character followed it, so the generated rollback could run different SQL than intended, or fail to compile. Both are now escaped.
+- **Pasted data with HTML entities was decoded twice.** Pasting a table whose cells contained `&amp;lt;` produced `<` instead of the literal text `&lt;`. Each entity is now decoded exactly once.
+- **Markdown tables could split a cell on a backslash.** A value with a backslash in front of a `|` broke the row into extra columns in exported tables, schema docs, index suggestions and hover tooltips.
+- **A backslash in a global search term changed what matched.** It escaped the next character in the underlying SQL `LIKE` pattern. Search terms are now matched literally.
+- **Web viewer buttons no longer re-read their label as HTML.** While showing a busy state, a button saved its label as markup and restored it by re-parsing it, so a table or column name in the label could be interpreted as HTML. The label's own elements are now kept and put back unchanged.
+
+### Internal
+
+- **CodeQL code-scanning alerts resolved (18)** — the fixes above, plus: test helpers for HTML filtering and panel CSP checks now parse tags and URLs properly instead of matching substrings; the publish script creates the Open VSX token file with owner-only (`0600`) permissions before writing to it; and the CI workflow runs with read-only repository permissions.
+- **Lint sweep: 341 `saropa_lints` 16.2.1 findings resolved** — 143 fixed, 160 confirmed false positives, 38 deferred as breaking or structural. No behaviour change: `dart analyze` is clean and all 835 tests pass.
+- **25 `// ignore:` comments were silently doing nothing** — each named a `saropa_lints` rule without the required `saropa_lints/` prefix, so the analyzer never honoured the suppression. All 25 now carry the prefix and take effect.
+- **Web stub still advertised the pre-audit insecure defaults** — `drift_debug_server_stub.dart` declared `corsOrigin = '*'` and `loopbackOnly = false`, the two defaults the real server tightened in the June security audit (v4.0.0). No runtime effect, since the stub's `start()` throws immediately, but the web-platform signature showed defaults the package no longer uses. The stub now mirrors the io signature member for member.
+- **Test assertions use real matchers** — 65 raw `true`/`false`/`null` literals became `isTrue`/`isFalse`/`isNull`, and `expect(xs.length, n)` became `expect(xs, hasLength(n))` so a failure prints the collection rather than two bare numbers. Two test groups whose setup was byte-identical in every test now use `setUp()`.
+- **Minor hardening** — the private server impl's debug `toString()` printed `port: null` before start (now `none`), and `IndexAnalyzer`'s `_id`-suffix strip gained a local length guard instead of relying only on its caller's regex.
+- **Tidying** — 18 private methods made static, 10 variables moved next to their first use, 8 index loops rewritten with `asMap()`, and the import processor's private `dynamic` types tightened to `Object?`.
+- **False positives** — 122 of the 160 were one rule, `avoid_case_sensitive_path_comparison`, treating HTTP route paths as filesystem paths. Case-folding them would have made the router accept `/API/HEALTH`, widening its routing surface, so none were changed.
+- **Deferred** — making 4 public methods static (a breaking API change), splitting the 1,600-line router, adopting freezed, isolates, or a Result type, and the deliberate `dynamic` duck-typing in `start_drift_viewer_extension.dart` that keeps this package free of a compile-time `drift` dependency.
 
 ---
 

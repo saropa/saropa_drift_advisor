@@ -355,7 +355,7 @@ void main() {
           expect(resp0.statusCode, HttpStatus.ok);
           final body0 = await resp0.transform(utf8.decoder).join();
           final list0 = jsonDecode(body0) as List<dynamic>;
-          expect(list0.length, 2);
+          expect(list0, hasLength(2));
 
           final reqOffsetNeg = await client.getUrl(
             Uri.parse(
@@ -366,7 +366,7 @@ void main() {
           expect(respNeg.statusCode, HttpStatus.ok);
           final bodyNeg = await respNeg.transform(utf8.decoder).join();
           final listNeg = jsonDecode(bodyNeg) as List<dynamic>;
-          expect(listNeg.length, 2);
+          expect(listNeg, hasLength(2));
         } finally {
           client.close();
         }
@@ -1715,26 +1715,26 @@ void main() {
         final orders = tables[0] as Map<String, dynamic>;
         expect(orders['name'], 'orders');
         expect(orders['rowCount'], 7);
-        expect((orders['columns'] as List).length, 3);
+        expect(orders['columns'] as List, hasLength(3));
 
         final users = tables[1] as Map<String, dynamic>;
         expect(users['name'], 'users');
         expect(users['rowCount'], 42);
-        expect((users['columns'] as List).length, 3);
+        expect(users['columns'] as List, hasLength(3));
 
         // Verify column details
         final userCols = users['columns'] as List<dynamic>;
         final idCol = userCols[0] as Map<String, dynamic>;
         expect(idCol['name'], 'id');
         expect(idCol['type'], 'INTEGER');
-        expect(idCol['pk'], true);
+        expect(idCol['pk'], isTrue);
 
         final emailCol = userCols[1] as Map<String, dynamic>;
         expect(emailCol['name'], 'email');
         expect(emailCol['type'], 'TEXT');
-        expect(emailCol['pk'], false);
-        expect(emailCol['notnull'], false);
-        expect((userCols[0] as Map)['notnull'], true);
+        expect(emailCol['pk'], isFalse);
+        expect(emailCol['notnull'], isFalse);
+        expect((userCols[0] as Map)['notnull'], isTrue);
       } finally {
         client.close();
       }

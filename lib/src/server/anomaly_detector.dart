@@ -323,29 +323,30 @@ abstract final class AnomalyDetector {
     // outlier pass-1 aggregates (AVG, MIN, MAX, COUNT per column).
     // Every alias below is positional ("null_0", "avg_2", ...) so distinct
     // columns can never collide on the same result-row key.
-    final tbl = ServerUtils.quoteIdent(tableName);
     final selectParts = <String>['COUNT(*) AS _row_count'];
 
-    for (var i = 0; i < notNullCols.length; i++) {
+    for (final entry in notNullCols.asMap().entries) {
       selectParts.add(
-        'SUM(${ServerUtils.quoteIdent(notNullCols[i])} IS NULL) '
-        'AS "null_$i"',
+        'SUM(${ServerUtils.quoteIdent(entry.value)} IS NULL) '
+        'AS "null_${entry.key}"',
       );
     }
-    for (var i = 0; i < notNullTextCols.length; i++) {
+    for (final entry in notNullTextCols.asMap().entries) {
       selectParts.add(
-        "SUM(${ServerUtils.quoteIdent(notNullTextCols[i])} = '') "
-        'AS "empty_$i"',
+        "SUM(${ServerUtils.quoteIdent(entry.value)} = '') "
+        'AS "empty_${entry.key}"',
       );
     }
-    for (var i = 0; i < numericCols.length; i++) {
-      final qc = ServerUtils.quoteIdent(numericCols[i]);
+    for (final entry in numericCols.asMap().entries) {
+      final i = entry.key;
+      final qc = ServerUtils.quoteIdent(entry.value);
       selectParts.add('AVG($qc) AS "avg_$i"');
       selectParts.add('MIN($qc) AS "min_$i"');
       selectParts.add('MAX($qc) AS "max_$i"');
       selectParts.add('COUNT($qc) AS "cnt_$i"');
     }
 
+    final tbl = ServerUtils.quoteIdent(tableName);
     final scanRows = ServerUtils.normalizeRows(
       await query('SELECT ${selectParts.join(', ')} FROM $tbl'),
     );
@@ -364,12 +365,13 @@ abstract final class AnomalyDetector {
 
     if (!skipPerColumnChecks) {
       // ── Process NULL results ──────────────────────────────
-      for (var i = 0; i < notNullCols.length; i++) {
+      for (final entry in notNullCols.asMap().entries) {
+        final i = entry.key;
         final nullCount = (ServerUtils.toDouble(scanRow['null_$i']) ?? 0)
             .toInt();
         if (nullCount == 0) continue;
 
-        final c = notNullCols[i];
+        final c = entry.value;
         final pct = tableRowCount > 0 ? (nullCount / tableRowCount * 100) : 0;
         // Always 'error' — NULLs in NOT NULL columns are constraint
         // violations, not warnings.
@@ -386,12 +388,13 @@ abstract final class AnomalyDetector {
       }
 
       // ── Process empty-string results ──────────────────────
-      for (var i = 0; i < notNullTextCols.length; i++) {
+      for (final entry in notNullTextCols.asMap().entries) {
+        final i = entry.key;
         final emptyCount = (ServerUtils.toDouble(scanRow['empty_$i']) ?? 0)
             .toInt();
         if (emptyCount == 0) continue;
 
-        final c = notNullTextCols[i];
+        final c = entry.value;
         anomalies.add(<String, dynamic>{
           'table': tableName,
           'column': c,
@@ -404,7 +407,8 @@ abstract final class AnomalyDetector {
 
       // ── Process outlier pass-1: collect variance candidates ─
       final varianceCandidates = <_OutlierCandidate>[];
-      for (var i = 0; i < numericCols.length; i++) {
+      for (final entry in numericCols.asMap().entries) {
+        final i = entry.key;
         final sampleCount = (ServerUtils.toDouble(scanRow['cnt_$i']) ?? 0)
             .toInt();
         // Small sample guard: sigma-based outlier detection is unreliable
@@ -432,7 +436,7 @@ abstract final class AnomalyDetector {
 
         varianceCandidates.add(
           _OutlierCandidate(
-            colName: numericCols[i],
+            colName: entry.value,
             avg: avg,
             min: min,
             max: max,
@@ -449,8 +453,9 @@ abstract final class AnomalyDetector {
       // space per query, so no collision with the scan-query aliases above.
       if (varianceCandidates.isNotEmpty) {
         final varParts = <String>[];
-        for (var i = 0; i < varianceCandidates.length; i++) {
-          final c = varianceCandidates[i];
+        for (final entry in varianceCandidates.asMap().entries) {
+          final i = entry.key;
+          final c = entry.value;
           final qc = ServerUtils.quoteIdent(c.colName);
           varParts.add('AVG(($qc - ${c.avg}) * ($qc - ${c.avg})) AS "var_$i"');
         }
@@ -460,8 +465,9 @@ abstract final class AnomalyDetector {
 
         if (varRows.isNotEmpty) {
           final varRow = varRows.first;
-          for (var i = 0; i < varianceCandidates.length; i++) {
-            final c = varianceCandidates[i];
+          for (final entry in varianceCandidates.asMap().entries) {
+            final i = entry.key;
+            final c = entry.value;
             final rawVariance = ServerUtils.toDouble(varRow['var_$i']) ?? 0;
             // Clamp to zero to guard against tiny negative rounding.
             final stddev = sqrt(rawVariance < 0 ? 0 : rawVariance);
@@ -747,7 +753,7 @@ abstract final class AnomalyDetector {
         return false;
       }
       // Variance formula E[Y²] - E[Y]²; the repeated logMean is the squared mean, not a typo.
-      // ignore: avoid_equal_expressions -- E[Y²] - E[Y]²: squaring the mean, identical operands are intentional
+      // ignore: saropa_lints/avoid_equal_expressions -- E[Y²] - E[Y]²: squaring the mean, identical operands are intentional
       final logVariance = logSqMean - logMean * logMean;
       final logStddev = sqrt(logVariance < 0 ? 0 : logVariance);
       if (logStddev == 0) {
@@ -759,7 +765,7 @@ abstract final class AnomalyDetector {
       return logMinDev <= logThreshold && logMaxDev <= logThreshold;
       // A missing LN() means SQLite was built without math functions: an
       // expected capability gap, so the catch deliberately does not log.
-      // ignore: require_catch_logging -- a missing LN() (build without math functions) is an expected capability gap, not an error to surface; we degrade by not suppressing
+      // ignore: saropa_lints/require_catch_logging -- a missing LN() (build without math functions) is an expected capability gap, not an error to surface; we degrade by not suppressing
     } on Object {
       // No LN() (SQLite built without math functions): cannot evaluate the log
       // distribution, so do not suppress — fall through and report the outlier.

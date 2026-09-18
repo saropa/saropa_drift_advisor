@@ -110,7 +110,7 @@ final class SnapshotHandler {
 
   /// Reads an optional `{ "label": "..." }` from [request]; null on empty body,
   /// non-JSON, or a missing/blank label (a label is never required).
-  Future<String?> _readOptionalLabel(HttpRequest request) async {
+  static Future<String?> _readOptionalLabel(HttpRequest request) async {
     // Cap the body even though a label is tiny: an uncapped read is an OOM
     // vector regardless of how small the legitimate payload is (audit H3).
     final bytes = await ServerUtils.readBodyBytes(
@@ -326,7 +326,7 @@ final class SnapshotHandler {
 
   /// Adds row-level diff fields to [tableDiff] by comparing
   /// [rowsThen] (snapshot) with [rowsNow] (current) using primary keys.
-  Future<void> _addRowLevelDiff({
+  static Future<void> _addRowLevelDiff({
     required Map<String, dynamic> tableDiff,
     required String table,
     required List<Map<String, dynamic>> rowsThen,
