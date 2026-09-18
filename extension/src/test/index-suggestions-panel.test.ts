@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { IndexSuggestionsPanel } from '../health/index-suggestions-panel';
-import { resetMocks, createdPanels, clipboardMock, messageMock } from './vscode-mock';
+import { resetMocks, createdPanels, clipboardMock, dialogMock, messageMock } from './vscode-mock';
 import { makeClient, makeHistoryStore } from './fixtures/health-test-fixtures';
 import type { IndexSuggestion } from '../api-types';
 
@@ -82,6 +82,33 @@ describe('IndexSuggestionsPanel', () => {
       assert.strictEqual(clipboardMock.text, suggestions[0].sql);
       resolve();
     }, 10));
+  });
+
+  it('Markdown export escapes cells but leaves backslashes in the SQL code span alone', async () => {
+    // Plain cells: backslash is Markdown's escape char, so it is doubled; pipes
+    // are escaped and newlines flattened. The SQL sits in a backtick code span,
+    // where Markdown does NOT process backslash escapes, so doubling one there
+    // would render it doubled — only pipes and newlines are escaped.
+    const suggestions: IndexSuggestion[] = [{
+      table: 'a|b',
+      column: 'c\\d',
+      reason: 'line1\nline2',
+      sql: "CREATE INDEX i ON t(x) WHERE y LIKE 'a\\%' ESCAPE '\\' OR z = 'p|q'",
+      priority: 'high',
+    }];
+    await IndexSuggestionsPanel.createOrShow(suggestions, makeClient(), makeHistoryStore());
+
+    const picks = ['Markdown', 'Copy to clipboard'];
+    dialogMock.quickPickResult = () => picks.shift();
+    clipboardMock.reset();
+    createdPanels[0].webview.simulateMessage({ command: 'exportAnalysis' });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const row = clipboardMock.text.split('\n')[2];
+    assert.strictEqual(
+      row,
+      "| a\\|b | c\\\\d | high | line1 line2 | `CREATE INDEX i ON t(x) WHERE y LIKE 'a\\%' ESCAPE '\\' OR z = 'p\\|q'` |",
+    );
   });
 
   it('should copy all SQL on copyAll message', async () => {
