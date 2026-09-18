@@ -7,8 +7,13 @@
  * as Advisor's truth when the debug server is down.
  */
 import * as assert from 'assert';
-import { resetMocks, Uri, workspace, writtenFiles } from './vscode-mock';
-import { toCanonicalEnvelope, writeAdvisorDiagnosticsMirror } from '../suite/diagnostics-mirror';
+import * as sinon from 'sinon';
+import { commands, messageMock, resetMocks, Uri, workspace, writtenFiles } from './vscode-mock';
+import {
+  registerDiagnosticsMirror,
+  toCanonicalEnvelope,
+  writeAdvisorDiagnosticsMirror,
+} from '../suite/diagnostics-mirror';
 
 /** Minimal client stub exposing only the issues() method the mirror calls. */
 function clientReturning(value: unknown | (() => never)): { issues: () => Promise<unknown> } {
@@ -95,5 +100,53 @@ describe('Suite diagnostics mirror', () => {
     const ok = await writeAdvisorDiagnosticsMirror(throwing as any);
     assert.strictEqual(ok, false);
     assert.strictEqual(writtenFiles.length, 0);
+  });
+
+  describe('writeDiagnosticsMirror command', () => {
+    let readStub: sinon.SinonStub;
+    let context: { subscriptions: Array<{ dispose: () => void }> };
+
+    /** Register the mirror against a stub client; the pubspec decides Drift-ness. */
+    function register(pubspec: string, envelope: unknown): void {
+      readStub = sinon.stub(workspace.fs, 'readFile').resolves(new TextEncoder().encode(pubspec));
+      context = { subscriptions: [] };
+      const watcher = { onDidChange: () => ({ dispose: () => undefined }) };
+      registerDiagnosticsMirror(context as any, clientReturning(envelope) as any, watcher as any);
+    }
+
+    afterEach(() => {
+      // Disposing clears the pending startup-write timer.
+      for (const d of context.subscriptions) d.dispose();
+      readStub.restore();
+    });
+
+    it('does nothing and shows no toast in a workspace that does not use Drift', async () => {
+      // Regression: Saropa Log Capture invokes this command programmatically in
+      // every workspace, which surfaced a "could not write" warning in
+      // projects with no Drift association at all.
+      register('dependencies:\n  provider: ^6.0.0\n', { issues: [] });
+      const ok = await (commands as any).executeRegistered('driftViewer.writeDiagnosticsMirror');
+      assert.strictEqual(ok, false);
+      assert.strictEqual(writtenFiles.length, 0);
+      assert.deepStrictEqual(messageMock.warnings, []);
+      assert.deepStrictEqual(messageMock.infos, []);
+    });
+
+    it('warns when a Drift workspace cannot write the mirror', async () => {
+      register('dependencies:\n  drift: ^2.14.0\n', '<html>login</html>');
+      const ok = await (commands as any).executeRegistered('driftViewer.writeDiagnosticsMirror');
+      assert.strictEqual(ok, false);
+      assert.strictEqual(messageMock.warnings.length, 1);
+    });
+
+    it('suppresses toasts for a silent (automated) caller', async () => {
+      register('dependencies:\n  drift: ^2.14.0\n', '<html>login</html>');
+      const ok = await (commands as any).executeRegistered(
+        'driftViewer.writeDiagnosticsMirror',
+        { silent: true },
+      );
+      assert.strictEqual(ok, false);
+      assert.deepStrictEqual(messageMock.warnings, []);
+    });
   });
 });

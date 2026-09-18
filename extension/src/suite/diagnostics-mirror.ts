@@ -24,6 +24,7 @@ import type { DriftApiClient } from '../api-client';
 import type { GenerationWatcher } from '../generation-watcher';
 import { resolveWorkspaceCommit } from './workspace-commit';
 import { recordCommitSnapshot } from './commit-history-store';
+import { workspaceUsesDrift } from '../diagnostics/dart-file-parser';
 
 const MIRROR_DIR = '.saropa/diagnostics';
 const MIRROR_FILE = 'advisor.json';
@@ -162,24 +163,35 @@ export function registerDiagnosticsMirror(
     },
   });
 
+  // Sibling tools (e.g. Saropa Log Capture's "installed but silent" check)
+  // invoke this command programmatically, not just users from the palette, so
+  // it must never nag: in a workspace that does not use Drift there is nothing
+  // to mirror and it returns false with no toast; `{ silent: true }` suppresses
+  // the result toasts for any automated caller. The boolean result lets a
+  // caller tell whether the mirror was written.
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'driftViewer.writeDiagnosticsMirror',
-      async () => {
+      async (options?: { silent?: boolean }): Promise<boolean> => {
+        if (!(await workspaceUsesDrift())) return false;
+        const silent = options?.silent === true;
         const ok = await writeAdvisorDiagnosticsMirror(client);
         if (ok) {
           // Capture a per-commit snapshot for the timeline alongside the mirror
           // (plan 67 R6); best-effort, so a missing commit just skips it.
           await recordCommitSnapshot();
-          void vscode.window.showInformationMessage(
-            `Wrote Saropa diagnostics mirror to ${MIRROR_DIR}/${MIRROR_FILE}.`,
-          );
-        } else {
+          if (!silent) {
+            void vscode.window.showInformationMessage(
+              `Wrote Saropa diagnostics mirror to ${MIRROR_DIR}/${MIRROR_FILE}.`,
+            );
+          }
+        } else if (!silent) {
           void vscode.window.showWarningMessage(
             'Could not write the diagnostics mirror — is the Drift debug server '
               + 'running and a workspace folder open?',
           );
         }
+        return ok;
       },
     ),
   );

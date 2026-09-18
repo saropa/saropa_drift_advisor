@@ -51,6 +51,16 @@ browse source on
 
 ---
 
+## [4.4.2] - Unreleased
+
+A behind-the-scenes cleanup release, plus one fewer stray warning in projects that don't use Drift. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.4.2/CHANGELOG.md)
+
+### Fixed
+
+- **"Could not write the diagnostics mirror" warning in non-Drift projects.** Other Saropa tools (such as Saropa Log Capture) ask Advisor to refresh its offline diagnostics copy, which surfaced this warning in workspaces with no Drift dependency at all. Advisor now quietly skips the mirror when the workspace doesn't use Drift, and the **Write Diagnostics Mirror (Suite)** command only appears in the Command Palette for Drift projects.
+
+---
+
 ## [4.4.1]
 
 Anomaly scans are now vastly faster, auth-protected servers work seamlessly with discovery probes, and you can globally suppress diagnostics by column name. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.4.1/CHANGELOG.md)

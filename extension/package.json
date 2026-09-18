@@ -1028,6 +1028,10 @@
         {
           "command": "driftViewer.branchFromSnapshot",
           "when": "false"
+        },
+        {
+          "command": "driftViewer.writeDiagnosticsMirror",
+          "when": "driftViewer.isDriftProject"
         }
       ],
       "view/title": [
