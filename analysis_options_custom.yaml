@@ -11,7 +11,11 @@
 max_issues: 500
 output: both
 
-# PLATFORM SETTINGS
+rule_packs:
+  enabled:
+    - dart_sdk_3_2
+    - dart_sdk_3_4
+    - testing
 # Disable platforms your project doesn't target.
 platforms:
   ios: true
@@ -25,7 +29,8 @@ platforms:
 # RULE OVERRIDES
 # ─────────────────────────────────────────────────────────────────────────────
 # FORMAT: rule_name: true/false
-# Add your custom rule overrides below:
+# Add your custom rule overrides below:
+
 avoid_cascade_notation: false
 avoid_catching_generic_exception: false
 avoid_cubit_usage: false
