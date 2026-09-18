@@ -31,10 +31,27 @@
     // watcher so opening the project doesn't crawl/index it. Only the build/
     // output is excluded, not example/ source, so example edits still reload.
     "files.watcherExclude": {
-        "**/build/**": true,
-        "**/example/build/**": true,
+        ".git/objects/**": true,
+        ".git/subtree-cache/**": true,
+        ".hg/store/**": true,
+        "*/.git/objects/**": true,
+        "*/.git/subtree-cache/**": true,
+        "*/.hg/store/**": true,
+        "**/.dart_tool": true,
         "**/.dart_tool/**": true,
-        "**/.claude/worktrees/**": true
+        "**/build/**": true,
+        "**/reports/**": true,
+        "**/.dev/**": true,
+        "**/dependency_overrides/**": true,
+        "**/ios/Runner/**": true,
+        "**/android/flutter_code/**": true,
+        "**/example/build/**": true,
+        "**/.claude/worktrees/**": true,
+        "**/*.hprof": true,
+        "**/*.log": true,
+        "**/.vs/**": true,
+        "**/dependency_overrides/**/build/**": true,
+        "**/dependency_overrides/**/.dart_tool/**": true
     },
     "saropaLogCapture.integrations.adapters": [
         "packages",
