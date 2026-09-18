@@ -74,6 +74,7 @@ Safer handling of unusual characters in exports, pasted data, search and generat
 - **Minor hardening** — the private server impl's debug `toString()` printed `port: null` before start (now `none`), and `IndexAnalyzer`'s `_id`-suffix strip gained a local length guard instead of relying only on its caller's regex.
 - **Tidying** — 18 private methods made static, 10 variables moved next to their first use, 8 index loops rewritten with `asMap()`, and the import processor's private `dynamic` types tightened to `Object?`.
 - **False positives** — 122 of the 160 were one rule, `avoid_case_sensitive_path_comparison`, treating HTTP route paths as filesystem paths. Case-folding them would have made the router accept `/API/HEALTH`, widening its routing surface, so none were changed.
+- **Pre-commit hook works on macOS** — the Python gates called bare `python`, which macOS doesn't ship, so every commit touching Markdown, TypeScript or JSON failed there. The hook now finds a working Python 3 (`python3`, `python`, or the Windows `py` launcher), skipping the Windows Store stub.
 - **Deferred** — making 4 public methods static (a breaking API change), splitting the 1,600-line router, adopting freezed, isolates, or a Result type, and the deliberate `dynamic` duck-typing in `start_drift_viewer_extension.dart` that keeps this package free of a compile-time `drift` dependency.
 
 ---
