@@ -33,6 +33,25 @@ has_staged() {
   git diff --cached --name-only --diff-filter=d | grep -qE "$1"
 }
 
+# ── Helper: resolve a Python 3 interpreter ──
+# macOS/Linux ship `python3` (often no bare `python`); Windows usually has
+# `python` or the `py` launcher, and its `python3` may be a Microsoft Store
+# stub that exits non-zero. Probe each candidate by actually running it so a
+# stub or a Python 2 `python` is skipped rather than selected.
+PYTHON=""
+for candidate in python3 python py; do
+  if command -v "$candidate" >/dev/null 2>&1 \
+    && "$candidate" -c 'import sys; sys.exit(sys.version_info[0] != 3)' >/dev/null 2>&1; then
+    PYTHON="$candidate"
+    break
+  fi
+done
+if [ -z "$PYTHON" ]; then
+  echo "No Python 3 interpreter found (tried python3, python, py)."
+  echo "Install Python 3 so the pre-commit gates can run."
+  exit 1
+fi
+
 # ── Gate 0: Dart formatting ──
 # Only runs when .dart files are staged. Mirrors the CI step
 # `dart format --set-exit-if-changed .` so formatting issues are
@@ -95,7 +114,7 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # why the gate is unnecessary (bug 003).
 if has_staged 'lib/src/server/router\.dart$'; then
   echo "Checking CSRF gate coverage on router.dart..."
-  python scripts/check_csrf_gate_coverage.py || {
+  "$PYTHON" scripts/check_csrf_gate_coverage.py || {
     echo ""
     echo "CSRF gate coverage check failed!"
     echo "Every POST route in router.dart must call _rejectNonJsonBody()"
@@ -113,7 +132,7 @@ fi
 # paging failures because the server ignores unknown param names (bug 080).
 if has_staged 'lib/src/server/server_constants\.dart$' || has_staged 'assets/web/utils\.ts$'; then
   echo "Checking query-param sync between server_constants.dart and utils.ts..."
-  python scripts/check_query_param_sync.py || {
+  "$PYTHON" scripts/check_query_param_sync.py || {
     echo ""
     echo "Query-param sync check failed!"
     echo "server_constants.dart and assets/web/utils.ts must use the same"
@@ -132,7 +151,7 @@ fi
 # was skipped after a source edit or a generated file was hand-edited (bugs 081/082).
 if has_staged '^assets/web/.*\.(ts|js|scss)$' || has_staged '^esbuild\.config\.mjs$'; then
   echo "Checking web build freshness..."
-  python scripts/check_web_build_freshness.py || {
+  "$PYTHON" scripts/check_web_build_freshness.py || {
     echo ""
     echo "Web build freshness check failed!"
     echo "Run 'npm run build' then:"
@@ -152,7 +171,7 @@ fi
 # syntactically valid and degrade silently at render time.
 if has_staged '^assets/web/.*\.scss$' || has_staged '^assets/web/l10n/'; then
   echo "Checking design-token and l10n placeholder parity..."
-  python scripts/check_reference_parity.py || {
+  "$PYTHON" scripts/check_reference_parity.py || {
     echo ""
     echo "Reference parity check failed!"
     echo "Run the script manually for details:"
@@ -170,7 +189,7 @@ fi
 # first-paint seed silently breaks (bug 081 concern 5).
 if has_staged 'assets/web/toolbar\.ts$' || has_staged 'lib/src/server/html_content\.dart$'; then
   echo "Checking ICON_STATE_KEY parity..."
-  python scripts/check_icon_state_key_parity.py || {
+  "$PYTHON" scripts/check_icon_state_key_parity.py || {
     echo ""
     echo "ICON_STATE_KEY parity check failed!"
     echo "toolbar.ts and html_content.dart must use the same localStorage key."
@@ -190,7 +209,7 @@ fi
 # contain historical context, not live references).
 if has_staged '\.(md|py|dart|ts|tsx|yml|yaml|json)$'; then
   echo "Checking for dangling bug references..."
-  python scripts/check_bug_ref_dangling.py || {
+  "$PYTHON" scripts/check_bug_ref_dangling.py || {
     echo ""
     echo "Dangling bug reference check failed!"
     echo "Update stale bugs/<file>.md paths to their plans/history/ location."
