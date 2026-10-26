@@ -1935,8 +1935,8 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^26.6.4",
-    "@types/sinon": "^22.0.0",
+    "@types/node": "^26.6.5",
+    "@types/sinon": "^22.0.1",
     "@types/vscode": "^1.140.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
