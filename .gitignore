@@ -21,6 +21,7 @@ doc/api/
 
 # Local docs (handover, scratch notes)
 docs/
+plans/handover/
 
 # Reports (optional) — ignore generated reports but keep the organizer script
 reports/*
