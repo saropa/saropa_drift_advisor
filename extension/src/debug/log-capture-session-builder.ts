@@ -47,7 +47,7 @@ export async function buildSessionEndContributions(
   if (mode === 'none') return [];
 
   const log = (msg: string): void => {
-    endContext.outputChannel?.appendLine(`[Drift Advisor] ${msg}`);
+    endContext.outputChannel?.appendLine(`[Saropa Drift] ${msg}`);
   };
 
   let perf: PerformanceData | null = null;

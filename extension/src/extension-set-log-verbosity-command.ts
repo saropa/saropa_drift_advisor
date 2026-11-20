@@ -42,7 +42,7 @@ export function registerSetLogVerbosityCommand(context: vscode.ExtensionContext)
           vscode.ConfigurationTarget.Workspace,
         );
         void vscode.window.showInformationMessage(
-          `Saropa Drift Advisor log verbosity set to: ${pick.value}`,
+          `Saropa Drift log verbosity set to: ${pick.value}`,
         );
       },
     ),

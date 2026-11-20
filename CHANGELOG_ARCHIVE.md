@@ -97,8 +97,8 @@ The debug server now tells you how to reach it when you debug on a physical devi
 
 ### Changed
 
-- **The "Drift Tools" sidebar panel is now a slim launcher** and moved to the top of the Saropa activity-bar container (above Database). It shows a prominent "Drift Tools Hub" entry (with the extension version), the "Add Saropa Drift Advisor" setup item when the package is missing, and a connection-status row that opens connection help when no server is connected. The previous category-per-tool list was redundant with the new Hub — open the Hub for the full, grouped tool catalog.
-- **Configure Diagnostic Rules screen.** A new full-page panel replaces the old "Drift Advisor Rules" sidebar list. Every rule is grouped by category with its live finding count; each has an enable/disable toggle and a severity dropdown (Default / Error / Warning / Info / Hint). A filter box narrows the list by code or description, and one-click "Enable All" / "Reset Severities" buttons clear your overrides. Open it from the Drift Tools sidebar ("Configure Rules") or the command palette. Changes save to your workspace settings and re-run analysis immediately.
+- **The "Drift Tools" sidebar panel is now a slim launcher** and moved to the top of the Saropa activity-bar container (above Database). It shows a prominent "Drift Tools Hub" entry (with the extension version), the "Add Saropa Drift" setup item when the package is missing, and a connection-status row that opens connection help when no server is connected. The previous category-per-tool list was redundant with the new Hub — open the Hub for the full, grouped tool catalog.
+- **Configure Diagnostic Rules screen.** A new full-page panel replaces the old "Saropa Drift Rules" sidebar list. Every rule is grouped by category with its live finding count; each has an enable/disable toggle and a severity dropdown (Default / Error / Warning / Info / Hint). A filter box narrows the list by code or description, and one-click "Enable All" / "Reset Severities" buttons clear your overrides. Open it from the Drift Tools sidebar ("Configure Rules") or the command palette. Changes save to your workspace settings and re-run analysis immediately.
 - **Startup banner now explains LAN-IP access.** With the secure default (`loopbackOnly: true`), the banner states that connecting by the device's network IP is off and how to turn it on (`loopbackOnly: false` + an `authToken`). When you do bind a non-loopback interface, the banner prints the reachable `http://<lan-ip>:<port>` URL(s) beside the existing `adb forward` hint, so a Wi-Fi-by-IP user gets a copy-paste address instead of guessing the device IP.
 - **`GET /api/health` advertises the bind mode** via a new `loopbackOnly` field. A remote client (e.g. Saropa Lints) can now tell "server up but loopback-only" from "no server" — previously both looked like a bare connection-refused.
 - **Clicking "Offline" in the Database sidebar now opens a live connection panel.** The "Offline — cached schema" (and "Disconnected") row used to do nothing when clicked. It now opens the Troubleshooting panel showing your actual state: a status banner with the precise next step (start a debug session, or — if one is already running — check that the app calls `DriftDebugServer.start()` and is a debug build), plus a configuration grid (target host/port, discovery range, debug-session status, offline-cache setting) above the existing setup guidance.
@@ -107,7 +107,7 @@ The debug server now tells you how to reach it when you debug on a physical devi
 ### Fixed
 
 - **Wi-Fi-by-IP debugging looked like a dead server.** Reaching the debug server by a physical device's LAN IP failed silently under the loopback-only default, with nothing in-product explaining that the IP route is closed by design. The banner and health endpoint now make the bind mode and the two supported access paths explicit. Documentation-only on the security side — the loopback-only default is unchanged.
-- **Toggling a rule in the Drift Advisor Rules sidebar errored out.** Clicking a rule (e.g. "no-primary-key") to mute it failed with "…is not a registered configuration" because the settings the extension reads and writes — `driftViewer.diagnostics.disabledRules`, `driftViewer.diagnostics.severityOverrides`, and `driftViewer.logVerbosity` — were never declared in the manifest, so VS Code refused to save them. All three are now registered, so muting/unmuting rules, severity overrides, and the Set Log Verbosity command write successfully.
+- **Toggling a rule in the Saropa Drift Rules sidebar errored out.** Clicking a rule (e.g. "no-primary-key") to mute it failed with "…is not a registered configuration" because the settings the extension reads and writes — `driftViewer.diagnostics.disabledRules`, `driftViewer.diagnostics.severityOverrides`, and `driftViewer.logVerbosity` — were never declared in the manifest, so VS Code refused to save them. All three are now registered, so muting/unmuting rules, severity overrides, and the Set Log Verbosity command write successfully.
 - **Repeated "no longer responding" popups while Wi-Fi debugging.** On a flaky link the debug server drops and reconnects over and over, and each cycle used to fire a "Drift debug server on port … is no longer responding" warning plus a "detected" toast on recovery — a steady stream of popups to dismiss. Now you get **at most one** "lost" warning per debug session: a brief blip that recovers within a short grace window produces no popup at all, the first sustained drop warns once, and after that the session stays silent no matter how many times the connection flaps. Starting a new debug session or running **Retry Discovery** re-arms the single warning. Disconnect detection is unchanged, so the sidebar/status still reflect the connection state in real time.
 
 ### Internal
@@ -175,7 +175,7 @@ A fix so the new Rules sidebar can't error out while the extension is reloading.
 
 ### Fixed
 
-- **"No view is registered with id: driftViewer.rules" on activation.** The Drift Advisor Rules view used an eager registration call that throws if the editor hasn't re-read the extension manifest yet (which happens right after a reload), and that error could interrupt the rest of diagnostics setup. The view now registers with the tolerant API that never throws and simply wires up once the view is available.
+- **"No view is registered with id: driftViewer.rules" on activation.** The Saropa Drift Rules view used an eager registration call that throws if the editor hasn't re-read the extension manifest yet (which happens right after a reload), and that error could interrupt the rest of diagnostics setup. The view now registers with the tolerant API that never throws and simply wires up once the view is available.
 
 ### Internal
 
@@ -347,7 +347,7 @@ Big schemas are easier to read now: a sidebar toggle groups related tables toget
 
 ### Fixed
 
-- **Dashboard "Explore Drift Advisor" feature buttons now look like buttons.** In many color themes the secondary-button background blended into the card behind it and the buttons had no border, so they read as plain text. They now carry a visible border and theme-neutral fallbacks.
+- **Dashboard "Explore Saropa Drift" feature buttons now look like buttons.** In many color themes the secondary-button background blended into the card behind it and the buttons had no border, so they read as plain text. They now carry a visible border and theme-neutral fallbacks.
 - **The Row Count widget no longer shows "NaN".** It read the count by array position, but the server returns each result row as an object keyed by column name, so the lookup missed and produced NaN. It now reads the value correctly and shows 0 for an empty table.
 - **The Table Preview widget now shows column headers and cell values.** It expected positional rows and a separate column list, but the server returns rows as objects keyed by column name (and omits the column list over HTTP), so the preview rendered with no headers and blank cells. It now derives columns from the row data and fills the cells.
 - **Foreign-key navigator, filter bar, in-grid edit buttons, and the SQL Notebook EXPLAIN badges now follow the editor theme.** The FK navigator overlay, the filter Save/Delete buttons, the in-grid delete/add-row buttons, and the SQL Notebook query-plan badges hardcoded fixed colors that washed out or clashed in light and high-contrast themes. The data-grid overlays (which live in the table viewer, not a themed panel) now use the editor's own theme variables; the SQL Notebook badges use the shared status tokens. The transient connecting/error screen also follows the theme instead of a fixed gray.
@@ -382,20 +382,20 @@ The debug server is now private by default: it binds to your machine only (127.0
 
 ### Added
 
-- **`GET /api/issues` now returns the Saropa Diagnostic Envelope** — the shared cross-tool format used across Saropa Lints, Drift Advisor, and Saropa Log Capture. The response gains top-level `schemaVersion`, `producer`, and `generatedAt`, and each issue gains a stable `id` (locale-independent dedupe key), a `category` (`performance` / `data` / `schema`), and a `title` (the suite-standard alias of `message`). The change is additive — every existing field is unchanged — so current consumers need no update; `GET /api/health` now advertises the envelope's `schemaVersion` so a client can version-gate before parsing.
-- **Five stable deep-link commands for cross-tool integration** — `driftViewer.openExplainForSql`, `openTable`, `openSchemaForTable`, `openIssues`, and `goToDefinitionForTable` let another extension (Saropa Lints, Saropa Log Capture) jump straight into the matching Drift Advisor surface — e.g. a slow-query signal opens its EXPLAIN plan, a runtime issue opens the table definition. Each takes a plain options object so it can be invoked programmatically; the ids are a public contract and will stay stable across releases.
-- **Offline diagnostics mirror for the Saropa suite.** While the debug server is running, the extension keeps a copy of the live issues at `.saropa/diagnostics/advisor.json` (refreshed as your data changes), so Saropa Lints and Saropa Log Capture can still read Advisor's index suggestions and anomalies after the app — and its debug server — has stopped. Run **Saropa Drift Advisor: Write Diagnostics Mirror (Suite)** to refresh it on demand. Best-effort and harmless: it never overwrites a good copy with an error response, and does nothing when no workspace is open.
+- **`GET /api/issues` now returns the Saropa Diagnostic Envelope** — the shared cross-tool format used across Saropa Lints, Saropa Drift, and Saropa Log Capture. The response gains top-level `schemaVersion`, `producer`, and `generatedAt`, and each issue gains a stable `id` (locale-independent dedupe key), a `category` (`performance` / `data` / `schema`), and a `title` (the suite-standard alias of `message`). The change is additive — every existing field is unchanged — so current consumers need no update; `GET /api/health` now advertises the envelope's `schemaVersion` so a client can version-gate before parsing.
+- **Five stable deep-link commands for cross-tool integration** — `driftViewer.openExplainForSql`, `openTable`, `openSchemaForTable`, `openIssues`, and `goToDefinitionForTable` let another extension (Saropa Lints, Saropa Log Capture) jump straight into the matching Saropa Drift surface — e.g. a slow-query signal opens its EXPLAIN plan, a runtime issue opens the table definition. Each takes a plain options object so it can be invoked programmatically; the ids are a public contract and will stay stable across releases.
+- **Offline diagnostics mirror for the Saropa suite.** While the debug server is running, the extension keeps a copy of the live issues at `.saropa/diagnostics/advisor.json` (refreshed as your data changes), so Saropa Lints and Saropa Log Capture can still read Advisor's index suggestions and anomalies after the app — and its debug server — has stopped. Run **Saropa Drift: Write Diagnostics Mirror (Suite)** to refresh it on demand. Best-effort and harmless: it never overwrites a good copy with an error response, and does nothing when no workspace is open.
 - **The Explain panel now shows related findings from the rest of the Saropa suite.** When you explain a query plan, a **Related Saropa Suite Findings** section lists Saropa Lints rules and Saropa Log Capture signals that apply to the same tables or query — so a full-table scan, the static rule that flags it, and the times it ran slow in a session all sit together. Findings are read from the sibling tools' diagnostics files; nothing shows when those tools aren't present.
-- **New Drift Health view brings all three Saropa tools together per table.** Run **Saropa Drift Advisor: Open Drift Health (Suite)** for one screen that groups, by table, Drift Advisor's live runtime issues, Saropa Lints' static findings, and Saropa Log Capture's runtime signals — so the static rule, the data problem, and the production symptom for a table sit side by side. Tables are ordered by how many findings they carry; a Refresh button re-reads everything. Theme-aware and works with whichever sibling tools are present.
+- **New Drift Health view brings all three Saropa tools together per table.** Run **Saropa Drift: Open Drift Health (Suite)** for one screen that groups, by table, Saropa Drift's live runtime issues, Saropa Lints' static findings, and Saropa Log Capture's runtime signals — so the static rule, the data problem, and the production symptom for a table sit side by side. Tables are ordered by how many findings they carry; a Refresh button re-reads everything. Theme-aware and works with whichever sibling tools are present.
 - **Suite findings now carry the commit they were captured at.** The diagnostics mirror records your current Git commit, and the Drift Health view marks any finding captured at a different commit as **stale** (dimmed) — so a finding left over from before your latest changes is obvious rather than misleading. Findings with no commit, or when the commit can't be determined, are never guessed at.
 - **Related suite findings now appear on the Index Suggestions and Anomaly panels too** — not just on Explain — so the static rule and runtime signal for a table sit next to its index/anomaly analysis.
 - **Drift Health refreshes itself as your data changes** (no manual Refresh needed while the panel is open), and gains a **severity filter** (All / Errors / Warnings / Info) and a **sort** control (by finding count or table name).
 - **Cross-tool jump actions on findings.** A table-scoped issue now offers a one-click action to jump to the table's Drift class; the button only appears when the target command is installed, and every action is re-validated against an allowlist before it runs (no arbitrary command execution from a diagnostics file).
-- **New Suite Findings dashboard widget.** Add it from the dashboard's widget picker for an at-a-glance count of cross-tool findings — total, errors vs warnings, and a per-tool breakdown (Drift Advisor / Saropa Lints / Log Capture) — with one click through to the full Drift Health view. It reads the same live issues and sibling diagnostics as that view, so the numbers always match.
-- **New Suite Commit Timeline.** Run **Saropa Drift Advisor: Open Commit Timeline (Suite)** to see how many suite findings each commit carried over time — newest first, with a per-commit severity bar, a per-tool breakdown, a badge on your current checkout, and a +/- change versus the previous commit so a regression or a cleanup stands out. Counts are recorded per commit while the debug server runs (kept in `.saropa/diagnostics/history.json`); the view refreshes itself as your data changes.
-- **Log Capture sessions now record the suite commit.** The Drift Advisor session sidecar tags each session with your Git commit and references the other tools' diagnostics captured at that commit (which were present, at which commit, and how many findings) — so a saved session can be lined up against your static-code and runtime-behavior findings for the exact checkout it ran on. References only; it never copies the other tools' data into the session file.
+- **New Suite Findings dashboard widget.** Add it from the dashboard's widget picker for an at-a-glance count of cross-tool findings — total, errors vs warnings, and a per-tool breakdown (Saropa Drift / Saropa Lints / Log Capture) — with one click through to the full Drift Health view. It reads the same live issues and sibling diagnostics as that view, so the numbers always match.
+- **New Suite Commit Timeline.** Run **Saropa Drift: Open Commit Timeline (Suite)** to see how many suite findings each commit carried over time — newest first, with a per-commit severity bar, a per-tool breakdown, a badge on your current checkout, and a +/- change versus the previous commit so a regression or a cleanup stands out. Counts are recorded per commit while the debug server runs (kept in `.saropa/diagnostics/history.json`); the view refreshes itself as your data changes.
+- **Log Capture sessions now record the suite commit.** The Saropa Drift session sidecar tags each session with your Git commit and references the other tools' diagnostics captured at that commit (which were present, at which commit, and how many findings) — so a saved session can be lined up against your static-code and runtime-behavior findings for the exact checkout it ran on. References only; it never copies the other tools' data into the session file.
 - **Opening a table now lands on that table.** Clicking **View Table Data** in the Database tree — or a cross-tool "open table" / "open schema" deep-link from Saropa Lints or Log Capture — now opens the panel focused on that specific table (and centers it in the ER diagram), instead of the default view. Previously the table name was accepted but ignored.
-- **Helpful one-time suite suggestions.** If your project depends on the Saropa Lints or Saropa Log Capture package but you don't have that extension installed, Drift Advisor offers to install it — once, ever, per tool. It only appears when you already use the package (read from `pubspec.yaml`), so it never nags projects that don't.
+- **Helpful one-time suite suggestions.** If your project depends on the Saropa Lints or Saropa Log Capture package but you don't have that extension installed, Saropa Drift offers to install it — once, ever, per tool. It only appears when you already use the package (read from `pubspec.yaml`), so it never nags projects that don't.
 
 ### Improved
 
@@ -403,7 +403,7 @@ The debug server is now private by default: it binds to your machine only (127.0
 
 ### Fixed
 
-- **Offline diagnostics mirror is now readable by the other Saropa tools.** The `.saropa/diagnostics/advisor.json` mirror was written in the live API's shape (an `issues` array, each entry tagged with its detector name), but Saropa Lints and Saropa Log Capture read the mirror with the strict suite format (a `diagnostics` array, each entry tagged `advisor`) — so the file parsed to nothing on their side and the offline "Database issues (Drift Advisor)" section stayed empty whenever the debug server was down. The mirror now writes the canonical suite shape; the detector name is preserved as each finding's `ruleId`. The live `GET /api/issues` response is unchanged.
+- **Offline diagnostics mirror is now readable by the other Saropa tools.** The `.saropa/diagnostics/advisor.json` mirror was written in the live API's shape (an `issues` array, each entry tagged with its detector name), but Saropa Lints and Saropa Log Capture read the mirror with the strict suite format (a `diagnostics` array, each entry tagged `advisor`) — so the file parsed to nothing on their side and the offline "Database issues (Saropa Drift)" section stayed empty whenever the debug server was down. The mirror now writes the canonical suite shape; the detector name is preserved as each finding's `ruleId`. The live `GET /api/issues` response is unchanged.
 - **Backslash data corruption on write.** Importing or cell-editing a value containing a backslash (for example a Windows path like `C:\Users`) no longer silently doubles the backslash in storage. SQLite string literals never used a backslash escape; the extra escaping corrupted data on every write path.
 - **Cell edits now report how many rows changed.** A cell update against a stale or mistyped primary key used to report success even when it matched no row; the response now carries the affected-row count so the editor can tell you nothing changed.
 - **Data-quality scan no longer silently under-reports.** When the host database returned row counts as text, the anomaly scan treated the count as zero and reported no issues; counts are now parsed whether numeric or text.
@@ -520,7 +520,7 @@ The web viewer's toolbar can now show labels: click any empty space in the toolb
 <summary>Maintenance</summary>
 
 - **Localization framework (plan 75, scaffolding only)** — stood up the runtime l10n plumbing that future string migration hooks into; no user-facing string is localized yet, so the UI is unchanged. Added the browser-side lookup runtime `assets/web/l10n.ts` (`vt()`/`t()` over a bundled English registry plus an optional per-locale overlay, `navigator.language` detection with a host override, fail-soft to English then to the raw key) and its source registry `assets/web/l10n/strings-web.ts`; the matching host-side `extension/src/l10n.ts` (`t()` → `vscode.l10n.t()`, `getWebviewL10nMap()` for panel injection) and `extension/src/l10n/strings-host.ts`. Wired `initWebL10n()` as the first step in the web entry point `assets/web/index.js`. Standalone-browser viewer cannot use `vscode.l10n`, so it has its own catalog lookup — see [plans/75-localization.md](plans/75-localization.md). No translation pipeline is run.
-- **Manifest localization (plan 75 System A)** — externalized 231 user-facing manifest strings (command titles, view names, settings descriptions, `viewsWelcome` blocks, walkthrough, task descriptions, extension description) from `extension/package.json` into a new `extension/package.nls.json` English source, referenced as `%key%`. Brand strings (`displayName`, the activity-bar title, each command's `category`, the configuration `title` — all "Saropa Drift Advisor") are deliberately left literal so they stay identical in every locale. Added a `verify-nls` parity guard (`extension/scripts/verify-nls.mjs`) — fails the build if a `%key%` lacks an nls entry or an nls key is orphaned — wired into the extension `compile` script. Updated the manifest-validation test to resolve `%key%` placeholders from `package.nls.json` before scanning `viewsWelcome` for command links. Locale files (`package.nls.<locale>.json`) are not added yet; that is a later, deliberate step.
+- **Manifest localization (plan 75 System A)** — externalized 231 user-facing manifest strings (command titles, view names, settings descriptions, `viewsWelcome` blocks, walkthrough, task descriptions, extension description) from `extension/package.json` into a new `extension/package.nls.json` English source, referenced as `%key%`. Brand strings (`displayName`, the activity-bar title, each command's `category`, the configuration `title` — all "Saropa Drift") are deliberately left literal so they stay identical in every locale. Added a `verify-nls` parity guard (`extension/scripts/verify-nls.mjs`) — fails the build if a `%key%` lacks an nls entry or an nls key is orphaned — wired into the extension `compile` script. Updated the manifest-validation test to resolve `%key%` placeholders from `package.nls.json` before scanning `viewsWelcome` for command links. Locale files (`package.nls.<locale>.json`) are not added yet; that is a later, deliberate step.
 - **Manifest l10n coverage measure + publish audit (plan 75 §2/§5.5)** — added `verify:nls-coverage` (`extension/scripts/nls-coverage.mjs`): measures, per locale, how many manifest values differ from English, regenerates the committed snapshot `extension/src/l10n/nls-coverage-data.ts`, and (with `--check`) fails the build only when that snapshot is stale — it reports coverage, never gates on it. Wired `generate:nls-coverage` / `verify:nls-coverage` scripts and chained the check into `compile`. Added a publish-time manifest l10n audit (`scripts/modules/l10n_audit.py`, wired as Step 11 of the extension publish leg in `scripts/modules/pipeline.py`): it writes a report to `reports/<YYYYMMDD>/<ts>_l10n_manifest_audit.json` and, when a shipped locale has missing/untranslated keys, prompts the maintainer **[I]ignore / [R]retry / [A]abort** (default ignore). It never translates. With no locale bundles today there are no gaps, so it runs silently.
 - **Runtime string sweep (plan 75 Phase 3, System B)** — extracted the user-facing English strings rendered at runtime out of the source and into symbolic-key registries, then rewired the call sites to resolve through `t()` (host) / `vt()` (browser). Covered all 46 host-built panel HTML builders (`extension/src/**/*-html.ts`) into ten `strings-panel-*.ts` family slices (787 host keys total, from a 17-key seed) and ~45 standalone web-viewer modules (`assets/web/*.ts`) into nine `strings-web-*.ts` slices (652 web keys total, from an 11-key seed), all registered in `extension/src/l10n.ts` / `assets/web/l10n.ts`. Every string ships **in English in every locale** — this is source-key setup only; no translation pipeline was run. Brand/acronym tokens, machine values (`data-*`, command IDs), CSS, and dev/`console` logs were deliberately left literal; counts and other runtime values are `{0}`/`{1}` tokens (never English concatenation) so a translator can reorder. Updated the source-grep contract tests (`web-inline-edit-contract`, `web-table-def-icons`, `web-table-view-blob-colvis`, host `l10n` map test) to follow the registry indirection rather than pinning literals to the modules they moved out of.
 - **Client-script l10n bridge (plan 75 §3.3, closes the Phase 3 tail)** — the strings generated INSIDE embedded panel `<script>` blocks (which have no host `t()`) now localize through the `__VT` bridge. Each of the 9 affected panels (`watch`, `time-travel`, `analysis-compare`, `bulk-edit`, `lineage`, `narrator`, `impact`, `refactoring`, `snippet-library`) injects `const __VT = ${getWebviewL10nMap(['panel.<area>.'])}` plus a tiny `vt()` helper (same `{0}`/`{1}` substitution, fail-soft to key) at the top of its client script, prefix-filtered so only that panel's keys ship. Their ~54 client strings are now keys in the owning `strings-panel-*.ts` slices (counts/times/names as `{0}` tokens, not concatenation; if/ternary + singular/plural variants each keyed). No `// TODO(l10n): client-script string` markers remain at any call site. With this, **every host-panel + web-viewer user-facing string flows through l10n** (English source today; translation is the separate gated step).
@@ -651,7 +651,7 @@ Query Replay DVR is now available in the extension and server API, so you can re
 - **DVR integration tests** — extended `test/handler_integration_test.dart` to validate DVR route availability, basic recording flow, `POST /api/dvr/config`, wrong-session lookups, `POST /api/sql` declared `args`/`namedArgs` on DVR entries, and structured `QUERY_NOT_AVAILABLE` behavior; added `test/query_recorder_test.dart`, `test/dvr_bindings_test.dart`, and extension contract/search tests for DVR JSON parsing and semantic search; golden JSON fixtures under `extension/src/test/fixtures/dvr/` (envelope, status, recorded row, `QUERY_NOT_AVAILABLE`, legacy `rowCount`, missing `params`); `extension/src/test/dvr-perf-baseline.test.ts` for DVR → baseline helpers
 - **DVR write snapshots** — when `writeQuery` uses the mutation tracker, DVR write entries can include the same best-effort before/after row snapshots as `/api/mutations` (still subject to `captureBeforeAfter` and ring-buffer limits)
 - **Bulk edit / edits-apply hardening** — `EditsBatchHandler` wraps per-statement failures in `BatchApplyStatementError`; `test/handler_integration_test.dart` covers semicolon-chained statement rejection and failure payload keys; extension tests cover PK gates, HTTP client error parsing, bulk panel HTML, and web inline-edit contract strings
-- **Bulk apply session log + timeline** — after a successful pending-edit batch apply, the extension appends one timestamped line to the Drift Advisor output channel and triggers an immediate **snapshot capture** (debounce bypass) so the **Drift Database** VS Code timeline row-count history updates right away; DVR write capture for each statement remains unchanged
+- **Bulk apply session log + timeline** — after a successful pending-edit batch apply, the extension appends one timestamped line to the Saropa Drift output channel and triggers an immediate **snapshot capture** (debounce bypass) so the **Drift Database** VS Code timeline row-count history updates right away; DVR write capture for each statement remains unchanged
 - **Refactoring engine extension tests** — added `extension/src/test/refactoring-analyzer.test.ts` and `refactoring-plan-builder.test.ts` for analyzer heuristics and plan templates
 - **Refactoring Phase 3 modules** — `refactoring-advisor-state.ts` and `refactoring-nl-bridge.ts` for workspace session persistence and NL-SQL seed prompts
 - **Query builder import** — `extension/src/query-builder/sql-import.ts` parses `FROM`/`JOIN`/`WHERE`/`GROUP BY`/`ORDER BY`/`LIMIT` segments using successive clause boundaries so `LIMIT` is not swallowed into `WHERE` or the `FROM` clause; covered by `extension/src/test/sql-import.test.ts` with renderer round-trips
@@ -829,7 +829,7 @@ All ten toolbar buttons and the floating action button are now a single hamburge
 ### Added
 
 - **Bug report guide** — added `bugs/BUG_REPORT_GUIDE.md` with a comprehensive template and checklist for filing useful bug reports
-- **Project name in masthead pill** — "Saropa Drift Advisor" now appears between the logo and version badge, making the product identifiable at a glance
+- **Project name in masthead pill** — "Saropa Drift" now appears between the logo and version badge, making the product identifiable at a glance
 - **Template lock toggle** — lock icon in the Run SQL toolbar; when locked (default), changing table or field selections auto-applies the current template
 - **Auto-explain with index report** — the SQL editor now automatically analyzes query plans as you type (1.2 s debounce), showing estimated cost, which indexes are used vs available, and flagging full-scan tables with no indexes
 
@@ -967,7 +967,7 @@ Version bump for publication. [log](https://github.com/saropa/saropa_drift_advis
 
 ## [3.0.0]
 
-Fixed stale data after switching servers, restored broken heartbeat and polling controls, and added Log Capture session export so Drift Advisor diagnostics flow into your capture sessions automatically. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.0/CHANGELOG.md)
+Fixed stale data after switching servers, restored broken heartbeat and polling controls, and added Log Capture session export so Saropa Drift diagnostics flow into your capture sessions automatically. [log](https://github.com/saropa/saropa_drift_advisor/blob/v3.0.0/CHANGELOG.md)
 
 ### Fixed
 
@@ -1122,7 +1122,7 @@ Showcase theme, webview panels for all command output, sidebar column counts, an
 ### Changed
 
 - **Database tree shows column count** — Table items now display `"3 cols, 42 rows"` instead of just `"42 rows"`, making table shape visible at a glance
-- **Command Palette titles cleaned up** — All 106 commands now use VS Code's `category` field (`"Saropa Drift Advisor"`) instead of embedding the prefix in each title, following VS Code extension conventions
+- **Command Palette titles cleaned up** — All 106 commands now use VS Code's `category` field (`"Saropa Drift"`) instead of embedding the prefix in each title, following VS Code extension conventions
 - **All command output now uses webview panels** — Ten commands that previously used the VS Code top bar (quick picks, input boxes, info messages) for displaying results or collecting multi-step input now open dedicated webview panels instead. Index suggestions, anomaly detection, and performance baselines render in rich sortable/filterable tables. Annotation, compare rows, data breakpoint, snapshot changelog, import dataset, and export dataset commands now collect all inputs in a single form view with Ctrl+Enter support, replacing sequential top-bar prompts
 - **Tables heading now collapses sidebar horizontally** — Clicking the "Tables" heading in the sidebar collapses the entire sidebar panel to the left (same as the header chevron button) instead of vertically collapsing the table list upward
 
@@ -1237,7 +1237,7 @@ Stops false-positive slow-query warnings from internal analytics, fixes connecti
 
 • **Connection-error diagnostic firing on non-Drift workspaces** — The extension no longer tries to connect to a debug server in projects that don't use Drift.
 
-• **Notification messages drop redundant "Saropa Drift Advisor:" prefix** — Warning and error toasts no longer start with the extension name; VS Code already shows the source.
+• **Notification messages drop redundant "Saropa Drift:" prefix** — Warning and error toasts no longer start with the extension name; VS Code already shows the source.
 
 • **Web UI blank when local assets unavailable** — When the server couldn't find CSS/JS on disk (common for pub.dev consumers), the web viewer loaded blank with no error. Now falls back to CDN automatically, and shows a clear error message if all sources fail.
 
@@ -1247,7 +1247,7 @@ Stops false-positive slow-query warnings from internal analytics, fixes connecti
 
 ### Added
 
-• **Loading overlay with error state** — A loading screen shows "Loading Drift Advisor..." until assets load. If loading fails, it updates to a clear error message with instructions.
+• **Loading overlay with error state** — A loading screen shows "Loading Saropa Drift..." until assets load. If loading fails, it updates to a clear error message with instructions.
 
 <details>
 <summary>Maintenance</summary>
@@ -1383,7 +1383,7 @@ Clearer table row counts, inline table column definitions, a more polished Size 
 
 • **Go to Dart definitions from sidebar** — Context menu and Schema Search result clicks open the Drift table/column definition in the workspace; falls back to revealing the table in the Database tree.
 
-• **Scan Dart schema definitions (offline)** — New command **Saropa Drift Advisor: Scan Dart Schema Definitions** lists Drift `Table` classes, columns, keys, and indexes from workspace `.dart` files. No debug server required. Setting `driftViewer.dartSchemaScan.openOutput` controls auto-opening the output channel.
+• **Scan Dart schema definitions (offline)** — New command **Saropa Drift: Scan Dart Schema Definitions** lists Drift `Table` classes, columns, keys, and indexes from workspace `.dart` files. No debug server required. Setting `driftViewer.dartSchemaScan.openOutput` controls auto-opening the output channel.
 
 • **Schema Search when “connected” but schema missing** — Schema Search keeps the help banner visible (Retry, Diagnose, **Scan Dart sources**, etc.) until the Database tree has actually loaded table data.
 
@@ -1695,9 +1695,9 @@ PII masking, richer charts/exports, query-builder AND/OR, and page-based paginat
 
 • **Share modal and dialogs: newlines and ellipsis now render correctly** — The share prompt, "Copy to clipboard" alert, and "Sharing…" / "Extending…" button labels used double-escaped sequences (`\\n`, `\\u2026`) and showed literal `\n` or `\u2026` in the UI. All now use literal newlines and the Unicode ellipsis character so messages and loading states display as intended. CSV export and import were also corrected (row separators and newline-in-cell quoting use real newlines; CSV header split uses `\r?\n`).
 
-• **Sidebar stayed "No Drift debug server connected" despite discovery finding a server** — Discovery reported "Found servers on ports: 8642" and ServerManager auto-selected the server, but the `driftViewer.serverConnected` context could fail to reach the welcome view (e.g. view evaluated before context was set), so the Database sidebar kept showing the disconnected message. Now we sync the context when discovery fires with servers (backup sync after ServerManager's listener), run a one-time 1.5 s delayed sync after activation so the view catches up if the first poll already found a server, and log "Selected server :port" to the Saropa Drift Advisor output channel when a server is auto-selected for diagnostics.
+• **Sidebar stayed "No Drift debug server connected" despite discovery finding a server** — Discovery reported "Found servers on ports: 8642" and ServerManager auto-selected the server, but the `driftViewer.serverConnected` context could fail to reach the welcome view (e.g. view evaluated before context was set), so the Database sidebar kept showing the disconnected message. Now we sync the context when discovery fires with servers (backup sync after ServerManager's listener), run a one-time 1.5 s delayed sync after activation so the view catches up if the first poll already found a server, and log "Selected server :port" to the Saropa Drift output channel when a server is auto-selected for diagnostics.
 
-• **Welcome-view buttons gave no user feedback** — The Database sidebar welcome content (Add Saropa Drift Advisor, Troubleshooting, Retry Connection, Forward Port, Select Server) ran commands with no visible response. Each button now shows an immediate information or error toast, appends a timestamped line to **Output → Saropa Drift Advisor**, and (for Retry, Forward Port, Add Package) reveals the output channel so users see that the action ran and can inspect discovery or adb output. Select Server reports success when connected or when the picker was dismissed.
+• **Welcome-view buttons gave no user feedback** — The Database sidebar welcome content (Add Saropa Drift, Troubleshooting, Retry Connection, Forward Port, Select Server) ran commands with no visible response. Each button now shows an immediate information or error toast, appends a timestamped line to **Output → Saropa Drift**, and (for Retry, Forward Port, Add Package) reveals the output channel so users see that the action ran and can inspect discovery or adb output. Select Server reports success when connected or when the picker was dismissed.
 
 ### Added
 
@@ -1743,7 +1743,7 @@ Web UI gets a clearer layout and sidebar; the extension activates when you open 
 
 ### Fixed
 
-• **VS Code: "command driftViewer.refreshTree not found" [GitHub issue #7](https://github.com/saropa/saropa_drift_advisor/issues/7)** — Extension now activates when the Drift Advisor sidebar views are opened (`onView:driftViewer.databaseExplorer`, `onView:driftViewer.toolbox`), so the Refresh command is registered even if no Dart file was opened first.
+• **VS Code: "command driftViewer.refreshTree not found" [GitHub issue #7](https://github.com/saropa/saropa_drift_advisor/issues/7)** — Extension now activates when the Saropa Drift sidebar views are opened (`onView:driftViewer.databaseExplorer`, `onView:driftViewer.toolbox`), so the Refresh command is registered even if no Dart file was opened first.
 
 • **drift_sqlite_async compatibility (issue #7)** — README and error messages now document using `DriftDebugServer.start(query: ...)` with an explicit query callback when the web UI stays on "Loading tables…" or when using drift_sqlite_async; ensure the database is open before starting the server. Error hint extracted to a single constant; unit tests assert error response contains the callback-API guidance.
 
@@ -1903,7 +1903,7 @@ Smart package lifecycle management: the extension now detects whether the Dart p
 
 • **Package upgrade detection** — On activation the extension checks pub.dev for newer versions of `saropa_drift_advisor`. If the workspace pubspec.yaml has an older constraint, an upgrade notification offers a one-click update (rewrites the constraint and runs `pub get`). Checks are throttled to once per hour; network errors are silently ignored.
 
-• **Conditional "Add Package" button** — The "Add Saropa Drift Advisor" button, welcome view link, and tools tree item are now hidden when the package is already present in pubspec.yaml. A new context key `driftViewer.packageInstalled` drives all three locations.
+• **Conditional "Add Package" button** — The "Add Saropa Drift" button, welcome view link, and tools tree item are now hidden when the package is already present in pubspec.yaml. A new context key `driftViewer.packageInstalled` drives all three locations.
 
 • **Pubspec file watcher** — A `PackageStatusMonitor` watches `pubspec.yaml` for changes and keeps the installed-state UI in sync automatically.
 
@@ -1923,7 +1923,7 @@ The extension couldn't connect to running servers and now has an About button fo
 
 ### Added
 
-• **About Saropa Drift Advisor** — "About Saropa Drift Advisor vX.Y.Z" item at the top of the Drift Tools sidebar. Opens the bundled CHANGELOG.md in VS Code's markdown preview; falls back to the GitHub changelog if the local file is missing. Also available via Command Palette (`Saropa Drift Advisor: About`).
+• **About Saropa Drift** — "About Saropa Drift vX.Y.Z" item at the top of the Drift Tools sidebar. Opens the bundled CHANGELOG.md in VS Code's markdown preview; falls back to the GitHub changelog if the local file is missing. Also available via Command Palette (`Saropa Drift: About`).
 • **Existing debug session detection** — When the extension activates after a debug session is already running (late activation), it now detects the active Dart/Flutter session and immediately attempts VM Service connection. Previously only `onDidStartDebugSession` was used, which never fires for sessions that started before the extension loaded.
 
 ### Fixed
@@ -1956,7 +1956,7 @@ Web UI now shows the server version and has a proper favicon. [log](https://gith
 
 ### Added
 
-• **Version badge in web UI header** — The page header now displays the Drift Advisor version (e.g. "v1.5.0") fetched from the `/api/health` endpoint, so users can verify which server version is running. The health endpoint now includes a `version` field.
+• **Version badge in web UI header** — The page header now displays the Saropa Drift version (e.g. "v1.5.0") fetched from the `/api/health` endpoint, so users can verify which server version is running. The health endpoint now includes a `version` field.
 
 • **Favicon** — Added an inline SVG database-cylinder favicon via `<link rel="icon">` data URI in the HTML head, and a lightweight 204 No Content route for `/favicon.ico` requests to silence browser console 404s.
 
@@ -1964,17 +1964,17 @@ Web UI now shows the server version and has a proper favicon. [log](https://gith
 
 ### Changed
 
-• **Renamed "Add package to project" to "Add Saropa Drift Advisor"** — The sidebar button, command palette entry, and walkthrough step now use the clearer name.
+• **Renamed "Add package to project" to "Add Saropa Drift"** — The sidebar button, command palette entry, and walkthrough step now use the clearer name.
 
 • **Sidebar welcome panel formatting** — Replaced `**` markdown bold (which rendered as literal asterisks in VS Code panels) with CAPS headers (GET STARTED, RESOURCES). Moved troubleshooting tips out of inline text into the new webview panel.
 
 • **Walkthrough dependency type corrected** — Changed "dev dependencies" to "dependencies" since the package must be a regular dependency (users import it in `lib/` code).
 
-• **Package version constraint** — Updated the "Add Saropa Drift Advisor" button to install `^0.3.0`.
+• **Package version constraint** — Updated the "Add Saropa Drift" button to install `^0.3.0`.
 
 ### Fixed
 
-• **"Add Saropa Drift Advisor" silent failure on missing dependencies section** — When a pubspec.yaml had no `dependencies:` section, the error was thrown but not caught, causing the command to fail silently with no user notification. Now properly caught and shown as an error message.
+• **"Add Saropa Drift" silent failure on missing dependencies section** — When a pubspec.yaml had no `dependencies:` section, the error was thrown but not caught, causing the command to fail silently with no user notification. Now properly caught and shown as an error message.
 
 • **"Already present" feedback** — When the package was already in pubspec.yaml, the success message now explicitly says so instead of only showing "Run your app with the Drift debug server to connect."
 
@@ -1982,7 +1982,7 @@ Web UI now shows the server version and has a proper favicon. [log](https://gith
 
 ### Internal
 
-• **Publish script syncs PACKAGE_VERSION** — `write_version(DART, ...)` now automatically updates the `PACKAGE_VERSION` constant in `add-package.ts` so the "Add Saropa Drift Advisor" button always installs the correct version after a release.
+• **Publish script syncs PACKAGE_VERSION** — `write_version(DART, ...)` now automatically updates the `PACKAGE_VERSION` constant in `add-package.ts` so the "Add Saropa Drift" button always installs the correct version after a release.
 
 
 ---
@@ -2081,9 +2081,9 @@ Implemented a master switch to turn the extension off, and an “Add package to 
 
 ### Added
 
-• **Master switch (driftViewer.enabled)** — Extension can be turned off entirely via Settings → Saropa Drift Advisor → **Enable** (`driftViewer.enabled`, default true). When false: no server discovery or connection, watcher stopped, status bar shows "Drift: Disabled", Database view shows a welcome with [Open Settings]. Toggling back on starts discovery (if enabled), watcher, and refreshes tree/codelens/diagnostics.
+• **Master switch (driftViewer.enabled)** — Extension can be turned off entirely via Settings → Saropa Drift → **Enable** (`driftViewer.enabled`, default true). When false: no server discovery or connection, watcher stopped, status bar shows "Drift: Disabled", Database view shows a welcome with [Open Settings]. Toggling back on starts discovery (if enabled), watcher, and refreshes tree/codelens/diagnostics.
 
-• **Add package to project** — Installing the extension should install the package, and vice versa. Command **Saropa Drift Advisor: Add package to project** adds `saropa_drift_advisor` to the project’s `pubspec.yaml` (dependencies) and runs `dart pub get` / `flutter pub get`. Welcome view (when no server connected) includes [Add package to project]; command also in Command Palette and Database Explorer view.
+• **Add package to project** — Installing the extension should install the package, and vice versa. Command **Saropa Drift: Add package to project** adds `saropa_drift_advisor` to the project’s `pubspec.yaml` (dependencies) and runs `dart pub get` / `flutter pub get`. Welcome view (when no server connected) includes [Add package to project]; command also in Command Palette and Database Explorer view.
 
 ### Maintenance
 
@@ -2107,7 +2107,7 @@ Health Score, schema linter, and timeline now work over the VM Service—so you 
 
 ### Changed
 
-• **Connection log disposal** — Output channel "Saropa Drift Advisor" is now registered in `context.subscriptions` so it is disposed on deactivate.
+• **Connection log disposal** — Output channel "Saropa Drift" is now registered in `context.subscriptions` so it is disposed on deactivate.
 
 ---
 
@@ -2121,7 +2121,7 @@ Debug sessions can connect over the Dart VM Service instead of HTTP—no port fo
 
 • **VM Service nice-to-haves** — Status bar shows "VM Service" when connected via VM; hot restart clears VM state and refreshes UI (no stuck state); panel and "Open in browser" show a clear fallback/info message when only VM is reachable (no HTTP); performance, anomalies, and explain SQL work over VM; unit tests for `parseVmServiceUriFromOutput`; Plan 68 doc updated with manual test steps.
 
-• **Connection robustness (Plan 68)** — VM Service URI validated before connect; **Output > Saropa Drift Advisor** logs connection attempts, success, and failure reasons; after hot restart, next VM URI from debug output auto-retriggers connect; welcome view points to Output for troubleshooting when debugging Flutter/Dart.
+• **Connection robustness (Plan 68)** — VM Service URI validated before connect; **Output > Saropa Drift** logs connection attempts, success, and failure reasons; after hot restart, next VM URI from debug output auto-retriggers connect; welcome view points to Output for troubleshooting when debugging Flutter/Dart.
 
 ### Fixed
 
@@ -2201,7 +2201,7 @@ Database health score, query cost analysis with index suggestions, saved filters
 
 • **Database Health Score** — Overall database health grade (A+–F) computed from six weighted metrics: index coverage, FK integrity, null density, query performance, table balance, and schema quality. Webview dashboard with color-coded cards, per-metric scores, and actionable recommendations.
 
-• **Query Cost Analyzer** — Run any SQL query and see its execution plan visualized as a color-coded tree. Highlights full table scans, missing indexes, and temporary sorts. Suggests CREATE INDEX statements based on WHERE, JOIN, and ORDER BY analysis. Click "Run" to create an index and re-analyze to see the improvement. Access via Command Palette: "Saropa Drift Advisor: Analyze Query Cost".
+• **Query Cost Analyzer** — Run any SQL query and see its execution plan visualized as a color-coded tree. Highlights full table scans, missing indexes, and temporary sorts. Suggests CREATE INDEX statements based on WHERE, JOIN, and ORDER BY analysis. Click "Run" to create an index and re-analyze to see the improvement. Access via Command Palette: "Saropa Drift: Analyze Query Cost".
 
 • **Saved Filters** — Save named filter/sort/column-visibility configurations per table and switch between them instantly. A sticky toolbar in the data panel provides a dropdown of saved filters with Apply, Save As, Clear, and Delete controls. Filters persist in workspace state and execute via the existing SQL endpoint.
 
@@ -2229,7 +2229,7 @@ Smaller bundle for apps that ship the package: in-app Flutter overlay removed; u
 
 • Refactored extension source to enforce 300-line file limit: split `extension.ts` (1359→300 lines) into 9 command modules plus a status-bar utility, split `vscode-mock.ts` (719→299 lines) into 3 files, extracted `seeder-html-shell.ts` from `seeder-html.ts`, and extracted shared test fixtures from 7 test files.
 
-• Renamed all user-facing display text from "Drift Viewer" to "Saropa Drift Advisor" across extension commands, activity bar, status bar, generated code comments, documentation, and example app.
+• Renamed all user-facing display text from "Drift Viewer" to "Saropa Drift" across extension commands, activity bar, status bar, generated code comments, documentation, and example app.
 
 ## [0.3.0]
 
@@ -2243,7 +2243,7 @@ Package renamed to `saropa_drift_advisor`—update `pubspec.yaml` and imports; A
 
 • **VS Code extension: Peek / Go to Definition for SQL names** — Place the cursor on a table or column name inside a raw SQL string in Dart code, then press Alt+F12 (Peek Definition) or F12 (Go to Definition) to jump to the corresponding Drift table class or column getter. Table names are resolved via snake_case-to-PascalCase conversion (e.g. `users` → `class Users extends Table`), and column names match both snake_case and camelCase getters (e.g. `created_at` → `get createdAt`). Schema metadata is cached from the API with 30-second TTL and auto-cleared on generation changes. New files: `definition/drift-definition-provider.ts`, `definition/sql-string-detector.ts`.
 
-• **VS Code extension: CodeLens on Drift table classes** — Inline annotations appear above `class ... extends Table` definitions in Dart files. Each table class shows a live row count from the running server (e.g. "42 rows"), a "View in Saropa Drift Advisor" action that opens the webview panel, and a "Run Query" action that executes `SELECT *` and opens the results as JSON in a side editor. Row counts update automatically via the generation watcher. When the server is offline, lenses show "not connected". Dart PascalCase class names are mapped to SQL snake_case table names with case-insensitive fallback. New files: `codelens/drift-codelens-provider.ts`, `codelens/table-name-mapper.ts`. New commands: `driftViewer.viewTableInPanel`, `driftViewer.runTableQuery`.
+• **VS Code extension: CodeLens on Drift table classes** — Inline annotations appear above `class ... extends Table` definitions in Dart files. Each table class shows a live row count from the running server (e.g. "42 rows"), a "View in Saropa Drift" action that opens the webview panel, and a "Run Query" action that executes `SELECT *` and opens the results as JSON in a side editor. Row counts update automatically via the generation watcher. When the server is offline, lenses show "not connected". Dart PascalCase class names are mapped to SQL snake_case table names with case-insensitive fallback. New files: `codelens/drift-codelens-provider.ts`, `codelens/table-name-mapper.ts`. New commands: `driftViewer.viewTableInPanel`, `driftViewer.runTableQuery`.
 
 • **VS Code extension: Query Performance Panel in Debug sidebar** — Live-updating tree panel appears in the Run & Debug sidebar during active Dart debug sessions when the Drift server is connected. Shows aggregate stats (query count, total/avg duration), slow queries (>500ms with flame icon, >100ms with watch icon), and recent queries in collapsible categories. Click any query to view full SQL with duration, row count, and timestamp in a readonly editor. Auto-refreshes every 3 seconds (configurable via `driftViewer.performance.refreshIntervalMs`). Panel visibility controlled by compound `when` clause (`inDebugMode && driftViewer.serverConnected`) with server health check on debug session start. Toolbar buttons for manual refresh and clearing stats. Concurrency guard prevents overlapping refresh calls. New files: `debug/performance-items.ts`, `debug/performance-tree-provider.ts`. New commands: `driftViewer.refreshPerformance`, `driftViewer.clearPerformance`, `driftViewer.showQueryDetail`. New settings: `driftViewer.performance.slowThresholdMs`, `driftViewer.performance.refreshIntervalMs`.
 
@@ -2349,7 +2349,7 @@ Viewer gets more useful day to day: live table refresh, read-only SQL from the b
 
 • **Example app** — Flutter example in `example/` (Drift DB + viewer); run from repo root with `flutter run -d windows`, then open http://127.0.0.1:8642. See [example/README.md](example/README.md).
 
-• **DevTools / IDE integration** — Run Task → "Open Saropa Drift Advisor" (`.vscode/tasks.json`) opens the viewer in the browser; optional minimal VS Code/Cursor extension in `extension/` with one command. Web UI supports URL hash `#TableName` so links open with that table selected.
+• **DevTools / IDE integration** — Run Task → "Open Saropa Drift" (`.vscode/tasks.json`) opens the viewer in the browser; optional minimal VS Code/Cursor extension in `extension/` with one command. Web UI supports URL hash `#TableName` so links open with that table selected.
 
 • **Live refresh** — Table view updates automatically when data changes (e.g. after the app writes). Server runs a lightweight change check every 2s (table row-count fingerprint); clients long-poll `GET /api/generation?since=N` and refetch table list and current table when the generation changes. UI shows "● Live" in the header and "Updating…" briefly during refresh. No manual refresh needed.
 

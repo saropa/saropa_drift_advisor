@@ -1,7 +1,7 @@
 /**
- * Host-panel English source strings — the Drift Advisor Rules configuration
+ * Host-panel English source strings — the Saropa Drift Rules configuration
  * panel ([../diagnostics/rules-config-html.ts](../diagnostics/rules-config-html.ts)).
- * This webview replaces the old "Drift Advisor Rules" sidebar tree list: it lets
+ * This webview replaces the old "Saropa Drift Rules" sidebar tree list: it lets
  * a user enable/disable each diagnostic rule and override its severity in one
  * screen, writing `driftViewer.diagnostics.disabledRules` and
  * `driftViewer.diagnostics.severityOverrides`.
@@ -17,9 +17,9 @@
  * rendered from the data directly and are not translated.
  */
 
-/** Symbolic key → English source text for the Drift Advisor Rules panel. */
+/** Symbolic key → English source text for the Saropa Drift Rules panel. */
 export const stringsPanelRules: Record<string, string> = {
-  'panel.rules.title': 'Drift Advisor Rules',
+  'panel.rules.title': 'Saropa Drift Rules',
   // Sub-heading under the title explaining where the changes are persisted.
   'panel.rules.subtitle':
     'Enable or disable each diagnostic rule and override its severity. Changes are saved to your workspace settings and applied on the next analysis.',

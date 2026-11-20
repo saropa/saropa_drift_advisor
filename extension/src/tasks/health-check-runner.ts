@@ -24,7 +24,7 @@ export class HealthCheckTerminal implements vscode.Pseudoterminal {
   private async run(): Promise<void> {
     const write = (text: string) => this._writeEmitter.fire(text + '\r\n');
 
-    write('Saropa Drift Advisor - Pre-Launch Health Check');
+    write('Saropa Drift - Pre-Launch Health Check');
     write('\u2550'.repeat(46));
     write('');
 

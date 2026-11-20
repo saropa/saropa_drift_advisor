@@ -210,7 +210,7 @@ def parse_args() -> argparse.Namespace:
     the user is prompted interactively via `_prompt_target()`.
     """
     parser = argparse.ArgumentParser(
-        description="Saropa Drift Advisor -- Unified Publish Pipeline",
+        description="Saropa Drift -- Unified Publish Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 

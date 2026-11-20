@@ -1,4 +1,4 @@
-# Saropa Drift Advisor — REST API Reference
+# Saropa Drift — REST API Reference
 
 **API version:** 4.4.2 (synced with `ServerConstants.packageVersion`)
 **Base URL:** `http://localhost:{port}` (default port: **8642**)
@@ -139,13 +139,13 @@ Authentication is **optional**. When `authToken` or `basicAuthUser`/`basicAuthPa
 The response also includes a `WWW-Authenticate` header naming the configured scheme (Basic takes precedence when both are configured):
 
 ```
-WWW-Authenticate: Basic realm="Saropa Drift Advisor"
+WWW-Authenticate: Basic realm="Saropa Drift"
 ```
 
 or, when only a Bearer token is configured:
 
 ```
-WWW-Authenticate: Bearer realm="Saropa Drift Advisor"
+WWW-Authenticate: Bearer realm="Saropa Drift"
 ```
 
 The same header, with the same value, is also sent on the reduced `GET /api/health` response (see below) — a server challenges identically whether the client hit a protected route and got 401, or hit health and got the reduced 200.
@@ -222,7 +222,7 @@ given one expects.
 
 ```json
 {
-  "name": "Saropa Drift Advisor",
+  "name": "Saropa Drift",
   "version": "4.4.2",
   "schemaVersion": 1,
   "writeEnabled": false,
@@ -1436,7 +1436,7 @@ The check is **report-only**: it suggests a `DROP TABLE` but never executes it. 
 
 Returns a single merged list of index suggestions, data-quality anomalies, and orphan physical tables in a stable issue shape. Intended for IDE integrations (e.g. Saropa Lints) and scripts that want one request instead of calling `GET /api/index-suggestions`, `GET /api/analytics/anomalies`, and `GET /api/analytics/orphan-tables` separately.
 
-The list is wrapped in the **Saropa Diagnostic Envelope** — the shared cross-tool protocol used across Saropa Lints, Saropa Drift Advisor, and Saropa Log Capture. The envelope adds top-level `schemaVersion`, `producer`, and `generatedAt`, and each issue carries `id`, `category`, and `title` in addition to its existing fields. The envelope is **additive**: every previously documented field is unchanged, so existing consumers need no update.
+The list is wrapped in the **Saropa Diagnostic Envelope** — the shared cross-tool protocol used across Saropa Lints, Saropa Drift, and Saropa Log Capture. The envelope adds top-level `schemaVersion`, `producer`, and `generatedAt`, and each issue carries `id`, `category`, and `title` in addition to its existing fields. The envelope is **additive**: every previously documented field is unchanged, so existing consumers need no update.
 
 **Query Parameters**
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Runtime (System B) localization toolchain for Saropa Drift Advisor (plan 75 §4).
+"""Runtime (System B) localization toolchain for Saropa Drift (plan 75 §4).
 
 Distinct from `scripts/modules/l10n_audit.py`, which audits the MANIFEST NLS
 (System A — `package.nls*.json`). This package operates on the RUNTIME l10n: the

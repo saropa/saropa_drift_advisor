@@ -9,7 +9,7 @@ Type: UX improvement
 
 ## Summary
 
-**Add Saropa Drift Advisor** adds the pubspec dependency, runs `pub get`, and then tells the user
+**Add Saropa Drift** adds the pubspec dependency, runs `pub get`, and then tells the user
 "Run your app with the Drift debug server to connect" — but nothing in the extension ever writes the
 `startDriftViewer` call, and the string `startDriftViewer` does not appear anywhere in
 `extension/src/`. Close the loop with a CodeLens / quick fix on the user's `@DriftDatabase` class
@@ -69,13 +69,13 @@ class AppDatabase extends _$AppDatabase {
 }
 ```
 
-CodeLens above the class: **`$(plug) Wire Drift Advisor debug server`**. Diagnostic-free — a lens
+CodeLens above the class: **`$(plug) Wire Saropa Drift debug server`**. Diagnostic-free — a lens
 and a code action, not a squiggle, so it cannot become a false positive in the Problems panel.
 
 Invoking it inserts, immediately after the constructor:
 
 ```dart
-  /// Starts the Saropa Drift Advisor debug server in debug builds only.
+  /// Starts the Saropa Drift debug server in debug builds only.
   /// Tree-shaken out of release builds because `enabled` is `kDebugMode`.
   Future<void> startDebugViewer() async {
     await startDriftViewer(enabled: kDebugMode);
@@ -92,7 +92,7 @@ A second lens variant offers the **callback API** form (with `writeQuery`, per
 ### Should pass (correct)
 
 - Workspace already calls `startDriftViewer` or `DriftDebugServer.start` anywhere — no lens.
-- `saropa_drift_advisor` not in pubspec — no lens (offer **Add Saropa Drift Advisor** instead).
+- `saropa_drift_advisor` not in pubspec — no lens (offer **Add Saropa Drift** instead).
 - Non-Drift classes, generated `.g.dart` files — no lens.
 
 ---

@@ -151,7 +151,7 @@ export class DisconnectedBannerItem extends vscode.TreeItem {
     const md = new vscode.MarkdownString(
       'Run your Flutter/Dart app with `DriftDebugServer.start()`, '
         + 'then start a debug session or wait for auto-discovery.\n\n'
-        + 'Check **Output → Saropa Drift Advisor** for connection progress.',
+        + 'Check **Output → Saropa Drift** for connection progress.',
       true,
     );
     this.tooltip = md;

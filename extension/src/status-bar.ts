@@ -21,7 +21,7 @@ export function updateStatusBar(
   if (!extensionEnabled) {
     item.text = '$(circle-slash) Drift: Disabled';
     item.command = 'workbench.action.openSettings';
-    item.tooltip = 'Saropa Drift Advisor is disabled. Enable driftViewer.enabled in settings.';
+    item.tooltip = 'Saropa Drift is disabled. Enable driftViewer.enabled in settings.';
     item.backgroundColor = undefined;
     item.show();
     return;
@@ -61,9 +61,9 @@ export function updateStatusBar(
     item.tooltip = 'Scanning for Drift debug servers\u2026';
     item.backgroundColor = undefined;
   } else if (!discoveryEnabled) {
-    item.text = '$(database) Saropa Drift Advisor';
+    item.text = '$(database) Saropa Drift';
     item.command = 'driftViewer.openInPanel';
-    item.tooltip = 'Open Saropa Drift Advisor in editor panel';
+    item.tooltip = 'Open Saropa Drift in editor panel';
     item.backgroundColor = undefined;
   } else {
     item.text = '$(circle-slash) Drift: Offline';

@@ -1,5 +1,5 @@
 /**
- * Inline JS injected into the Saropa Drift Advisor webview to enable cell editing.
+ * Inline JS injected into the Saropa Drift webview to enable cell editing.
  * Kept as a separate module so editing-bridge stays focused on message wiring.
  */
 export const EDITING_SCRIPT = `

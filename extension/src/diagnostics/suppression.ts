@@ -1,5 +1,5 @@
 /**
- * Inline suppression directives for Drift Advisor diagnostics.
+ * Inline suppression directives for Saropa Drift diagnostics.
  *
  * Lets users silence findings from the Dart source itself, the way Dart's own
  * `// ignore:` / `// ignore_for_file:` work, instead of (or alongside) the

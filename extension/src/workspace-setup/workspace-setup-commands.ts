@@ -1,5 +1,5 @@
 /**
- * Registers the "Add Saropa Drift Advisor" command. Installing the extension
+ * Registers the "Add Saropa Drift" command. Installing the extension
  * can install the saropa_drift_advisor Dart package in the workspace (and vice versa).
  * Progress notification shows step messages (e.g. "Running pub get…").
  */
@@ -14,23 +14,23 @@ export function registerWorkspaceSetupCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.addPackageToProject', async () => {
       connectionChannel.appendLine(
-        `[${new Date().toISOString()}] Add Saropa Drift Advisor: triggered by user`,
+        `[${new Date().toISOString()}] Add Saropa Drift: triggered by user`,
       );
       connectionChannel.show();
       void vscode.window.showInformationMessage(
-        'Adding Saropa Drift Advisor to project… See Output → Saropa Drift Advisor.',
+        'Adding Saropa Drift to project… See Output → Saropa Drift.',
       );
       try {
         await vscode.window.withProgress(
           {
             location: vscode.ProgressLocation.Notification,
-            title: 'Adding Saropa Drift Advisor to project',
+            title: 'Adding Saropa Drift to project',
             cancellable: false,
           },
           async (progress) => {
             const result = await addPackageToProject(progress);
             connectionChannel.appendLine(
-              `[${new Date().toISOString()}] Add Saropa Drift Advisor: ${result.message}`,
+              `[${new Date().toISOString()}] Add Saropa Drift: ${result.message}`,
             );
             if (result.pubGetOk) {
               void vscode.window.showInformationMessage(result.message);
@@ -43,10 +43,10 @@ export function registerWorkspaceSetupCommands(
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         connectionChannel.appendLine(
-          `[${new Date().toISOString()}] Add Saropa Drift Advisor: unexpected error — ${msg}`,
+          `[${new Date().toISOString()}] Add Saropa Drift: unexpected error — ${msg}`,
         );
         void vscode.window.showErrorMessage(
-          `Add Saropa Drift Advisor failed: ${msg}`,
+          `Add Saropa Drift failed: ${msg}`,
         );
       }
     }),

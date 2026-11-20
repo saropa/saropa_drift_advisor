@@ -42,7 +42,7 @@ export function registerDiscoveryCommands(
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.retryDiscovery', () => {
       log('Retry Connection: triggered by user');
-      void vscode.window.showInformationMessage('Retrying server discovery… See Output → Saropa Drift Advisor for details.');
+      void vscode.window.showInformationMessage('Retrying server discovery… See Output → Saropa Drift for details.');
       connectionChannel.show();
       try {
         discovery.retry();
@@ -107,14 +107,14 @@ export function registerDiscoveryCommands(
     vscode.commands.registerCommand('driftViewer.showConnectionLog', () => {
       log('Show Connection Log: triggered by user');
       connectionChannel.show(true);
-      void vscode.window.showInformationMessage('Opened Output → Saropa Drift Advisor. Enable verbose logging in settings for more detail.');
+      void vscode.window.showInformationMessage('Opened Output → Saropa Drift. Enable verbose logging in settings for more detail.');
     }),
   );
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.forwardPortAndroid', async () => {
       const port = clientPort;
       log('Forward Port (Android Emulator): triggered by user');
-      void vscode.window.showInformationMessage(`Forwarding port ${port} to Android… Check Output → Saropa Drift Advisor.`);
+      void vscode.window.showInformationMessage(`Forwarding port ${port} to Android… Check Output → Saropa Drift.`);
       connectionChannel.show();
       try {
         await vscode.window.withProgress(

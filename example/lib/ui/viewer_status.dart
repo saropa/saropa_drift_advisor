@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Asset path for the Saropa Drift Advisor logo (copied from extension/icon.png).
+/// Asset path for the Saropa Drift logo (copied from extension/icon.png).
 const String _kLogoAsset = 'assets/logo.png';
 
 // ---------------------------------------------------------------------------
@@ -211,7 +211,7 @@ class ReadyView extends StatelessWidget {
   }
 
   String get _statusText => init.running
-      ? 'Saropa Drift Advisor is running'
+      ? 'Saropa Drift is running'
       : (init.enabled
             ? 'Advisor failed to start'
             : 'Advisor disabled (release build)');
@@ -274,7 +274,7 @@ class _StatusHeader extends StatelessWidget {
                 children: [
                   Text(
                     init.running
-                        ? 'Drift Advisor is running'
+                        ? 'Saropa Drift is running'
                         : (init.enabled
                               ? 'Advisor failed to start'
                               : 'Advisor disabled'),

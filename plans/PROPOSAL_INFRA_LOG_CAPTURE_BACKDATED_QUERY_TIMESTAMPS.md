@@ -10,7 +10,7 @@ Related diagnostics: none (integration surface — `extension/src/debug/log-capt
 
 ## Summary
 
-Drift Advisor writes slow-query and query lines into the Saropa Log Capture session, but stamps them with the wall-clock time of the *write*, not the time the query ran. Log Capture already accepts a `timestamp` override on `writeLine` for exactly this case, and Advisor already carries the query's real time in `QueryEntry.at`. Passing it through makes Advisor's DB events line up with the surrounding app logs instead of landing in a clump at flush time.
+Saropa Drift writes slow-query and query lines into the Saropa Log Capture session, but stamps them with the wall-clock time of the *write*, not the time the query ran. Log Capture already accepts a `timestamp` override on `writeLine` for exactly this case, and Advisor already carries the query's real time in `QueryEntry.at`. Passing it through makes Advisor's DB events line up with the surrounding app logs instead of landing in a clump at flush time.
 
 ---
 
@@ -21,7 +21,7 @@ The Saropa Suite's headline cross-tool claim is temporal correlation — put the
 ```bash
 $ sed -n '99,100p' ABOUT_SAROPA.md
 - **[Saropa Suite](https://marketplace.visualstudio.com/items?itemName=saropa.saropa-suite)**
-  - _One-click install_ for the full Saropa developer toolkit: Log Capture + Drift Advisor + Lints. Cross-extension integrations: bug reports embed lint findings, OWASP executive summaries, and project health scores; debug sessions carry query performance and schema context; right-click any SQL line in your logs to "Open in Drift Advisor."
+  - _One-click install_ for the full Saropa developer toolkit: Log Capture + Saropa Drift + Lints. Cross-extension integrations: bug reports embed lint findings, OWASP executive summaries, and project health scores; debug sessions carry query performance and schema context; right-click any SQL line in your logs to "Open in Saropa Drift."
 ```
 
 That correlation is ordering-sensitive, and the ordering is currently wrong by however long Advisor's polling interval is.

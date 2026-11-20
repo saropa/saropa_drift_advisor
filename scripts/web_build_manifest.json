@@ -1,6 +1,6 @@
 {
   "artifacts": {
-    "assets/web/bundle.js": "121f5b2e12a5c56de21b2194f272d0ab497ed2cf94c16ccc0f963417aa7475ae",
+    "assets/web/bundle.js": "390a969cb467b78e1e6d508ffb00a534965335295dad16da4f1faf871a2b9f11",
     "assets/web/style.css": "fb5dc535240fe11dba810cace208e6cde2a9f133eb306b02af07b75e80bb8e5d"
   },
   "buildInputs": {
@@ -61,7 +61,7 @@
     "assets/web/l10n.ts": "bd5cf65a9af569feaa54f3eaad6ee433a65a5c21fab76ff76af48613fc65c778",
     "assets/web/l10n/strings-web-heartbeat.ts": "c0b285a38da9887d6a99feac6a7babc470eed93df7507160545b18fccae964c2",
     "assets/web/l10n/strings-web-misc.ts": "752a3487e2b39f4d33dc3246f7a7454caf0fae54c1019e7a02fcf731c9a14fa0",
-    "assets/web/l10n/strings-web-nav.ts": "e6bb3b97e6fe6b1914737b84524a2084482a5c53fb022e43690ab9f5df133389",
+    "assets/web/l10n/strings-web-nav.ts": "8c3cd6396fdd17545d90b0e3812bd2038182deb119083ee880d6bd73caebe646",
     "assets/web/l10n/strings-web-query-builder.ts": "c9d46aca941123cb4cfb2dd0199e461eb727524fd12291a26998f781c527fbc1",
     "assets/web/l10n/strings-web-schema.ts": "84a6d38c8b53ecf716c78a3c8278c696f70cdf83c06fcc64e9a0341fea4afb35",
     "assets/web/l10n/strings-web-session.ts": "4d9d319bd67c18218aeda4695095b99289c91ffe9bdd4298d7b3671224b0dd4e",

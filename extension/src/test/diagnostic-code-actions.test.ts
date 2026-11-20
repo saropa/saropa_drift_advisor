@@ -42,7 +42,7 @@ describe('DiagnosticCodeActionProvider', () => {
     sinon.restore();
   });
 
-  it('should only handle Drift Advisor diagnostics', () => {
+  it('should only handle Saropa Drift diagnostics', () => {
     const otherDiag = new Diagnostic(
       new Range(0, 0, 0, 10),
       'Other error',
@@ -77,7 +77,7 @@ describe('DiagnosticCodeActionProvider', () => {
       '[drift_advisor] Test',
       DiagnosticSeverity.Warning,
     );
-    diag.source = 'Drift Advisor';
+    diag.source = 'Saropa Drift';
     diag.code = 'missing-fk-index';
 
     const actions = actionProvider.provideCodeActions(

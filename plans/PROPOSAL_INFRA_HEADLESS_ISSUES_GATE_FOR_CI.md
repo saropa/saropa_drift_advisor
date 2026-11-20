@@ -10,7 +10,7 @@ Related diagnostics: all `/api/issues` issues
 
 ## Summary
 
-Drift Advisor's findings can only be reached through a running debug server plus the VS Code extension. There is no command-line entry point at all, so a project cannot fail CI on "the app introduced 40 new orphan tables" the way it already can on lint violations. The offline mirror the extension writes — `.saropa/diagnostics/advisor.json` — is a complete, versioned, on-disk copy of those findings, and a small gate over it closes the gap without needing a server in CI.
+Saropa Drift's findings can only be reached through a running debug server plus the VS Code extension. There is no command-line entry point at all, so a project cannot fail CI on "the app introduced 40 new orphan tables" the way it already can on lint violations. The offline mirror the extension writes — `.saropa/diagnostics/advisor.json` — is a complete, versioned, on-disk copy of those findings, and a small gate over it closes the gap without needing a server in CI.
 
 ---
 
@@ -137,7 +137,7 @@ drift_advisor_gate:
 
 ```
 $ dart run saropa_drift_advisor gate
-Saropa Drift Advisor gate — reports/.saropa/diagnostics/advisor.json
+Saropa Drift gate — reports/.saropa/diagnostics/advisor.json
   producer: saropa_drift_advisor 4.2.5   generatedAt: 2026-09-02T10:14:02Z
   FAIL  severity.error  3 > 0
   WARN  category.schema 7 > 5
@@ -148,7 +148,7 @@ exit 1
 
 ```
 $ dart run saropa_drift_advisor gate
-Saropa Drift Advisor gate — no conditions configured (saropa_drift_gate.yaml absent).
+Saropa Drift gate — no conditions configured (saropa_drift_gate.yaml absent).
 exit 0
 ```
 

@@ -63,9 +63,9 @@ describe('DriftCodeLensProvider', () => {
       // 2 table classes, each gets 2 lenses (count + view; no Run Query without sqlName)
       assert.strictEqual(lenses.length, 4);
       assert.strictEqual(lenses[0].command?.title, '$(database) not connected');
-      assert.strictEqual(lenses[1].command?.title, 'View in Saropa Drift Advisor');
+      assert.strictEqual(lenses[1].command?.title, 'View in Saropa Drift');
       assert.strictEqual(lenses[2].command?.title, '$(database) not connected');
-      assert.strictEqual(lenses[3].command?.title, 'View in Saropa Drift Advisor');
+      assert.strictEqual(lenses[3].command?.title, 'View in Saropa Drift');
     });
 
     it('should pass Dart class name as fallback argument for View', () => {

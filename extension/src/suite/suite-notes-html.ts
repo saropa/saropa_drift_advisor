@@ -31,7 +31,7 @@ export function suiteSourceLabel(source: string | undefined): string {
   switch (source) {
     case 'lints': return 'Saropa Lints';
     case 'log-capture': return 'Saropa Log Capture';
-    case 'advisor': return 'Saropa Drift Advisor';
+    case 'advisor': return 'Saropa Drift';
     default: return source ?? 'Saropa Suite';
   }
 }

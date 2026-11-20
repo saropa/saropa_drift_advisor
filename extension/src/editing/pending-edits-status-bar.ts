@@ -18,7 +18,7 @@ export function createPendingEditsStatusBar(
     50,
   );
   item.command = 'driftViewer.generateSql';
-  item.tooltip = 'Preview SQL for pending data edits (Saropa Drift Advisor)';
+  item.tooltip = 'Preview SQL for pending data edits (Saropa Drift)';
 
   const refresh = (): void => {
     const n = changeTracker.changeCount;

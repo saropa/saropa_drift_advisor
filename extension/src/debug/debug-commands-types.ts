@@ -15,7 +15,7 @@ import type { GenerationWatcher } from '../generation-watcher';
 import type { DriftCodeLensProvider } from '../codelens/drift-codelens-provider';
 import type { WatchManager } from '../watch/watch-manager';
 
-/** Optional connection log for troubleshooting (e.g. Output > Saropa Drift Advisor). */
+/** Optional connection log for troubleshooting (e.g. Output > Saropa Drift). */
 export interface IConnectionLog {
   appendLine(msg: string): void;
 }

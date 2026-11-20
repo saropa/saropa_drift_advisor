@@ -65,7 +65,7 @@ describe('suiteFindings widget', () => {
     assert.ok(html.includes('2 tables'));
     assert.ok(html.includes('2 errors'));
     assert.ok(html.includes('1 warning')); // singular
-    assert.ok(html.includes('Drift Advisor: <strong>3</strong>'));
+    assert.ok(html.includes('Saropa Drift: <strong>3</strong>'));
     assert.ok(html.includes('Saropa Lints: <strong>1</strong>'));
     assert.ok(html.includes('Log Capture: <strong>1</strong>'));
   });

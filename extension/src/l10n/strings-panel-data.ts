@@ -149,7 +149,7 @@ export const stringsPanelData: Record<string, string> = {
 
   // --- Bulk-edit dashboard ---
   'panel.data.bulk.docTitle': 'Bulk edit data',
-  'panel.data.bulk.title': 'Saropa Drift Advisor — Edit table data',
+  'panel.data.bulk.title': 'Saropa Drift — Edit table data',
   // {0} = pending-operation count (pre-wrapped in <span class="count">).
   'panel.data.bulk.pending': 'Pending operations in this workspace: {0}',
   // "table viewer panel" and "writeQuery" carry static markup at the call site;

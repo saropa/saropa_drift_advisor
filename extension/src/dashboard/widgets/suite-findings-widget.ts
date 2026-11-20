@@ -120,7 +120,7 @@ export function renderSuiteFindingsHtml(data: SuiteFindingsData): string {
         <span class="suite-sev-warn">${summary.warnings} warning${summary.warnings === 1 ? '' : 's'}</span>
       </div>
       <div class="suite-tools">
-        ${tool('\u{1F4BE}', 'Drift Advisor', summary.advisor)}
+        ${tool('\u{1F4BE}', 'Saropa Drift', summary.advisor)}
         ${tool('\u{1F50D}', 'Saropa Lints', summary.lints)}
         ${tool('\u{1F4DF}', 'Log Capture', summary.logCapture)}
       </div>

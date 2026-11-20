@@ -26,7 +26,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: IDiagnosticConfig = {
 export const DIAGNOSTIC_PREFIX = '[drift_advisor]';
 
 /** Value used for `diag.source` on every diagnostic we emit. */
-export const DIAGNOSTIC_SOURCE = 'Drift Advisor';
+export const DIAGNOSTIC_SOURCE = 'Saropa Drift';
 
 /** Name of the diagnostic collection in VS Code. */
 export const DIAGNOSTIC_COLLECTION_NAME = 'drift-advisor';

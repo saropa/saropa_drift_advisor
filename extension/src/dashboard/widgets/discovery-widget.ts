@@ -133,7 +133,7 @@ export const DISCOVERY_WIDGETS: IWidgetDefinition[] = [
     type: 'featureDiscovery',
     label: 'Feature Discovery',
     icon: '\u{1F9ED}',
-    description: 'Browse all Drift Advisor features by category',
+    description: 'Browse all Saropa Drift features by category',
     defaultSize: { w: 4, h: 3 },
     configSchema: [],
     // Static content — no API call needed

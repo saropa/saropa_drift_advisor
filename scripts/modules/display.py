@@ -379,7 +379,7 @@ def show_logo(version: str = "") -> None:
 {C.BLUE_57}                       `-+shdNNMMMMNNdhs+-{C.RESET}
 {C.BLUE_57}                               ````{C.RESET}
 
-  {C.PINK_195}Saropa Drift Advisor -- Publish Pipeline{C.RESET}"""
+  {C.PINK_195}Saropa Drift -- Publish Pipeline{C.RESET}"""
     print(logo)
     if version:
         print(f"  {C.LIGHT_BLUE_117}v{version}{C.RESET}")

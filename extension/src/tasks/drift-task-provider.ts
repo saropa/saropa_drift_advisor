@@ -33,7 +33,7 @@ export class DriftTaskProvider implements vscode.TaskProvider {
       definition,
       vscode.TaskScope.Workspace,
       `Drift: ${name}`,
-      'Saropa Drift Advisor',
+      'Saropa Drift',
       new vscode.CustomExecution(async () => new HealthCheckTerminal(check)),
     );
     task.detail = detail;

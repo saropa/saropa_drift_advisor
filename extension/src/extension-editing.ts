@@ -37,7 +37,7 @@ export function setupEditing(
 ): EditingSetupResult {
   let verbosity = getLogVerbosity();
   const editOutputChannel = vscode.window.createOutputChannel(
-    'Saropa Drift Advisor: Data Edits',
+    'Saropa Drift: Data Edits',
   );
   context.subscriptions.push(editOutputChannel);
   const filteredEditsSink = {

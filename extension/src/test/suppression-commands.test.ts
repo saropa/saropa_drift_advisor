@@ -25,7 +25,7 @@ const FILE_URI = Uri.parse('file:///lib/database/tables/user_data_table.dart');
 // — compute it the same way the code under test does, not by re-deriving it.
 const DOC_LOOKUP_KEY = Uri.parse(FILE_URI.toString()).toString();
 
-/** Builds a Drift Advisor diagnostic at the given line, mirroring what the diagnostic providers emit. */
+/** Builds a Saropa Drift diagnostic at the given line, mirroring what the diagnostic providers emit. */
 function driftDiagnostic(line: number, code: string, message = 'finding'): Diagnostic {
   const diag = new Diagnostic(new Range(line, 0, line, 10), message, DiagnosticSeverity.Warning);
   diag.source = DIAGNOSTIC_SOURCE;
@@ -72,13 +72,13 @@ describe('suppression-commands', () => {
       assert.ok(messageMock.warnings.some((w) => w.includes('Open the file')));
     });
 
-    it('warns when the file has no Drift Advisor findings at all', async () => {
+    it('warns when the file has no Saropa Drift findings at all', async () => {
       setCursor(5);
       mockDiagnosticsByUri.set(FILE_URI.toString(), []);
       await commands.executeRegistered('driftViewer.suppressDiagnosticAtCursor');
 
       assert.strictEqual(appliedEdits.length, 0);
-      assert.ok(messageMock.warnings.some((w) => w.includes('No Drift Advisor findings in this file')));
+      assert.ok(messageMock.warnings.some((w) => w.includes('No Saropa Drift findings in this file')));
     });
 
     it('resolves a diagnostic exactly on the cursor line and inserts its code', async () => {
@@ -111,7 +111,7 @@ describe('suppression-commands', () => {
 
       assert.strictEqual(appliedEdits.length, 0);
       assert.ok(
-        messageMock.warnings.some((w) => w.includes('No Drift Advisor finding within 3 lines')),
+        messageMock.warnings.some((w) => w.includes('No Saropa Drift finding within 3 lines')),
       );
     });
 

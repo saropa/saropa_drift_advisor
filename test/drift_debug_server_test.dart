@@ -1119,7 +1119,7 @@ void main() {
         expect(resp.statusCode, HttpStatus.ok);
         expect(
           resp.headers.value('WWW-Authenticate'),
-          'Basic realm="Saropa Drift Advisor"',
+          'Basic realm="Saropa Drift"',
         );
       } finally {
         client.close();
@@ -1144,7 +1144,7 @@ void main() {
         expect(resp.statusCode, HttpStatus.ok);
         expect(
           resp.headers.value('WWW-Authenticate'),
-          'Bearer realm="Saropa Drift Advisor"',
+          'Bearer realm="Saropa Drift"',
         );
       } finally {
         client.close();

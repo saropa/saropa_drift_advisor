@@ -1,6 +1,6 @@
 /**
  * VS Code code action provider that delegates to the diagnostic manager.
- * Provides quick fixes for Drift Advisor diagnostics.
+ * Provides quick fixes for Saropa Drift diagnostics.
  */
 
 import * as vscode from 'vscode';

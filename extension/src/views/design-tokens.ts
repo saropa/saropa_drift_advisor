@@ -5,7 +5,7 @@
  * Guide (§3). The guide is not checked into this repo — it is the single
  * cross-project source of truth and lives in the saropa_lints repo:
  * https://github.com/saropa/saropa_lints/blob/main/docs/design/SAROPA_DASHBOARD_STYLE_GUIDE.md
- * All `§` references below index that file. Tokens here let every Drift Advisor
+ * All `§` references below index that file. Tokens here let every Saropa Drift
  * webview and HTML export draw
  * from one named palette instead of hand-painted hexes. Two resolution tables,
  * same names:

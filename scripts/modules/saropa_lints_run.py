@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Optional saropa_lints scan step for the Drift Advisor pipeline.
+"""Optional saropa_lints scan step for the Saropa Drift pipeline.
 
 Runs `dart run saropa_lints scan .` from the given directory (default repo root).
 Integration is optional: if saropa_lints is not available or the scan fails,

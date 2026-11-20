@@ -1,5 +1,5 @@
 /**
- * CSS for the Drift Advisor Rules configuration webview. Extracted from
+ * CSS for the Saropa Drift Rules configuration webview. Extracted from
  * rules-config-html to keep the builder under the line cap; the HTML builder
  * inlines this string inside its `<style>` element. All colors come from VS Code
  * theme variables so the panel tracks the active editor theme.

@@ -1,4 +1,4 @@
-# Saropa Drift Advisor — IDE-Only Capabilities
+# Saropa Drift — IDE-Only Capabilities
 
 This guide records which capabilities are **intentionally exclusive to the IDE
 extension** and will not be built for the website viewer. It exists so these

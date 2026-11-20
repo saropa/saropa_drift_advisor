@@ -217,8 +217,8 @@ describe('Activation resilience — phased isolation', () => {
     const channels = subscriptions.filter(
       (d: any) => d && typeof d === 'object' && 'lines' in d && 'name' in d,
     ) as unknown as Array<{ name: string; lines: string[] }>;
-    const saropaChannel = channels.find((c) => c.name === 'Saropa Drift Advisor');
-    assert.ok(saropaChannel, 'Saropa Drift Advisor output channel should be in subscriptions');
+    const saropaChannel = channels.find((c) => c.name === 'Saropa Drift');
+    assert.ok(saropaChannel, 'Saropa Drift output channel should be in subscriptions');
 
     // Check for activation start and completion lines.
     assert.ok(

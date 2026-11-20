@@ -75,7 +75,7 @@
   "viewer.nav.home.search.aria": "検索ホーム機能",
   "viewer.nav.home.search.noResults": "No features match “{0}”。",
   "viewer.nav.home.search.placeholder": "検索機能…（例：テーマ、差分、非表示）",
-  "viewer.nav.home.title": "Saropa Drift Advisor",
+  "viewer.nav.home.title": "Saropa Drift",
   "viewer.nav.tab.close": "閉じるタブ",
   "viewer.nav.tab.closeNamed": "{0}を閉じる",
   "viewer.nav.tab.closeOthers.many": "Close {0} その他のタブ?",

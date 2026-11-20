@@ -32,7 +32,7 @@ from modules import target_config as tc
 
 # Minimal doc/API.md that exercises every pattern category.
 _SAMPLE_API_MD = """\
-# Saropa Drift Advisor — REST API Reference
+# Saropa Drift — REST API Reference
 
 **API version:** 1.0.0 (synced with `ServerConstants.packageVersion`)
 **Base URL:** `http://localhost:{port}` (default port: **8642**)
@@ -50,7 +50,7 @@ _SAMPLE_API_MD = """\
 
 ```json
 {
-  "name": "Saropa Drift Advisor",
+  "name": "Saropa Drift",
   "version": "1.0.0",
   "docs": "https://cdn.jsdelivr.net/gh/saropa/saropa_drift_advisor@v1.0.0/doc/API.md"
 }

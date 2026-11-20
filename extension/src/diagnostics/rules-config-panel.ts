@@ -1,7 +1,7 @@
 /**
- * Singleton webview panel for configuring Drift Advisor diagnostic rules.
+ * Singleton webview panel for configuring Saropa Drift diagnostic rules.
  *
- * Replaces the old "Drift Advisor Rules" sidebar tree (a mute/unmute list) with
+ * Replaces the old "Saropa Drift Rules" sidebar tree (a mute/unmute list) with
  * a full screen: every rule grouped by category, each with an enable/disable
  * toggle, a live finding count, and a severity-override dropdown. Toggles write
  * `driftViewer.diagnostics.disabledRules`; severity changes write

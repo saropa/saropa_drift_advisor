@@ -151,7 +151,7 @@ describe('buildDriftHealthHtml', () => {
       d({ source: 'lints', table: 'orders', title: '<script>x</script>', ruleId: 'r1' }),
     ]));
     assert.ok(html.includes('orders'));
-    assert.ok(html.includes('Drift Advisor'));
+    assert.ok(html.includes('Saropa Drift'));
     assert.ok(html.includes('Saropa Lints'));
     assert.ok(html.includes('r1'));
     assert.ok(!html.includes('<script>x</script>'));

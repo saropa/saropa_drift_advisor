@@ -1,5 +1,5 @@
 // Example app database: multi-table schema with FKs for demonstrating
-// Drift Advisor features (ER diagrams, FK navigation, schema diff, import).
+// Saropa Drift features (ER diagrams, FK navigation, schema diff, import).
 
 import 'dart:io';
 

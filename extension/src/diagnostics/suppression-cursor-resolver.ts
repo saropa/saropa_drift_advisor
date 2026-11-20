@@ -1,5 +1,5 @@
 /**
- * Resolves which Drift Advisor diagnostic the user means from the active
+ * Resolves which Saropa Drift diagnostic the user means from the active
  * editor's cursor position. Split out of suppression-commands.ts.
  */
 
@@ -15,10 +15,10 @@ import { DIAGNOSTIC_SOURCE } from './diagnostic-defaults';
 export const NEAR_CURSOR_LINE_WINDOW = 3;
 
 /**
- * Resolve which Drift Advisor diagnostic the user means from the active
+ * Resolve which Saropa Drift diagnostic the user means from the active
  * editor's cursor, tolerant of the cursor sitting anywhere on the flagged
  * line (not just inside the diagnostic's own start/end columns) and falling
- * back to the nearest Drift Advisor diagnostic within `NEAR_CURSOR_LINE_WINDOW`
+ * back to the nearest Saropa Drift diagnostic within `NEAR_CURSOR_LINE_WINDOW`
  * lines when the cursor line has none. The fallback is bounded (not "nearest
  * in the whole file") so this always agrees with the right-click menu's own
  * visibility check — invoking via Command Palette from far outside the window
@@ -39,7 +39,7 @@ export async function resolveDiagnosticAtCursor(): Promise<
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showWarningMessage(
-      'Open the file with the Drift Advisor finding, then place the cursor on it.',
+      'Open the file with the Saropa Drift finding, then place the cursor on it.',
     );
     return undefined;
   }
@@ -51,7 +51,7 @@ export async function resolveDiagnosticAtCursor(): Promise<
 
   if (driftDiagnostics.length === 0) {
     vscode.window.showWarningMessage(
-      'No Drift Advisor findings in this file.',
+      'No Saropa Drift findings in this file.',
     );
     return undefined;
   }
@@ -63,7 +63,7 @@ export async function resolveDiagnosticAtCursor(): Promise<
 
   if (nearby.length === 0) {
     vscode.window.showWarningMessage(
-      `No Drift Advisor finding within ${NEAR_CURSOR_LINE_WINDOW} lines of the cursor.`,
+      `No Saropa Drift finding within ${NEAR_CURSOR_LINE_WINDOW} lines of the cursor.`,
     );
     return undefined;
   }
@@ -87,7 +87,7 @@ export async function resolveDiagnosticAtCursor(): Promise<
         detail: d.message,
         diagnostic: d,
       })),
-      { placeHolder: 'Multiple Drift Advisor findings near the cursor — pick one' },
+      { placeHolder: 'Multiple Saropa Drift findings near the cursor — pick one' },
     );
     if (!picked) {
       return undefined;

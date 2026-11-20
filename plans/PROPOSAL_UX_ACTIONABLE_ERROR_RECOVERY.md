@@ -91,7 +91,7 @@ say "your app is on an older `saropa_drift_advisor`" instead of showing a 404.
 2. **Non-command call sites** (background pollers, watchers) must route to the output channel, not a
    toast; the helper needs a `surface: 'toast' | 'log'` argument.
 3. **Never lose the raw error.** The classified message is the headline; the original string goes to
-   the "Saropa Drift Advisor" output channel, which the bug-report template asks users to paste.
+   the "Saropa Drift" output channel, which the bug-report template asks users to paste.
 4. **Localization.** The new strings must go through `extension/src/l10n/` like the rest, not be
    inlined.
 5. **Android detection.** Offer the forward-port button when a Flutter Android device is attached or

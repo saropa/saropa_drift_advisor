@@ -83,7 +83,7 @@ const SELECTION_DEBOUNCE_MS = 50;
 /**
  * Updates the "finding near cursor" context key gating the editor right-click
  * menu item, so it only appears in files/positions where the cursor-based
- * ignore commands would actually resolve a Drift Advisor diagnostic.
+ * ignore commands would actually resolve a Saropa Drift diagnostic.
  */
 function updateHasFindingNearCursorContext(): void {
   const editor = vscode.window.activeTextEditor;
@@ -130,7 +130,7 @@ export function registerSuppressionCommands(
     }, SELECTION_DEBOUNCE_MS);
   };
   // `onDidChangeDiagnostics` fires for every extension's diagnostics in
-  // every open document, not just Drift Advisor's or the active editor's —
+  // every open document, not just Saropa Drift's or the active editor's —
   // in a large multi-extension workspace that can be frequent. The event
   // carries the affected `uris`, so skip the recompute entirely unless one
   // of them is the active editor's document; nothing else could change

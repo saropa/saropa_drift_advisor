@@ -1,5 +1,5 @@
 /**
- * Client-side script for the Drift Advisor Rules configuration webview.
+ * Client-side script for the Saropa Drift Rules configuration webview.
  * Extracted from rules-config-html to keep the builder under the line cap; the
  * HTML builder inlines this string inside its nonce-guarded `<script>` element.
  *

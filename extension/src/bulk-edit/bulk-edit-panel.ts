@@ -38,7 +38,7 @@ export class BulkEditPanel {
   ) {
     this._panel = vscode.window.createWebviewPanel(
       VIEW_TYPE,
-      'Saropa Drift Advisor: Edit table data',
+      'Saropa Drift: Edit table data',
       vscode.ViewColumn.One,
       { enableScripts: true, retainContextWhenHidden: true },
     );

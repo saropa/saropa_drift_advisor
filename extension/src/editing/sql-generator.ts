@@ -66,11 +66,11 @@ export function generateSqlStatements(changes: readonly PendingChange[]): string
 /** Generate reviewed SQL from pending changes, grouped by table. */
 export function generateSql(changes: readonly PendingChange[]): string {
   if (changes.length === 0) {
-    return '-- Saropa Drift Advisor: No pending changes.\n';
+    return '-- Saropa Drift: No pending changes.\n';
   }
 
   const lines: string[] = [
-    `-- Saropa Drift Advisor: Generated SQL (${changes.length} change(s))`,
+    `-- Saropa Drift: Generated SQL (${changes.length} change(s))`,
     '-- Review carefully before executing!',
     '',
   ];

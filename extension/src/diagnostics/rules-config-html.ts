@@ -1,5 +1,5 @@
 /**
- * HTML for the Drift Advisor Rules configuration webview.
+ * HTML for the Saropa Drift Rules configuration webview.
  *
  * Replaces the old sidebar tree list with a single screen where each diagnostic
  * rule can be enabled/disabled and given a severity override. The builder is
@@ -120,7 +120,7 @@ function categorySection(group: RuleCategoryModel): string {
 }
 
 /**
- * Build the full Drift Advisor Rules panel document. [categories] are the
+ * Build the full Saropa Drift Rules panel document. [categories] are the
  * grouped rule rows (already sorted by the host); [enabledCount]/[disabledCount]
  * drive the summary line so the header stays accurate after a toggle re-render.
  */

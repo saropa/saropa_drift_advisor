@@ -94,7 +94,7 @@ export function buildConnectionPresentation(
       hint:
         'Run the app with DriftDebugServer.start(), start a Dart/Flutter debug session, '
         + 'or use the actions below (Retry discovery, Diagnose). '
-        + 'Check Output → Saropa Drift Advisor for connection lines.',
+        + 'Check Output → Saropa Drift for connection lines.',
       viaHttp: false,
       viaVm: false,
     };

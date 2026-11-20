@@ -8,7 +8,7 @@ import 'package:saropa_drift_advisor/saropa_drift_advisor.dart';
 import 'database/app_database.dart';
 import 'ui/viewer_status.dart';
 
-/// Optional auth token for the Drift Advisor server.
+/// Optional auth token for the Saropa Drift server.
 /// Set to a non-null value (e.g. 'demo-token') to require Bearer auth in the web UI.
 const String? _kExampleAuthToken = null;
 
@@ -23,12 +23,12 @@ class ExampleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Saropa Drift Advisor Example',
+      title: 'Saropa Drift Example',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const HomePage(title: 'Saropa Drift Advisor Example'),
+      home: const HomePage(title: 'Saropa Drift Example'),
     );
   }
 }
@@ -126,7 +126,7 @@ class _HomePageState extends State<HomePage> {
 
     await _seedIfEmpty(db);
 
-    // Start the Drift Advisor using the extension method (recommended).
+    // Start the Saropa Drift using the extension method (recommended).
     // This wires: query via customSelect, getDatabaseBytes, writeQuery for import, optional auth.
     // Alternative (callback style): use DriftDebugServer.start(
     //   query: (sql) async {

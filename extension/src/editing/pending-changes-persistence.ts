@@ -247,7 +247,7 @@ export async function offerRestoreDraft(
   }
 
   const answer = await vscode.window.showInformationMessage(
-    `Saropa Drift Advisor: restore ${parsed.length} saved data edit(s) from a previous session?`,
+    `Saropa Drift: restore ${parsed.length} saved data edit(s) from a previous session?`,
     'Restore',
     'Discard saved draft',
   );

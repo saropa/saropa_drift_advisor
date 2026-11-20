@@ -276,7 +276,7 @@ abstract final class ServerConstants {
 
   /// Human-readable product name shown in the web-UI masthead and loading
   /// overlay. Centralised here so every display site stays in sync.
-  static const String appDisplayName = 'Saropa Drift Advisor';
+  static const String appDisplayName = 'Saropa Drift';
 
   /// Package version displayed in the web UI and health endpoint.
   /// Must match pubspec.yaml: updated on publish version writes, and the Dart

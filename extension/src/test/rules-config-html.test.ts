@@ -1,5 +1,5 @@
 /**
- * Tests for the Drift Advisor Rules configuration panel HTML builder. The panel
+ * Tests for the Saropa Drift Rules configuration panel HTML builder. The panel
  * replaces the old sidebar tree; the invariants that keep it working are: each
  * rule renders a toggle reflecting its disabled state, a severity dropdown with
  * the current override selected, the finding count, exactly one script (so

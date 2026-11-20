@@ -23,20 +23,20 @@ operation is named two different things depending on how it is invoked, and the 
 Every defect below is read straight from `extension/package.json` +
 `extension/package.nls.json` (v4.2.5). VS Code renders a palette entry as
 `"<category>: <title>"`, and every command in this extension carries
-`"category": "Saropa Drift Advisor"`.
+`"category": "Saropa Drift"`.
 
 ### 1. Category repeated inside the title
 
 ```
-command.suppressDiagnosticAtCursor.title     => "Drift Advisor: Ignore Finding for This Column"
-command.suppressDiagnosticAtCursorFile.title => "Drift Advisor: Ignore Finding in This File"
+command.suppressDiagnosticAtCursor.title     => "Saropa Drift: Ignore Finding for This Column"
+command.suppressDiagnosticAtCursorFile.title => "Saropa Drift: Ignore Finding in This File"
 ```
 
 Rendered in the palette:
 
 ```
-Saropa Drift Advisor: Drift Advisor: Ignore Finding for This Column
-Saropa Drift Advisor: Drift Advisor: Ignore Finding in This File
+Saropa Drift: Saropa Drift: Ignore Finding for This Column
+Saropa Drift: Saropa Drift: Ignore Finding in This File
 ```
 
 These are the only two of 164 titles that do this.
@@ -71,7 +71,7 @@ command.removeColumnAnnotations.title => "Remove Annotations"
 
 `refreshTree` and `refreshPerformance` both have `view/title` menu entries, so in context the icon
 disambiguates — but in the palette they are two indistinguishable
-`Saropa Drift Advisor: Refresh` rows. The annotations pair is worse: both are argument-only tree-item
+`Saropa Drift: Refresh` rows. The annotations pair is worse: both are argument-only tree-item
 commands (see `060_proposal_ux_command_palette_enablement.md`) and neither does anything useful when
 typed, yet both are listed identically.
 
@@ -126,7 +126,7 @@ For PNG, pick one:
   `er-diagram-types.ts:49`. An absent option is honest; a present one that produces a different file
   is not.
 
-A unit test over `package.json` asserting (a) no title starts with `Drift Advisor` / `Saropa`, and
+A unit test over `package.json` asserting (a) no title starts with `Saropa Drift` / `Saropa`, and
 (b) no two `category + title` pairs collide, keeps this from recurring.
 
 ---

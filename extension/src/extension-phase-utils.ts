@@ -32,7 +32,7 @@ export function runPhase<T>(
     const stack = err instanceof Error ? err.stack ?? '' : '';
     channel.appendLine(`[${ts()}] Phase "${name}" FAILED: ${msg}\n${stack}`);
     void vscode.window.showErrorMessage(
-      `Saropa Drift Advisor: "${name}" failed — ${msg}. Some features may be unavailable.`,
+      `Saropa Drift: "${name}" failed — ${msg}. Some features may be unavailable.`,
     );
     return undefined;
   }

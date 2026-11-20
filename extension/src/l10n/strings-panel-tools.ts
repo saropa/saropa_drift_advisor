@@ -95,7 +95,7 @@ export const stringsPanelTools: Record<string, string> = {
   // --- Troubleshooting ---
   'panel.tools.trouble.title': 'Troubleshooting',
   'panel.tools.trouble.subtitle':
-    'Saropa Drift Advisor — connection and setup help',
+    'Saropa Drift — connection and setup help',
 
   // --- Live status banner (top of panel; reflects the actual connection state) ---
   'panel.tools.trouble.status.connected.title': 'Connected',
@@ -184,9 +184,9 @@ export const stringsPanelTools: Record<string, string> = {
   // in markup; the sentence prose is the translatable value.
   'panel.tools.trouble.flutter.intro':
     'Start your app in debug mode (F5 or flutter run). The extension auto-discovers the Drift debug server through the VM Service connection.',
-  // <strong>TIP:</strong>, Output, and Saropa Drift Advisor emphasis are static markup.
+  // <strong>TIP:</strong>, Output, and Saropa Drift emphasis are static markup.
   'panel.tools.trouble.flutter.tip':
-    '<strong>TIP:</strong> Check <strong>Output</strong> &rarr; <strong>Saropa Drift Advisor</strong> for detailed connection logs and error messages.',
+    '<strong>TIP:</strong> Check <strong>Output</strong> &rarr; <strong>Saropa Drift</strong> for detailed connection logs and error messages.',
   'panel.tools.trouble.flutter.stillDisconnected':
     'If you are still disconnected:',
   'panel.tools.trouble.flutter.li.start':

@@ -7,7 +7,7 @@ window against a running Drift debug server.
 ## Saropa Suite integration (plan 67)
 
 ### Drift Health panel
-- [ ] Run **Saropa Drift Advisor: Open Drift Health (Suite)**. The panel groups findings by table,
+- [ ] Run **Saropa Drift: Open Drift Health (Suite)**. The panel groups findings by table,
       with Advisor / Lints / Log Capture columns. Tables order by finding count.
 - [ ] Severity filter (All / Errors / Warnings / Info) and the sort control work; cards/columns with
       no matching findings hide when filtered.
@@ -22,7 +22,7 @@ window against a running Drift debug server.
 - [ ] With no findings it shows the clean state; with the server down it shows zero, not an error.
 
 ### Commit Timeline
-- [ ] Run **Saropa Drift Advisor: Open Commit Timeline (Suite)** after a few debug sessions across
+- [ ] Run **Saropa Drift: Open Commit Timeline (Suite)** after a few debug sessions across
       commits. Rows are newest-first with a per-commit severity bar, per-tool counts, a current-commit
       badge, and a +/- delta versus the previous commit.
 
@@ -88,7 +88,7 @@ window against a running Drift debug server.
       orange accent — it previously rendered a fixed indigo light palette regardless of OS theme.
 
 ### Feature discovery buttons look like buttons
-- [ ] Open the **Dashboard**; the "Explore Drift Advisor" card's category actions (Schema Diff,
+- [ ] Open the **Dashboard**; the "Explore Saropa Drift" card's category actions (Schema Diff,
       Health Score, Seed Data, …) render as bordered buttons, not plain text links, in every theme.
 - [ ] Secondary buttons across other panels (SQL Notebook, Snippet Library, Query Builder,
       Refactoring, Bulk Edit) remain visibly button-shaped on a theme with no secondary-button color.

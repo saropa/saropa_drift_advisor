@@ -58,7 +58,7 @@ export class DashboardState {
         {
           id: 'discovery-default',
           type: 'featureDiscovery',
-          title: 'Explore Drift Advisor',
+          title: 'Explore Saropa Drift',
           gridX: 0,
           gridY: 0,
           gridW: 4,

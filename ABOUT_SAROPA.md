@@ -97,7 +97,7 @@ _Production-hardened tools for VS Code, Dart, and Flutter._
 - **[Saropa Workspace](https://marketplace.visualstudio.com/items?itemName=saropa.saropa-workspace)**
   - _File and script shortcuts:_ Pin any file as a favorite—single-click opens it, double-click runs it. Pins are project-scoped (shareable via the repo) or global, with a per-pin command prefix, CLI args, working directory, and environment. Seeds auto-pins and imports existing favorites.
 - **[Saropa Suite](https://marketplace.visualstudio.com/items?itemName=saropa.saropa-suite)**
-  - _One-click install_ for the full Saropa developer toolkit: Log Capture + Drift Advisor + Lints. Cross-extension integrations: bug reports embed lint findings, OWASP executive summaries, and project health scores; debug sessions carry query performance and schema context; right-click any SQL line in your logs to "Open in Drift Advisor."
+  - _One-click install_ for the full Saropa developer toolkit: Log Capture + Saropa Drift + Lints. Cross-extension integrations: bug reports embed lint findings, OWASP executive summaries, and project health scores; debug sessions carry query performance and schema context; right-click any SQL line in your logs to "Open in Saropa Drift."
 
 ---
 

@@ -67,7 +67,7 @@ export const stringsPanelHealth: Record<string, string> = {
     'Anomaly scan was partial — open Drift Health for details',
   'panel.driftHealth.empty':
     'No suite findings yet. Start the debug server and run Saropa Lints / Saropa Log Capture to populate this view.',
-  'panel.driftHealth.col.advisor': 'Drift Advisor — runtime',
+  'panel.driftHealth.col.advisor': 'Saropa Drift — runtime',
   'panel.driftHealth.col.lints': 'Saropa Lints — static',
   'panel.driftHealth.col.logCapture': 'Saropa Log Capture — telemetry',
   'panel.driftHealth.untabled': 'Query-level (no table)',

@@ -1,4 +1,4 @@
-# Contributing to Saropa Drift Advisor
+# Contributing to Saropa Drift
 
 Thank you for your interest in contributing! This guide will help you get started.
 

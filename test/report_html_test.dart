@@ -54,7 +54,7 @@ void main() {
       expect(html, startsWith('<!DOCTYPE html>'));
       expect(html, contains('<html lang="en">'));
       expect(html.trimRight(), endsWith('</html>'));
-      expect(html, contains('Saropa Drift Advisor Report'));
+      expect(html, contains('Saropa Drift Report'));
     });
 
     test('embeds the table data as JSON', () {

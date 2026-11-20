@@ -3,7 +3,7 @@
  *
  * Saropa Workspace builds a consolidated "Suite daily report" and asks each
  * Suite tool to expose one small, data-returning API so it never scrapes
- * another tool's internals or on-disk state. This module is the Drift Advisor
+ * another tool's internals or on-disk state. This module is the Saropa Drift
  * side of that contract: a thin read-only projection of what the dashboard,
  * anomaly detector, and index analyzer already compute for the current
  * connected session — no new capture, no new logic.
@@ -42,7 +42,7 @@ export interface DailySummaryTrouble {
   args?: unknown;
 }
 
-/** That day's digest of what Drift Advisor observed for one connected session. */
+/** That day's digest of what Saropa Drift observed for one connected session. */
 export interface DailySummary {
   /** Stable tool identifier within the Suite report. */
   tool: 'drift-viewer';
@@ -54,7 +54,7 @@ export interface DailySummary {
   counts: Record<string, number>;
   /** Failure-only items (anomalies, slow-query offenders). */
   trouble: DailySummaryTrouble[];
-  /** Deep-link to open the full Drift Advisor view. */
+  /** Deep-link to open the full Saropa Drift view. */
   openCommand?: string;
 }
 
@@ -92,7 +92,7 @@ export async function buildDailySummary(
   date: string,
 ): Promise<DailySummary | undefined> {
   // No connected client means no database has been observed — the caller
-  // omits the Drift Advisor section entirely (plan acceptance criterion).
+  // omits the Saropa Drift section entirely (plan acceptance criterion).
   if (!client) return undefined;
 
   const [perf, anomalies, indexSuggestions] = await Promise.all([

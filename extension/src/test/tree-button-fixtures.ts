@@ -104,7 +104,7 @@ export function mockTreeProvider(opts?: {
 
 /** Fresh MockOutputChannel for tracking output lines. */
 export function mockConnectionChannel(): MockOutputChannel {
-  return new MockOutputChannel('Saropa Drift Advisor');
+  return new MockOutputChannel('Saropa Drift');
 }
 
 // ── Realistic schema fixture ─────────────────────────────────────────

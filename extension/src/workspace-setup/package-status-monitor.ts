@@ -205,7 +205,7 @@ export class PackageStatusMonitor implements vscode.Disposable {
     latestVersion: string,
   ): void {
     void vscode.window.showInformationMessage(
-      `Saropa Drift Advisor v${latestVersion} is available (you have ${currentConstraint}).`,
+      `Saropa Drift v${latestVersion} is available (you have ${currentConstraint}).`,
       'Upgrade',
       'Dismiss',
     ).then(async (choice) => {

@@ -1,6 +1,6 @@
-![Saropa Drift Advisor - SQLite/Drift](https://raw.githubusercontent.com/saropa/saropa_drift_advisor/main/assets/banner_v3.png)
+![Saropa Drift - SQLite/Drift](https://raw.githubusercontent.com/saropa/saropa_drift_advisor/main/assets/banner_v3.png)
 
-# Saropa Drift Advisor
+# Saropa Drift
 
 [![pub package](https://img.shields.io/pub/v/saropa_drift_advisor.svg)](https://pub.dev/packages/saropa_drift_advisor)
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/saropa.drift-viewer.svg?label=VS%20Code)](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer)
@@ -8,7 +8,7 @@
 [![CI](https://github.com/saropa/saropa_drift_advisor/actions/workflows/main.yaml/badge.svg)](https://github.com/saropa/saropa_drift_advisor/actions/workflows/main.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-**Saropa Drift Advisor** is a **debug-only** toolkit for SQLite and [Drift](https://drift.simonbinder.eu/) in Flutter and Dart. Your app hosts a small **HTTP debug server**; you inspect the same database through a **full browser UI** or the **VS Code / Cursor extension**—same REST API, same live data. Beyond browsing: SQL notebooks and EXPLAIN trees, ER diagrams and schema diff, migration preview and rollback codegen, anomaly and index tooling, optional imports/edits with **batch apply**, **VM Service** integration while debugging, merged **`/api/issues`** for linters, pre-launch health tasks, portable HTML reports, and shareable **session URLs**. None of it ships in release builds if you gate on `kDebugMode`. For a **single table** that maps every major capability, see **[Scope at a glance](#scope-at-a-glance)** under [Features](#features).
+**Saropa Drift** is a **debug-only** toolkit for SQLite and [Drift](https://drift.simonbinder.eu/) in Flutter and Dart. Your app hosts a small **HTTP debug server**; you inspect the same database through a **full browser UI** or the **VS Code / Cursor extension**—same REST API, same live data. Beyond browsing: SQL notebooks and EXPLAIN trees, ER diagrams and schema diff, migration preview and rollback codegen, anomaly and index tooling, optional imports/edits with **batch apply**, **VM Service** integration while debugging, merged **`/api/issues`** for linters, pre-launch health tasks, portable HTML reports, and shareable **session URLs**. None of it ships in release builds if you gate on `kDebugMode`. For a **single table** that maps every major capability, see **[Scope at a glance](#scope-at-a-glance)** under [Features](#features).
 
 |                               |                                                                                                                                                                                                                          |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -124,7 +124,7 @@ You usually inspect data in either a **browser** or the **extension**; both are 
 
 ## Scope: Runtime Data vs. Static Code (complements `saropa_lints`)
 
-Saropa Drift Advisor and **[`saropa_lints`](https://pub.dev/packages/saropa_lints)** are complementary, not overlapping. Install both when you use Drift — they catch different classes of bugs.
+Saropa Drift and **[`saropa_lints`](https://pub.dev/packages/saropa_lints)** are complementary, not overlapping. Install both when you use Drift — they catch different classes of bugs.
 
 |                 | `saropa_drift_advisor` (this project)                                               | `saropa_lints`                                                                                       |
 | --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -250,7 +250,7 @@ Full REST endpoint documentation with request/response schemas, error codes, and
 
 ### VS Code Extension (separate install)
 
-Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer). See [extension/README.md](extension/README.md) for full configuration and command reference.
+Install **Saropa Drift** (`saropa.drift-viewer`) from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer). See [extension/README.md](extension/README.md) for full configuration and command reference.
 
 > **Why `drift-viewer`?** The extension was originally a read-only table viewer. It has since grown into a full advisor — with a query builder, schema linter, performance profiler, and more — but the marketplace ID stays `drift-viewer` to preserve update continuity for existing users.
 
@@ -266,7 +266,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 #### Code Intelligence
 
 - **Go to Definition** (F12) / **Peek** (Alt+F12) — jump from SQL table/column names in Dart to Drift class definitions; the Database tree uses the same locator (context menu **Go to … Definition (Dart)** opens the `.dart` file when the symbol is found)
-- **CodeLens** — live row counts and quick actions ("View in Saropa Drift Advisor", "Run Query") on `class ... extends Table`
+- **CodeLens** — live row counts and quick actions ("View in Saropa Drift", "Run Query") on `class ... extends Table`
 - **Hover preview** — see recent rows when hovering over table class names during debug
 - **Schema linter** — real-time diagnostics for missing indexes, anomalies, constraint violations; quick-fix code actions
 - **Terminal link integration** — clickable SQLite error messages in terminal output
@@ -281,7 +281,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 
 #### Schema & Migration
 
-- **Scan Dart schema (offline)** — Command Palette: **Saropa Drift Advisor: Scan Dart Schema Definitions** parses workspace `.dart` files for Drift `Table` classes (columns, `uniqueKeys`, `Index` / `UniqueIndex`); output in **Drift Dart schema**; no debug server required (`driftViewer.dartSchemaScan.openOutput` controls auto-open)
+- **Scan Dart schema (offline)** — Command Palette: **Saropa Drift: Scan Dart Schema Definitions** parses workspace `.dart` files for Drift `Table` classes (columns, `uniqueKeys`, `Index` / `UniqueIndex`); output in **Drift Dart schema**; no debug server required (`driftViewer.dartSchemaScan.openOutput` controls auto-open)
 - **Schema diff** — compare Drift table definitions in code vs runtime schema
 - **Offline Database tree** — `driftViewer.database.allowOfflineSchema` (default on): repopulate the tree from last-known workspace schema when the server is unreachable ("Offline — cached schema")
 - **Schema diagram** — ER-style visualization with FK relationship lines; keyboard-navigable with screen reader support
@@ -332,7 +332,7 @@ Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marke
 #### Integrations
 
 - **Saropa Log Capture bridge** — unified timeline with session headers/summaries and three verbosity modes (`off` / `slow-only` / `all`). When `driftViewer.integrations.includeInLogCaptureSession` is `full` (default), session end exports structured metadata (query performance, anomalies, schema, health, diagnostic issues) and a JSON sidecar file. Set to `header` for lightweight headers only, or `none` to disable
-- **Saropa Lints** — the Saropa Lints VS Code extension can optionally show Drift Advisor issues (index suggestions and anomalies) when the debug server is running; it uses `GET /api/issues` when the server reports that capability in `GET /api/health`.
+- **Saropa Lints** — the Saropa Lints VS Code extension can optionally show Saropa Drift issues (index suggestions and anomalies) when the debug server is running; it uses `GET /api/issues` when the server reports that capability in `GET /api/health`.
 
 #### Configuration
 
@@ -424,7 +424,7 @@ A complete, tested interceptor ships in the example — copy [example/lib/databa
 
 ### 3. Connect a client
 
-**VS Code extension (recommended):** Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the Marketplace. It auto-discovers the running server — no configuration needed. On Android emulator, the extension automatically forwards the debug server port when a Flutter/Dart debug session is active.
+**VS Code extension (recommended):** Install **Saropa Drift** (`saropa.drift-viewer`) from the Marketplace. It auto-discovers the running server — no configuration needed. On Android emulator, the extension automatically forwards the debug server port when a Flutter/Dart debug session is active.
 
 **Browser:** Open **http://127.0.0.1:8642** (on emulator, run `adb forward tcp:8642 tcp:8642` first).
 

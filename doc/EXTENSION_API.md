@@ -1,6 +1,6 @@
-# Saropa Drift Advisor — Extension API
+# Saropa Drift — Extension API
 
-Other VS Code extensions can consume Drift Advisor data by using the public API exposed when this extension is activated.
+Other VS Code extensions can consume Saropa Drift data by using the public API exposed when this extension is activated.
 
 ## Extension ID
 
@@ -17,7 +17,7 @@ import * as vscode from 'vscode';
 
 const ext = vscode.extensions.getExtension('saropa.drift-viewer');
 if (!ext) {
-  // Drift Advisor is not installed
+  // Saropa Drift is not installed
   return;
 }
 const api = await ext.activate();
@@ -50,7 +50,7 @@ if (snapshot === null) {
 | `indexSuggestions` | array (optional) | `IndexSuggestion[]` |
 | `issues` | array (optional) | `{ code, message, file, range?, severity }[]` (workspace-relative paths) |
 
-Use this API when you need to pull the same data that Drift Advisor contributes to Saropa Log Capture at session end, without relying on the Log Capture integration provider having run.
+Use this API when you need to pull the same data that Saropa Drift contributes to Saropa Log Capture at session end, without relying on the Log Capture integration provider having run.
 
 ## Saropa Suite daily-summary contract
 
@@ -89,13 +89,13 @@ Contract version. Bumps only on a breaking shape change; consumers ignore unknow
 
 ## File-based access (Log Capture sidecar)
 
-When Saropa Log Capture ends a session and Drift Advisor contributes in **full** mode, the extension writes a well-known file so that scripts or other consumers can read the same snapshot without activating the extension.
+When Saropa Log Capture ends a session and Saropa Drift contributes in **full** mode, the extension writes a well-known file so that scripts or other consumers can read the same snapshot without activating the extension.
 
 - **Path:** `<workspaceRoot>/.saropa/drift-advisor-session.json`
 - **Encoding:** UTF-8 JSON
 - **Shape:** Same as `DriftAdvisorSnapshot` (see [snapshot shape](#snapshot-shape-driftadvisorsnapshot)).
 - **When written:** On Log Capture session end, when the integration provider runs with `includeInLogCaptureSession` set to `full` and a sidecar is produced. Overwritten each time.
-- **When not written:** If no workspace folder, if mode is `none` or `header`, or if the provider does not run (e.g. Log Capture not installed or "Drift Advisor" disabled in Log Capture).
+- **When not written:** If no workspace folder, if mode is `none` or `header`, or if the provider does not run (e.g. Log Capture not installed or "Saropa Drift" disabled in Log Capture).
 
 Use cases:
 

@@ -205,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(
         prog="l10n",
-        description="Saropa Drift Advisor — manifest localization audit (audits, never translates).",
+        description="Saropa Drift — manifest localization audit (audits, never translates).",
     )
     parser.add_argument(
         "mode",

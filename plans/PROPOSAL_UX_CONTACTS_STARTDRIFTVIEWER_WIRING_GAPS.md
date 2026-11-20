@@ -48,7 +48,7 @@ $ sed -n '638,658p' D:/src/contacts/lib/main.dart
           // app bugs, and must not halt the debugger. Stack is attached
           // (default) so genuine server errors retain diagnostic context.
           onError: (Object error, StackTrace stack) => debug(
-            () => 'Drift Advisor error: $error',
+            () => 'Saropa Drift error: $error',
             level: DebugLevels.Warning,
             stackTrace: stack,
             doSaveToDb: false,

@@ -1,5 +1,5 @@
 /**
- * Drift Advisor extension entry point.
+ * Saropa Drift extension entry point.
  *
  * Activation is split into isolated **phases**, each wrapped in its own
  * try/catch. If one phase throws, the error is logged and surfaced via
@@ -41,9 +41,9 @@ import { activateInner } from './extension-activate-inner';
 export function activate(context: vscode.ExtensionContext): DriftAdvisorApi | undefined {
   // Phase 0: Output channel — created before everything else so every
   // subsequent phase can log to it. Cannot meaningfully fail.
-  const channel = vscode.window.createOutputChannel('Saropa Drift Advisor');
+  const channel = vscode.window.createOutputChannel('Saropa Drift');
   context.subscriptions.push(channel);
-  channel.appendLine(`[${ts()}] Saropa Drift Advisor activating...`);
+  channel.appendLine(`[${ts()}] Saropa Drift activating...`);
 
   try {
     return activateInner(context, channel);
@@ -52,12 +52,12 @@ export function activate(context: vscode.ExtensionContext): DriftAdvisorApi | un
     const msg = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack ?? '' : '';
     void vscode.window.showErrorMessage(
-      `Saropa Drift Advisor failed to activate: ${msg}`,
+      `Saropa Drift failed to activate: ${msg}`,
     );
     channel.appendLine(`[${ts()}] FATAL unhandled error: ${msg}\n${stack}`);
     // Log to Extension Host console so developers can find it in
     // Output → Extension Host even if the Saropa channel is not open.
-    console.error('[Saropa Drift Advisor] Activation failed:', msg, '\n', stack);
+    console.error('[Saropa Drift] Activation failed:', msg, '\n', stack);
     // DO NOT re-throw. Re-throwing causes VS Code to mark the extension
     // as failed and dispose ALL registered commands — even those from
     // earlier phases that completed successfully. The tree view survives

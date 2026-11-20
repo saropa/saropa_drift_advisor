@@ -40,7 +40,7 @@ describe('DriftViewerPanel', () => {
     DriftViewerPanel.createOrShow('127.0.0.1', 8642);
 
     const html = latestPanel().webview.html;
-    assert.ok(html.includes('Loading Saropa Drift Advisor'), 'should show loading message');
+    assert.ok(html.includes('Loading Saropa Drift'), 'should show loading message');
     assert.ok(html.includes('127.0.0.1:8642'), 'should show server URL');
   });
 
@@ -217,7 +217,7 @@ describe('DriftViewerPanel', () => {
     DriftViewerPanel.createOrShow('127.0.0.1', 9000);
 
     const html = latestPanel().webview.html;
-    assert.ok(html.includes('Loading Saropa Drift Advisor'), 'should show loading during switch');
+    assert.ok(html.includes('Loading Saropa Drift'), 'should show loading during switch');
     assert.ok(html.includes('127.0.0.1:9000'), 'should show new server URL');
     assert.ok(!html.includes('8642'), 'should not reference old server');
   });

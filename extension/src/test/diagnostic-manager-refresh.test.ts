@@ -96,7 +96,7 @@ describe('DiagnosticManager', () => {
       const collection = manager.collection as unknown as MockDiagnosticCollection;
       const allDiags = [...collection.entries().values()].flat();
 
-      assert.strictEqual(allDiags[0].source, 'Drift Advisor');
+      assert.strictEqual(allDiags[0].source, 'Saropa Drift');
     });
 
     it('should skip disabled categories', async () => {

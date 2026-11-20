@@ -29,7 +29,7 @@ void main() {
     );
 
     // Without dbSummary, falls back to status-only layout.
-    expect(find.text('Saropa Drift Advisor is running'), findsOneWidget);
+    expect(find.text('Saropa Drift is running'), findsOneWidget);
     expect(find.text('Copy URL'), findsOneWidget);
   });
 
@@ -85,7 +85,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Saropa Drift Advisor is running'), findsOneWidget);
+      expect(find.text('Saropa Drift is running'), findsOneWidget);
       final copyButton = find.byType(FilledButton);
       expect(copyButton, findsOneWidget);
       final widget = tester.widget<FilledButton>(copyButton);
@@ -142,7 +142,7 @@ void main() {
     );
 
     // Status header shows compact running state.
-    expect(find.text('Drift Advisor is running'), findsOneWidget);
+    expect(find.text('Saropa Drift is running'), findsOneWidget);
 
     // Table overview section visible with section title.
     expect(find.text('Tables'), findsOneWidget);

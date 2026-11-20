@@ -1,4 +1,4 @@
-// Shared test utilities for Saropa Drift Advisor tests.
+// Shared test utilities for Saropa Drift tests.
 //
 // Provides reusable mock query callbacks, HTTP helper methods,
 // and factory functions to reduce duplication across test files.

@@ -31,7 +31,7 @@ let _indexApplyOutput: vscode.OutputChannel | undefined;
 
 /** Shared, lazily-created output channel so repeated runs append rather than spawn channels. */
 function outputChannel(): vscode.OutputChannel {
-  _indexApplyOutput ??= vscode.window.createOutputChannel('Saropa Drift Advisor: Index Apply');
+  _indexApplyOutput ??= vscode.window.createOutputChannel('Saropa Drift: Index Apply');
   return _indexApplyOutput;
 }
 
@@ -213,6 +213,6 @@ export async function createAllIndexesCommand(
   channel.show(true);
 
   vscode.window.showInformationMessage(
-    `Created ${created} index(es)${failed > 0 ? `, ${failed} failed` : ''}. See "Saropa Drift Advisor: Index Apply" output for details.`,
+    `Created ${created} index(es)${failed > 0 ? `, ${failed} failed` : ''}. See "Saropa Drift: Index Apply" output for details.`,
   );
 }

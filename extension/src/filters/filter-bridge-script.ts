@@ -1,5 +1,5 @@
 /**
- * Inline JS injected into the Saropa Drift Advisor webview for saved-filter
+ * Inline JS injected into the Saropa Drift webview for saved-filter
  * management. Extracted to its own file to keep filter-bridge.ts concise.
  */
 export const FILTER_BRIDGE_SCRIPT = `

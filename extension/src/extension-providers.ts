@@ -68,7 +68,7 @@ export function setupProviders(
   const cfg = vscode.workspace.getConfiguration('driftViewer');
 
   // Extract the extension version once — used for both the Database header
-  // and the "About Saropa Drift Advisor vX.Y.Z" item in the Drift Tools tree.
+  // and the "About Saropa Drift vX.Y.Z" item in the Drift Tools tree.
   const extensionVersion = (context.extension?.packageJSON as { version?: string } | undefined)?.version ?? '0.0.0';
 
   const treeProvider = new DriftTreeProvider(client, annotationStore, isDriftUiConnected, log);

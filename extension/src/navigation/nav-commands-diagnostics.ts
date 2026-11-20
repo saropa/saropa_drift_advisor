@@ -44,7 +44,7 @@ export function registerDiagnosticsCommands(
       for (const line of lines) connectionChannel.appendLine(line);
       log('Diagnose Connection: complete (see Output)');
       const pick = await vscode.window.showInformationMessage(
-        'Connection diagnosis written to Output → Saropa Drift Advisor.',
+        'Connection diagnosis written to Output → Saropa Drift.',
         'Copy summary',
         'Close',
       );

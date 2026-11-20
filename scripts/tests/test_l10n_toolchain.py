@@ -56,7 +56,7 @@ class TestBrands(unittest.TestCase):
     def test_brand_only(self):
         self.assertTrue(brands.is_brand_only("Drift"))
         self.assertTrue(brands.is_brand_only("SQLite"))
-        self.assertTrue(brands.is_brand_only("Saropa Drift Advisor"))
+        self.assertTrue(brands.is_brand_only("Saropa Drift"))
         self.assertFalse(brands.is_brand_only("Open in Drift"))
 
     def test_acronym_only(self):
@@ -91,9 +91,9 @@ class TestBrands(unittest.TestCase):
         self.assertTrue(brands.is_verified_identical("Total", "pt-br"))
 
     def test_shield_unshield_roundtrip(self):
-        text = "Open Saropa Drift Advisor with SQLite"
+        text = "Open Saropa Drift with SQLite"
         shielded, repl = brands.shield_brands(text)
-        self.assertNotIn("Saropa Drift Advisor", shielded)
+        self.assertNotIn("Saropa Drift", shielded)
         self.assertEqual(brands.unshield_brands(shielded, repl), text)
 
     def test_validate_brands_flags_dropped(self):

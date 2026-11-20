@@ -200,7 +200,7 @@ def parse_args() -> argparse.Namespace:
     connected devices after Flutter prerequisite checks pass.
     """
     parser = argparse.ArgumentParser(
-        description="Saropa Drift Advisor -- Run Example App",
+        description="Saropa Drift -- Run Example App",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

@@ -1338,7 +1338,7 @@
     // translator can reorder them.
     "viewer.nav.home.cardTooltip": "{0} \u2014 {1}",
     // Home page heading.
-    "viewer.nav.home.title": "Saropa Drift Advisor",
+    "viewer.nav.home.title": "Saropa Drift",
     // Narrative feature overview shown under the heading. Rolls every launcher/extra
     // blurb into prose without dropping a capability: browse/pagination/export, schema
     // + data search with filters and jump-to-match, the SQL editor (templates,
@@ -19531,6 +19531,8 @@
       reservedDataTypes: dataTypes12,
       reservedFunctionNames: functions12,
       nestedBlockComments: true,
+      // Preserve pg_dump safety guards as opaque lines.
+      lineCommentTypes: ["--", "\\restrict ", "\\unrestrict "],
       extraParens: ["[]"],
       underscoresInNumbers: true,
       stringTypes: [
@@ -24477,6 +24479,7 @@
       ],
       lineCommentTypes: ["--", "#"],
       operators: [
+        "%",
         ":=",
         "&",
         "|",
@@ -26145,7 +26148,7 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
 
   // node_modules/sql-formatter/dist/esm/lexer/disambiguateTokens.js
   function disambiguateTokens(tokens) {
-    return tokens.map(propertyNameKeywordToIdent).map(funcNameToIdent).map(dataTypeToParameterizedDataType).map(identToArrayIdent).map(dataTypeToArrayKeyword);
+    return tokens.map(propertyNameKeywordToIdent).map(keywordAliasAfterAs).map(funcNameToIdent).map(dataTypeToParameterizedDataType).map(identToArrayIdent).map(dataTypeToArrayKeyword);
   }
   var propertyNameKeywordToIdent = (token, i, tokens) => {
     if (isReserved(token.type)) {
@@ -26160,6 +26163,20 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     }
     return token;
   };
+  var keywordAliasAfterAs = (token, i, tokens) => {
+    if (canBeAliasAfterAs(token)) {
+      const prevToken = prevNonCommentToken(tokens, i);
+      if (prevToken && isAsKeyword(prevToken)) {
+        return Object.assign(Object.assign({}, token), { type: TokenType.IDENTIFIER, text: token.raw });
+      }
+    }
+    return token;
+  };
+  var isAsKeyword = (token) => token.type === TokenType.RESERVED_KEYWORD && token.text === "AS";
+  var canBeAliasAfterAs = (token) => token.type === TokenType.RESERVED_SET_OPERATION || token.type === TokenType.RESERVED_JOIN || token.type === TokenType.LIMIT || token.type === TokenType.BETWEEN || token.type === TokenType.CASE || token.type === TokenType.END || token.type === TokenType.WHEN || token.type === TokenType.ELSE || token.type === TokenType.THEN || token.type === TokenType.AND || token.type === TokenType.OR || token.type === TokenType.XOR || // SET is the clause keyword used as an alias in #801. The other
+  // RESERVED_CLAUSE words can follow AS for real (SELECT, VALUES, WITH,
+  // INSERT, UPDATE, DELETE, EXECUTE, ...), so they stay keywords.
+  token.type === TokenType.RESERVED_CLAUSE && token.text === "SET";
   var funcNameToIdent = (token, i, tokens) => {
     if (token.type === TokenType.RESERVED_FUNCTION_NAME) {
       const nextToken = nextNonCommentToken(tokens, i);
@@ -26281,6 +26298,14 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     text: token.text,
     raw: token.raw
   });
+  var materializeExpressionList = (expressions) => {
+    const result = [];
+    for (let current = expressions; current; current = current.previous) {
+      result.push(current.value);
+    }
+    result.reverse();
+    return result;
+  };
   var addComments = (node, { leading, trailing }) => {
     if (leading === null || leading === void 0 ? void 0 : leading.length) {
       node = Object.assign(Object.assign({}, node), { leadingComments: leading });
@@ -26326,18 +26351,21 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
         "symbols": ["expressions_or_clauses", "statement$subexpression$1"],
         "postprocess": ([children, [delimiter]]) => ({
           type: NodeType.statement,
-          children,
+          children: materializeExpressionList(children),
           hasSemicolon: delimiter.type === TokenType.DELIMITER
         })
       },
-      { "name": "expressions_or_clauses$ebnf$1", "symbols": [] },
-      { "name": "expressions_or_clauses$ebnf$1", "symbols": ["expressions_or_clauses$ebnf$1", "free_form_sql"], "postprocess": (d) => d[0].concat([d[1]]) },
-      { "name": "expressions_or_clauses$ebnf$2", "symbols": [] },
-      { "name": "expressions_or_clauses$ebnf$2", "symbols": ["expressions_or_clauses$ebnf$2", "clause"], "postprocess": (d) => d[0].concat([d[1]]) },
+      { "name": "expressions_or_clauses", "symbols": ["expression_list"], "postprocess": id },
       {
         "name": "expressions_or_clauses",
-        "symbols": ["expressions_or_clauses$ebnf$1", "expressions_or_clauses$ebnf$2"],
-        "postprocess": ([expressions, clauses]) => [...expressions, ...clauses]
+        "symbols": ["expressions_or_clauses", "clause"],
+        "postprocess": ([previous, value]) => ({ previous, value })
+      },
+      { "name": "expression_list", "symbols": [], "postprocess": () => void 0 },
+      {
+        "name": "expression_list",
+        "symbols": ["expression_list", "free_form_sql"],
+        "postprocess": ([previous, value]) => ({ previous, value })
       },
       { "name": "clause$subexpression$1", "symbols": ["limit_clause"] },
       { "name": "clause$subexpression$1", "symbols": ["select_clause"] },
@@ -26370,19 +26398,18 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
           }
         }
       },
-      { "name": "select_clause$subexpression$1$ebnf$1", "symbols": [] },
-      { "name": "select_clause$subexpression$1$ebnf$1", "symbols": ["select_clause$subexpression$1$ebnf$1", "free_form_sql"], "postprocess": (d) => d[0].concat([d[1]]) },
-      { "name": "select_clause$subexpression$1", "symbols": ["all_columns_asterisk", "select_clause$subexpression$1$ebnf$1"] },
-      { "name": "select_clause$subexpression$1$ebnf$2", "symbols": [] },
-      { "name": "select_clause$subexpression$1$ebnf$2", "symbols": ["select_clause$subexpression$1$ebnf$2", "free_form_sql"], "postprocess": (d) => d[0].concat([d[1]]) },
-      { "name": "select_clause$subexpression$1", "symbols": ["asteriskless_free_form_sql", "select_clause$subexpression$1$ebnf$2"] },
+      { "name": "select_clause$subexpression$1", "symbols": ["all_columns_asterisk", "expression_list"] },
+      { "name": "select_clause$subexpression$1", "symbols": ["asteriskless_free_form_sql", "expression_list"] },
       {
         "name": "select_clause",
         "symbols": [lexer.has("RESERVED_SELECT") ? { type: "RESERVED_SELECT" } : RESERVED_SELECT, "select_clause$subexpression$1"],
         "postprocess": ([nameToken, [exp, expressions]]) => ({
           type: NodeType.clause,
           nameKw: toKeywordNode(nameToken),
-          children: [exp, ...expressions]
+          // Nearley completes every prefix; only materialize the surviving clause's children.
+          get children() {
+            return [exp, ...materializeExpressionList(expressions)];
+          }
         })
       },
       {
@@ -26399,26 +26426,26 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
         "symbols": [lexer.has("ASTERISK") ? { type: "ASTERISK" } : ASTERISK],
         "postprocess": () => ({ type: NodeType.all_columns_asterisk })
       },
-      { "name": "other_clause$ebnf$1", "symbols": [] },
-      { "name": "other_clause$ebnf$1", "symbols": ["other_clause$ebnf$1", "free_form_sql"], "postprocess": (d) => d[0].concat([d[1]]) },
       {
         "name": "other_clause",
-        "symbols": [lexer.has("RESERVED_CLAUSE") ? { type: "RESERVED_CLAUSE" } : RESERVED_CLAUSE, "other_clause$ebnf$1"],
+        "symbols": [lexer.has("RESERVED_CLAUSE") ? { type: "RESERVED_CLAUSE" } : RESERVED_CLAUSE, "expression_list"],
         "postprocess": ([nameToken, children]) => ({
           type: NodeType.clause,
           nameKw: toKeywordNode(nameToken),
-          children
+          get children() {
+            return materializeExpressionList(children);
+          }
         })
       },
-      { "name": "set_operation$ebnf$1", "symbols": [] },
-      { "name": "set_operation$ebnf$1", "symbols": ["set_operation$ebnf$1", "free_form_sql"], "postprocess": (d) => d[0].concat([d[1]]) },
       {
         "name": "set_operation",
-        "symbols": [lexer.has("RESERVED_SET_OPERATION") ? { type: "RESERVED_SET_OPERATION" } : RESERVED_SET_OPERATION, "set_operation$ebnf$1"],
+        "symbols": [lexer.has("RESERVED_SET_OPERATION") ? { type: "RESERVED_SET_OPERATION" } : RESERVED_SET_OPERATION, "expression_list"],
         "postprocess": ([nameToken, children]) => ({
           type: NodeType.set_operation,
           nameKw: toKeywordNode(nameToken),
-          children
+          get children() {
+            return materializeExpressionList(children);
+          }
         })
       },
       { "name": "expression_chain_$ebnf$1", "symbols": ["expression_with_comments_"] },
@@ -26517,31 +26544,27 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
         "symbols": [{ "literal": "(" }, "expressions_or_clauses", { "literal": ")" }],
         "postprocess": ([open, children, close]) => ({
           type: NodeType.parenthesis,
-          children,
+          children: materializeExpressionList(children),
           openParen: "(",
           closeParen: ")"
         })
       },
-      { "name": "curly_braces$ebnf$1", "symbols": [] },
-      { "name": "curly_braces$ebnf$1", "symbols": ["curly_braces$ebnf$1", "free_form_sql"], "postprocess": (d) => d[0].concat([d[1]]) },
       {
         "name": "curly_braces",
-        "symbols": [{ "literal": "{" }, "curly_braces$ebnf$1", { "literal": "}" }],
+        "symbols": [{ "literal": "{" }, "expression_list", { "literal": "}" }],
         "postprocess": ([open, children, close]) => ({
           type: NodeType.parenthesis,
-          children,
+          children: materializeExpressionList(children),
           openParen: "{",
           closeParen: "}"
         })
       },
-      { "name": "square_brackets$ebnf$1", "symbols": [] },
-      { "name": "square_brackets$ebnf$1", "symbols": ["square_brackets$ebnf$1", "free_form_sql"], "postprocess": (d) => d[0].concat([d[1]]) },
       {
         "name": "square_brackets",
-        "symbols": [{ "literal": "[" }, "square_brackets$ebnf$1", { "literal": "]" }],
+        "symbols": [{ "literal": "[" }, "expression_list", { "literal": "]" }],
         "postprocess": ([open, children, close]) => ({
           type: NodeType.parenthesis,
-          children,
+          children: materializeExpressionList(children),
           openParen: "[",
           closeParen: "]"
         })
@@ -26780,9 +26803,16 @@ ${JSON.stringify(results, void 0, 2)}`);
             this.items.push(WS.SINGLE_INDENT);
             break;
           default:
+            if (item.startsWith("-") && this.lastItemEndsWith("-")) {
+              this.items.push(WS.SPACE);
+            }
             this.items.push(item);
         }
       }
+    }
+    lastItemEndsWith(suffix) {
+      const lastItem = last(this.items);
+      return typeof lastItem === "string" && lastItem.endsWith(suffix);
     }
     trimHorizontalWhitespace() {
       while (isHorizontalWhitespace(last(this.items))) {
@@ -26976,7 +27006,7 @@ ${JSON.stringify(results, void 0, 2)}`);
 
   // node_modules/sql-formatter/dist/esm/formatter/ExpressionFormatter.js
   var ExpressionFormatter = class _ExpressionFormatter {
-    constructor({ cfg, dialectCfg, params, layout: layout3, inline = false }) {
+    constructor({ cfg, dialectCfg, params, layout: layout3, inline = false, enclosingParenthesis }) {
       this.inline = false;
       this.nodes = [];
       this.index = -1;
@@ -26985,6 +27015,7 @@ ${JSON.stringify(results, void 0, 2)}`);
       this.inline = inline;
       this.params = params;
       this.layout = layout3;
+      this.enclosingParenthesis = enclosingParenthesis;
     }
     format(nodes) {
       this.nodes = nodes;
@@ -27084,7 +27115,7 @@ ${JSON.stringify(results, void 0, 2)}`);
       this.formatNode(node.property);
     }
     formatParenthesis(node) {
-      const inlineLayout = this.formatInlineExpression(node.children);
+      const inlineLayout = this.formatInlineExpression(node.children, node.openParen);
       if (inlineLayout) {
         this.layout.add(node.openParen);
         this.layout.add(...inlineLayout.getLayoutItems());
@@ -27093,11 +27124,11 @@ ${JSON.stringify(results, void 0, 2)}`);
         this.layout.add(node.openParen, WS.NEWLINE);
         if (isTabularStyle(this.cfg)) {
           this.layout.add(WS.INDENT);
-          this.layout = this.formatSubExpression(node.children);
+          this.layout = this.formatSubExpression(node.children, node.openParen);
         } else {
           this.layout.indentation.increaseBlockLevel();
           this.layout.add(WS.INDENT);
-          this.layout = this.formatSubExpression(node.children);
+          this.layout = this.formatSubExpression(node.children, node.openParen);
           this.layout.indentation.decreaseBlockLevel();
         }
         this.layout.add(WS.NEWLINE, WS.INDENT, node.closeParen, WS.SPACE);
@@ -27108,7 +27139,7 @@ ${JSON.stringify(results, void 0, 2)}`);
       this.layout = this.formatSubExpression(node.expr1);
       this.layout.add(WS.NO_SPACE, WS.SPACE, this.showNonTabularKw(node.andKw), WS.SPACE);
       this.layout = this.formatSubExpression(node.expr2);
-      this.layout.add(WS.SPACE);
+      this.layout.add(WS.NO_SPACE, WS.SPACE);
     }
     formatCaseExpression(node) {
       this.formatNode(node.caseKw);
@@ -27203,7 +27234,11 @@ ${JSON.stringify(results, void 0, 2)}`);
     formatOperator({ text }) {
       if (text === "-" && this.dialectCfg.identifierDashes) {
         this.layout.add(text, WS.SPACE);
+      } else if (/^OPERATOR\s*\(/iu.test(text)) {
+        this.layout.add(text, WS.SPACE);
       } else if (this.cfg.denseOperators || this.dialectCfg.alwaysDenseOperators.includes(text)) {
+        this.layout.add(WS.NO_SPACE, text);
+      } else if (text === ":" && this.enclosingParenthesis === "[") {
         this.layout.add(WS.NO_SPACE, text);
       } else if (text === ":") {
         this.layout.add(WS.NO_SPACE, text, WS.SPACE);
@@ -27314,16 +27349,17 @@ ${JSON.stringify(results, void 0, 2)}`);
         return comment.split(/\n/).map((line) => line.replace(/^\s*/, ""));
       }
     }
-    formatSubExpression(nodes) {
+    formatSubExpression(nodes, enclosingParenthesis = this.enclosingParenthesis) {
       return new _ExpressionFormatter({
         cfg: this.cfg,
         dialectCfg: this.dialectCfg,
         params: this.params,
         layout: this.layout,
-        inline: this.inline
+        inline: this.inline,
+        enclosingParenthesis
       }).format(nodes);
     }
-    formatInlineExpression(nodes) {
+    formatInlineExpression(nodes, enclosingParenthesis = this.enclosingParenthesis) {
       const oldParamIndex = this.params.getPositionalParameterIndex();
       try {
         return new _ExpressionFormatter({
@@ -27331,7 +27367,8 @@ ${JSON.stringify(results, void 0, 2)}`);
           dialectCfg: this.dialectCfg,
           params: this.params,
           layout: new InlineLayout(this.cfg.expressionWidth),
-          inline: true
+          inline: true,
+          enclosingParenthesis
         }).format(nodes);
       } catch (e) {
         if (e instanceof InlineLayoutError) {

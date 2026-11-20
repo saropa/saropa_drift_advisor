@@ -35,7 +35,7 @@ export class TroubleshootingPanel {
 
     const panel = vscode.window.createWebviewPanel(
       'driftTroubleshooting',
-      'Troubleshooting — Saropa Drift Advisor',
+      'Troubleshooting — Saropa Drift',
       column,
       { enableScripts: true },
     );
@@ -88,8 +88,8 @@ export class TroubleshootingPanel {
         safeExec('driftViewer.selectServer');
         break;
       case 'openOutput':
-        // Show the Saropa Drift Advisor output channel
-        safeExec('workbench.action.output.show', 'Saropa Drift Advisor');
+        // Show the Saropa Drift output channel
+        safeExec('workbench.action.output.show', 'Saropa Drift');
         break;
       case 'openSettings':
         safeExec('workbench.action.openSettings', 'driftViewer');

@@ -188,7 +188,7 @@ export class DriftToolsHubPanel {
     }
   }
 
-  /** Forward an id to executeCommand only if it is a Drift Advisor command. */
+  /** Forward an id to executeCommand only if it is a Saropa Drift command. */
   private _runDriftCommand(id?: string): void {
     if (this._isDriftCommand(id)) {
       void vscode.commands.executeCommand(id as string);

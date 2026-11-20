@@ -86,7 +86,7 @@ Both no-server welcome views lead with the walkthrough, before the troubleshooti
 No Drift debug server connected.
 
 [Open Getting Started]      ← command:driftViewer.openWalkthrough
-[Add Saropa Drift Advisor]  ← command:driftViewer.addPackageToProject   (view .2 only)
+[Add Saropa Drift]  ← command:driftViewer.addPackageToProject   (view .2 only)
 
 Already running your app? Try:
 [Diagnose connection] [Forward Port (Android Emulator)] [Troubleshooting] [Connection log]

@@ -1,7 +1,7 @@
 /**
  * Bridge to Saropa Log Capture extension.
  * Registers an integration provider so session-end contributions (meta + sidecar)
- * are sent when Log Capture is installed and "Drift Advisor" is enabled.
+ * are sent when Log Capture is installed and "Saropa Drift" is enabled.
  * No dependency on saropa-log-capture package; uses minimal compatible types.
  */
 
@@ -69,7 +69,7 @@ export class LogCaptureBridge {
         {
           kind: 'header',
           lines: [
-            `Saropa Drift Advisor: ${client.baseUrl}`,
+            `Saropa Drift: ${client.baseUrl}`,
             `Slow query threshold: ${slowMs}ms`,
           ],
         },

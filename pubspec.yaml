@@ -20,9 +20,9 @@ topics:
   - flutter
 
 screenshots:
-  - description: Saropa Drift Advisor logo
+  - description: Saropa Drift logo
     path: assets/logo_1024.png
-  - description: Saropa Drift Advisor banner
+  - description: Saropa Drift banner
     path: assets/banner_v3.png
 
 # SDK >=3.9.0 balances modern language features with broad audience reach.
@@ -44,7 +44,7 @@ dependencies:
 dev_dependencies:
   # Saropa custom lints; use custom_lint CLI.
   # https://pub.dev/packages/saropa_lints/changelog
-  saropa_lints: ^16.0.1
+  saropa_lints: ^17.2.0
 
   # Unit test framework.
   # https://pub.dev/packages/test/changelog

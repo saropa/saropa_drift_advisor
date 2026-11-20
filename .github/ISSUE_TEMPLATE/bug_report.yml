@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in Saropa Drift Advisor
+description: Report a bug in Saropa Drift
 labels: ["bug"]
 body:
   - type: markdown
@@ -83,7 +83,7 @@ body:
       label: Environment
       description: Please provide version information.
       placeholder: |
-        - Saropa Drift Advisor version:
+        - Saropa Drift version:
         - Dart SDK version:
         - Flutter version:
         - VS Code version (if extension):

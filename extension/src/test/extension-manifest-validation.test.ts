@@ -174,7 +174,7 @@ describe('Extension manifest validation', () => {
    * runtime via `WorkspaceConfiguration.update()` must be declared in
    * `contributes.configuration.properties`. VS Code throws
    * "<id> is not a registered configuration" and refuses the write otherwise —
-   * which is exactly what broke the Drift Advisor Rules sidebar toggle (it
+   * which is exactly what broke the Saropa Drift Rules sidebar toggle (it
    * writes `driftViewer.diagnostics.disabledRules`) and the Set Log Verbosity
    * command (writes `driftViewer.logVerbosity`) when those keys were used in
    * code but never declared in the manifest.

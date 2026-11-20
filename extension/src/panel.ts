@@ -1,5 +1,5 @@
 /**
- * DriftViewerPanel — singleton webview that displays the Drift Advisor
+ * DriftViewerPanel — singleton webview that displays the Saropa Drift
  * web UI inside VS Code.
  *
  * **Server-switch handling**: when `createOrShow` is called with a
@@ -67,7 +67,7 @@ export class DriftViewerPanel {
     }
     const panel = vscode.window.createWebviewPanel(
       'driftViewer',
-      'Saropa Drift Advisor',
+      'Saropa Drift',
       column,
       {
         enableScripts: true,
@@ -187,7 +187,7 @@ export class DriftViewerPanel {
     // Show loading state immediately
     this._panel.webview.html = `
       <html><body style="padding:2rem;font-family:system-ui;color:var(--vscode-foreground,#ccc);">
-        <h2>Loading Saropa Drift Advisor\u2026</h2>
+        <h2>Loading Saropa Drift\u2026</h2>
         <p>Connecting to <code>${baseUrl}</code></p>
       </body></html>`;
 

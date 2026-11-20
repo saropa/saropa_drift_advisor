@@ -190,7 +190,7 @@ function buildLauncher(
   if (!packageInstalled) {
     items.push(
       new ToolCommandItem(
-        'Add Saropa Drift Advisor', 'driftViewer.addPackageToProject', 'package',
+        'Add Saropa Drift', 'driftViewer.addPackageToProject', 'package',
         false, 'Add saropa_drift_advisor to pubspec.yaml',
       ),
     );

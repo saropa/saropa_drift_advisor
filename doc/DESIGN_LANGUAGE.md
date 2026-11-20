@@ -1,4 +1,4 @@
-# Saropa Drift Advisor -- Web UI Design Language
+# Saropa Drift -- Web UI Design Language
 
 This document defines **how to organise, group, and present controls** so
 the interface is immediately comprehensible. Token values (colours, spacing)

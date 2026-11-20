@@ -1,4 +1,4 @@
-# Saropa Drift Advisor — Roadmap
+# Saropa Drift — Roadmap
 
 **Status:** 11 features remaining • Last updated July 16, 2026
 

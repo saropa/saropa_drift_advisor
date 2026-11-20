@@ -1,4 +1,4 @@
-# Saropa Drift Advisor — VS Code Extension
+# Saropa Drift — VS Code Extension
 
 Full IDE integration for [saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor), the debug-only SQLite/Drift database inspector for Flutter and Dart apps.
 
@@ -105,7 +105,7 @@ Integration with the sibling Saropa tools (Saropa Lints, Saropa Log Capture) —
 | `driftViewer.connection.logEveryUiRefresh` | `false` | Log every connection UI refresh even when state is unchanged (verbose troubleshooting) |
 | `driftViewer.lightweight` | `false` | When true, skips badges/timeline/tree refresh on generation change |
 | `driftViewer.performance.slowThresholdMs` | `500` | Slow query threshold (ms) |
-| `driftViewer.integrations.includeInLogCaptureSession` | `full` | Controls what Drift Advisor contributes to Log Capture sessions: `none` (opt out), `header` (lightweight headers only), `full` (structured metadata + sidecar file) |
+| `driftViewer.integrations.includeInLogCaptureSession` | `full` | Controls what Saropa Drift contributes to Log Capture sessions: `none` (opt out), `header` (lightweight headers only), `full` (structured metadata + sidecar file) |
 | `driftViewer.dvr.autoRecord` | `true` | Automatically start Query Replay DVR recording on Dart/Flutter debug session start |
 | `driftViewer.dvr.maxQueries` | `5000` | Maximum number of DVR query events retained by the server ring buffer |
 | `driftViewer.dvr.captureBeforeAfter` | `true` | Request before/after snapshot capture for write queries when supported by the server |
@@ -115,13 +115,13 @@ Integration with the sibling Saropa tools (Saropa Lints, Saropa Log Capture) —
 
 ## Design: extension enablement
 
-**Drift Advisor** has a master switch: `driftViewer.enabled` (default true). When false, the extension does not discover or connect to servers and all Drift Advisor features are off; the Database view shows “Saropa Drift Advisor is disabled” and the status bar shows “Drift: Disabled”. When true, activation is as before (`onLanguage:dart`). About, About Saropa, and Save Current Filter use `onCommand` activation so they work from the Database view or Command Palette even before a Dart file is opened; individual features can still be turned off via other settings. Use **Add package to project** to add the Dart package to your app so the extension and package stay in sync.
+**Saropa Drift** has a master switch: `driftViewer.enabled` (default true). When false, the extension does not discover or connect to servers and all Saropa Drift features are off; the Database view shows “Saropa Drift is disabled” and the status bar shows “Drift: Disabled”. When true, activation is as before (`onLanguage:dart`). About, About Saropa, and Save Current Filter use `onCommand` activation so they work from the Database view or Command Palette even before a Dart file is opened; individual features can still be turned off via other settings. Use **Add package to project** to add the Dart package to your app so the extension and package stay in sync.
 
 ## Server Discovery
 
-The extension automatically scans ports 8642-8649 for running debug servers. When no server is found and a Flutter/Dart debug session is active (e.g. app on Android emulator), it tries to forward the port with `adb forward` and retries discovery so the host can connect. You can also run **Saropa Drift Advisor: Forward Port (Android Emulator)** manually. When multiple servers are found, use **Saropa Drift Advisor: Select Server** from the command palette.
+The extension automatically scans ports 8642-8649 for running debug servers. When no server is found and a Flutter/Dart debug session is active (e.g. app on Android emulator), it tries to forward the port with `adb forward` and retries discovery so the host can connect. You can also run **Saropa Drift: Forward Port (Android Emulator)** manually. When multiple servers are found, use **Saropa Drift: Select Server** from the command palette.
 
-**Troubleshooting:** Use **Show Connection Log** (Output → Saropa Drift Advisor), **Diagnose Connection** (writes a snapshot and optional clipboard copy), or **Refresh Connection UI** if the sidebar looks wrong while the app is running. If you see a connection but the Database tree stays empty (REST schema error), use the **named action rows** under DATABASE — they run the same commands as the welcome text but via native tree clicks, which is more reliable than welcome links in some editors.
+**Troubleshooting:** Use **Show Connection Log** (Output → Saropa Drift), **Diagnose Connection** (writes a snapshot and optional clipboard copy), or **Refresh Connection UI** if the sidebar looks wrong while the app is running. If you see a connection but the Database tree stays empty (REST schema error), use the **named action rows** under DATABASE — they run the same commands as the welcome text but via native tree clicks, which is more reliable than welcome links in some editors.
 
 The status bar shows connection state:
 
@@ -163,7 +163,7 @@ All commands are available via the command palette (`Ctrl+Shift+P`):
 | Retry Server Discovery | Re-scan ports and adb-forward path; opens Output |
 | Select Server | Pick among multiple discovered servers |
 | Forward Port (Android Emulator) | Run adb forward for the configured port |
-| Show Connection Log | Focus Output → Saropa Drift Advisor |
+| Show Connection Log | Focus Output → Saropa Drift |
 | Refresh Connection UI | Re-sync `driftViewer.serverConnected` and sidebar views |
 | Diagnose Connection | Log settings, discovery state, and `health()` to Output; copy summary |
 

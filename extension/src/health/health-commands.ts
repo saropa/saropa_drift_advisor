@@ -136,7 +136,7 @@ export function registerHealthCommands(
           return;
         }
         const lines = [
-          '-- Saropa Drift Advisor: Anomaly Fix SQL',
+          '-- Saropa Drift: Anomaly Fix SQL',
           '-- Review carefully before executing!',
           '',
         ];

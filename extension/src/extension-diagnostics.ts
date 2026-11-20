@@ -56,7 +56,7 @@ export function setupDiagnostics(
   // Refresh after a directive is inserted so the silenced finding clears now.
   registerSuppressionCommands(context, () => diagnosticManager.refresh());
 
-  // "Drift Advisor Rules" configuration screen: a webview listing every rule
+  // "Saropa Drift Rules" configuration screen: a webview listing every rule
   // grouped by category, each with an enable/disable toggle, live finding count,
   // and a severity-override dropdown. Replaces the old sidebar mute/unmute tree
   // — the relief valve for a workspace with hundreds of findings. Opened from

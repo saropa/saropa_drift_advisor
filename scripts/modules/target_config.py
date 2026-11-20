@@ -213,7 +213,7 @@ def write_version(config: TargetConfig, version: str) -> bool:
 def sync_add_package_version(version: str) -> bool:
     """Update the PACKAGE_VERSION constant in add-package.ts to '^{version}'.
 
-    This keeps the "Add Saropa Drift Advisor" button in sync with the
+    This keeps the "Add Saropa Drift" button in sync with the
     published Dart package version so users get the correct constraint.
     """
     try:

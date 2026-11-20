@@ -72,7 +72,7 @@ export const stringsWebNav: Record<string, string> = {
   // translator can reorder them.
   'viewer.nav.home.cardTooltip': '{0} — {1}',
   // Home page heading.
-  'viewer.nav.home.title': 'Saropa Drift Advisor',
+  'viewer.nav.home.title': 'Saropa Drift',
   // Narrative feature overview shown under the heading. Rolls every launcher/extra
   // blurb into prose without dropping a capability: browse/pagination/export, schema
   // + data search with filters and jump-to-match, the SQL editor (templates,

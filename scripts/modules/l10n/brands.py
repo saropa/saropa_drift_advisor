@@ -26,7 +26,7 @@ import re
 # Advisor" qualifies because "Advisor" is not itself a token. Pure-token strings
 # ("Drift", "SQLite", "Saropa Log Capture") do NOT need listing here.
 BRAND_ONLY_STRINGS: frozenset[str] = frozenset({
-    "Saropa Drift Advisor",
+    "Saropa Drift",
     "Drift Viewer",
 })
 
@@ -51,9 +51,9 @@ VERIFIED_IDENTICAL: dict[str, frozenset[str]] = {
 }
 
 # Substrings that must survive translation verbatim. Longest-first so
-# "Saropa Drift Advisor" / "Saropa Log Capture" match before "Saropa".
+# "Saropa Drift" / "Saropa Log Capture" match before "Saropa".
 BRAND_TOKENS: tuple[str, ...] = (
-    "Saropa Drift Advisor",
+    "Saropa Drift",
     "Saropa Log Capture",
     "Drift Viewer",
     "VM Service",

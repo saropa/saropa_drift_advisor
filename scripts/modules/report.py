@@ -30,7 +30,7 @@ def _build_report_lines(
     kind = "Publish" if is_publish else "Analysis"
 
     lines = [
-        f"Saropa Drift Advisor {target_label} -- {kind} Report",
+        f"Saropa Drift {target_label} -- {kind} Report",
         f"Generated: {datetime.datetime.now().isoformat()}",
         f"Version: {version}",
         "",

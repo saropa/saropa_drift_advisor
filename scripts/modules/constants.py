@@ -24,7 +24,7 @@ TEST_DIR = os.path.join(REPO_ROOT, "test")
 LIB_DIR = os.path.join(REPO_ROOT, "lib")
 
 # Extension TypeScript file that embeds the Dart package version constraint.
-# Updated automatically during publish so the "Add Saropa Drift Advisor"
+# Updated automatically during publish so the "Add Saropa Drift"
 # button installs the correct version.
 ADD_PACKAGE_TS_PATH = os.path.join(
     EXTENSION_DIR, "src", "workspace-setup", "add-package.ts",
