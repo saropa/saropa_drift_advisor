@@ -5,6 +5,10 @@
 // method handles one handler's endpoints and returns
 // true when matched. See onRequest() for dispatch order.
 
+// All path == comparisons in this file match HTTP API route strings
+// (case-sensitive per RFC 3986), not filesystem paths.
+// ignore_for_file: avoid_case_sensitive_path_comparison
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -142,9 +146,8 @@ final class Router {
   /// match wins. Each `_route*` method returns true when
   /// it matches and handles the request.
   Future<void> _dispatch(HttpRequest request) async {
-    final req = request;
-    final res = req.response;
-    final String path = req.uri.path;
+    final res = request.response;
+    final String path = request.uri.path;
 
     // Health is exempt from auth so unauthenticated probes (Saropa Lints
     // discovery) can distinguish "server present, auth required" from
@@ -159,7 +162,7 @@ final class Router {
 
     // When auth is configured, require it on every request except health.
     final bool authenticated =
-        !_ctx.authConfigured || _auth.isAuthenticated(req);
+        !_ctx.authConfigured || _auth.isAuthenticated(request);
 
     if (!authenticated && !isHealthPath) {
       await _auth.sendUnauthorized(res);
@@ -180,7 +183,7 @@ final class Router {
           path == ServerConstants.pathApiHealth ||
           path == ServerConstants.pathApiHealthAlt;
 
-      if (!isExempt && limiter.shouldThrottle(req)) {
+      if (!isExempt && limiter.shouldThrottle(request)) {
         await limiter.sendTooManyRequests(res);
 
         return;
@@ -188,14 +191,16 @@ final class Router {
     }
 
     // Track VS Code extension client header.
-    final driftClient = req.headers.value(ServerConstants.headerDriftClient);
+    final driftClient = request.headers.value(
+      ServerConstants.headerDriftClient,
+    );
     if (driftClient == ServerConstants.clientVscode) {
       _ctx.markExtensionSeen();
     }
 
     // Favicon: return 204 so the browser stops requesting /favicon.ico.
     // The HTML <head> already provides an inline SVG data-URI icon.
-    if (req.method == ServerConstants.methodGet &&
+    if (request.method == ServerConstants.methodGet &&
         (path == ServerConstants.pathFavicon ||
             path == ServerConstants.pathFaviconAlt)) {
       res.statusCode = HttpStatus.noContent;
@@ -207,7 +212,7 @@ final class Router {
     // Health, generation, and change-detection are checked
     // before the DB query so probes / live-refresh work.
     try {
-      if (await _routePreQuery(req, res, path, authenticated)) return;
+      if (await _routePreQuery(request, res, path, authenticated)) return;
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       await _ctx.sendErrorResponse(res, error);
@@ -238,14 +243,14 @@ final class Router {
 
     try {
       // Root HTML UI (single route, kept inline).
-      if (req.method == ServerConstants.methodGet &&
+      if (request.method == ServerConstants.methodGet &&
           (path == '/' || path.isEmpty)) {
-        await _generation.sendHtml(res, req);
+        await _generation.sendHtml(res, request);
 
         return;
       }
 
-      if (await _dispatchRoutes(req, res, path, query)) return;
+      if (await _dispatchRoutes(request, res, path, query)) return;
 
       // No route matched — 404.
       res.statusCode = HttpStatus.notFound;
@@ -270,14 +275,14 @@ final class Router {
     for (final dispatch in <Future<bool> Function()>[
       () => _routeActivityApi(req, res, path),
       () => _routeTableApi(req, res, path, query),
-      () => _routeSqlApi(req, res, path, query),
+      () => _routeSqlApi(req, path, query),
       () => _routeSchemaApi(req, res, path, query),
       () => _routeSnapshotApi(req, res, path, query),
       () => _routeCompareApi(req, res, path, query),
-      () => _routeAnalyticsApi(req, res, path, query),
-      () => _routeWriteApi(req, res, path, query),
-      () => _routeSessionApi(req, res, path, query),
-      () => _routePerformanceApi(req, res, path, query),
+      () => _routeAnalyticsApi(req, res, path),
+      () => _routeWriteApi(req, res, path),
+      () => _routeSessionApi(req, res, path),
+      () => _routePerformanceApi(req, res, path),
       () => _routeDvrApi(req, res, path),
       () => _routeHistoryApi(req, res, path),
     ]) {
@@ -570,9 +575,7 @@ final class Router {
         res.write(
           jsonEncode(<String, String>{
             ServerConstants.jsonKeyError:
-                'Expected JSON body with '
-                '"${ServerConstants.jsonKeyEnabled}": '
-                'true|false',
+                ServerConstants.errorExpectedEnabledBody,
           }),
         );
         await res.close();
@@ -688,7 +691,6 @@ final class Router {
   /// endpoints for read-only SQL execution.
   Future<bool> _routeSqlApi(
     HttpRequest request,
-    HttpResponse response,
     String path,
     DriftDebugQuery query,
   ) async {
@@ -989,7 +991,6 @@ final class Router {
     HttpRequest request,
     HttpResponse response,
     String path,
-    DriftDebugQuery query,
   ) async {
     if (request.method != ServerConstants.methodGet) return false;
 
@@ -1059,7 +1060,6 @@ final class Router {
     HttpRequest request,
     HttpResponse response,
     String path,
-    DriftDebugQuery query,
   ) async {
     if (request.method == ServerConstants.methodPost &&
         (path == ServerConstants.pathApiCellUpdate ||
@@ -1120,7 +1120,6 @@ final class Router {
     HttpRequest request,
     HttpResponse response,
     String path,
-    DriftDebugQuery query,
   ) async {
     // POST /api/session/share — create a shareable session.
     if (request.method == ServerConstants.methodPost &&
@@ -1184,7 +1183,6 @@ final class Router {
     HttpRequest request,
     HttpResponse response,
     String path,
-    DriftDebugQuery query,
   ) async {
     // GET /api/analytics/performance — retrieve timing data.
     if (request.method == ServerConstants.methodGet &&
@@ -1347,6 +1345,12 @@ final class Router {
   /// sends the internal flag for diagnostic probes (null-count scans,
   /// health-metrics aggregates) — keeps those timings out of user-facing
   /// slow-query and perf-regression analysis.
+  ///
+  /// [sql] is the read-only statement to run (validated by the SQL handler).
+  /// [dvrArgs] / [dvrNamedArgs] are optional positional / named bind values
+  /// forwarded for DVR recording.
+  ///
+  /// Returns the same result map the HTTP `/api/sql` endpoint produces.
   Future<Map<String, dynamic>> runSqlResult(
     String sql, {
     bool isInternal = false,
@@ -1365,6 +1369,8 @@ final class Router {
       _editsBatch.runValidatedBatchStatements(statements);
 
   /// Health JSON for VM [ext.saropa.drift.getHealth] — aligns with GET /api/health shape.
+  ///
+  /// Returns the health payload map, serialized to JSON by the VM service.
   Map<String, dynamic> healthJsonForVmExtension() => <String, dynamic>{
     ServerConstants.jsonKeyOk: true,
     ServerConstants.jsonKeyExtensionConnected: true,
@@ -1523,9 +1529,7 @@ final class Router {
         res.write(
           jsonEncode(<String, String>{
             ServerConstants.jsonKeyError:
-                'Expected JSON body with '
-                '"${ServerConstants.jsonKeyEnabled}": '
-                'true|false',
+                ServerConstants.errorExpectedEnabledBody,
           }),
         );
         await res.close();
@@ -1588,9 +1592,7 @@ final class Router {
         res.write(
           jsonEncode(<String, String>{
             ServerConstants.jsonKeyError:
-                'Expected JSON body with '
-                '"${ServerConstants.jsonKeyEnabled}": '
-                'true|false',
+                ServerConstants.errorExpectedEnabledBody,
           }),
         );
         await res.close();

@@ -3,7 +3,7 @@
  *
  * One surface that joins the three suite lenses per table: Advisor's live
  * runtime issues (fetched from /api/issues), Saropa Lints' static findings, and
- * Saropa Log Capture's runtime signals (both read from their workspace mirrors).
+ * Saropa Capture's runtime signals (both read from their workspace mirrors).
  * Advisor hosts this because it is the only tool that has the live data; the
  * static and telemetry sides come from the sibling mirrors written under R2/R3.
  */

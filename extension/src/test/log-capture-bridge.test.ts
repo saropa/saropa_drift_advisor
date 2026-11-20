@@ -25,7 +25,7 @@ describe('LogCaptureBridge', () => {
     fetchStub.restore();
   });
 
-  describe('when saropa-log-capture is installed', () => {
+  describe('when saropa-capture is installed', () => {
     let writeLineSpy: sinon.SinonSpy;
     let insertMarkerSpy: sinon.SinonSpy;
     let registeredProvider: any;
@@ -44,7 +44,7 @@ describe('LogCaptureBridge', () => {
         },
       };
 
-      extensions.setExtension('saropa.saropa-log-capture', {
+      extensions.setExtension('saropa.saropa-capture', {
         isActive: true,
         exports: fakeApi,
       });
@@ -232,7 +232,7 @@ describe('LogCaptureBridge', () => {
           return { dispose: () => {} };
         },
       };
-      extensions.setExtension('saropa.saropa-log-capture', {
+      extensions.setExtension('saropa.saropa-capture', {
         isActive: true,
         exports: fakeApi2,
       });

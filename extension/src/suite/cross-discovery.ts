@@ -36,7 +36,9 @@ const SIBLINGS: readonly SiblingTool[] = [
   },
   {
     package: 'saropa_log_capture',
-    extensionId: 'saropa.saropa-log-capture',
+    // Extension ID changed with the Saropa Capture rename (v9.8.0). gateKey keeps the
+    // old name on purpose so users who already dismissed the offer are not re-prompted.
+    extensionId: 'saropa.saropa-capture',
     gateKey: 'suite.crossRecommend.saropa-log-capture',
     messageKey: 'host.suite.recommend.logCapture',
   },

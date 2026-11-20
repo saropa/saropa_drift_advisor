@@ -349,6 +349,12 @@ abstract final class ServerConstants {
   static const String errorMonitoringDisabled =
       'Access Denied: All monitoring and data inspection has been halted '
       'by the global kill switch.';
+
+  /// 400 body for the boolean-toggle POST endpoints (capture, monitoring,
+  /// change-detection) when the body lacks a boolean `enabled` field. Kept
+  /// here so the three handlers cannot drift apart on wording.
+  static const String errorExpectedEnabledBody =
+      'Expected JSON body with "$jsonKeyEnabled": true|false';
   static const String jsonKeyError = 'error';
   static const String jsonKeyRows = 'rows';
   static const String jsonKeySql = 'sql';
@@ -645,7 +651,7 @@ abstract final class ServerConstants {
 
   // --- Saropa Diagnostic Envelope (cross-tool suite protocol, plan 67 §2) ---
   // GET /api/issues wraps its merged list in this envelope so the sibling
-  // tools (Saropa Lints, Saropa Log Capture) can consume it with correct
+  // tools (Saropa Lints, Saropa Capture) can consume it with correct
   // attribution and version-gate the shape. The fields below are ADDITIVE:
   // every pre-existing issue field is preserved, so current consumers are
   // unaffected.
@@ -655,7 +661,7 @@ abstract final class ServerConstants {
   static const int issuesSchemaVersion = 1;
 
   /// Producer identity carried in the envelope so a merged multi-tool list
-  /// (e.g. Saropa Log Capture's combined view) can attribute each issue to
+  /// (e.g. Saropa Capture's combined view) can attribute each issue to
   /// the tool that emitted it.
   static const String productName = 'saropa_drift_advisor';
 

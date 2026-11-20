@@ -2,7 +2,7 @@
  * Saropa suite integration — the Drift Health join model (plan 67 R4 / §5).
  *
  * Joins the three lenses on a Drift database — Advisor's live runtime issues,
- * Saropa Lints' static findings, and Saropa Log Capture's runtime signals —
+ * Saropa Lints' static findings, and Saropa Capture's runtime signals —
  * keyed on the table each concerns, so a developer sees the static rule, the
  * runtime data problem, and the production symptom for one table in one place.
  *

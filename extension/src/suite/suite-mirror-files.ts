@@ -4,7 +4,7 @@
  * The counterpart to the mirror writer (R2): this reads the envelopes the
  * sibling tools leave in the workspace —
  *   `.saropa/diagnostics/lints.json`        (Saropa Lints static findings)
- *   `.saropa/diagnostics/log-capture.json`  (Saropa Log Capture runtime signals)
+ *   `.saropa/diagnostics/log-capture.json`  (Saropa Capture runtime signals)
  * — so Advisor can show, next to its own runtime analysis, "Lints rule X also
  * governs this" and "Log Capture saw this query slow this session".
  *

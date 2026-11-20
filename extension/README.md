@@ -72,7 +72,7 @@ Works in Dart files with Drift table definitions:
 
 ### Saropa Suite
 
-Integration with the sibling Saropa tools (Saropa Lints, Saropa Log Capture) — see the [Saropa Suite](https://marketplace.visualstudio.com/items?itemName=saropa.saropa-suite) pack.
+Integration with the sibling Saropa tools (Saropa Lints, Saropa Capture) — see the [Saropa Suite](https://marketplace.visualstudio.com/items?itemName=saropa.saropa-suite) pack.
 
 - **Drift Health** — one panel joining all three lenses per table: Advisor's live runtime issues, Lints' static findings, Log Capture's runtime signals; severity filter, sort, per-finding fix actions, stale-by-commit badges
 - **Suite Findings widget** — at-a-glance cross-tool counts on the dashboard, linking to Drift Health

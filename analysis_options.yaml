@@ -62,7 +62,7 @@ linter:
 # >>> saropa_lints integration turned OFF by the VS Code extension — toggle "Lint integration" On to restore >>>
 # plugins:
 #   saropa_lints:
-#     version: "16.0.1"
+#     version: "17.2.0"
 #     # SAROPA LINTS — plugin disabled. Rule list kept below so a
 #     # future re-enable restores the exact professional-tier configuration
 #     # instead of falling back to essential-only. Regenerate the full,
@@ -108,7 +108,7 @@ linter:
 #       # ENABLED RULES (professional tier)
 
 #       #
-#       # --- TIER 1: ESSENTIAL (251 rules) ---
+#       # --- TIER 1: ESSENTIAL (252 rules) ---
 #       #
 #       abi_specific_integer_invalid: true
 #       abstract_field_initializer: true
@@ -231,12 +231,13 @@ linter:
 #       check_is_not_closed_after_async_gap: true
 #       check_mounted_after_async: true
 #       conflicting_constructor_and_static_member: true
-#       deprecated_new_in_comment_reference: true
+#       deprecated_new_in_comment_reference_extended: true
 #       dispose_class_fields: true
 #       document_analyzer_ignore_rationale: true
 #       duplicate_constructor_declarations: true
 #       duplicate_field_name: true
 #       field_initializer_redirecting_constructor: true
+#       guard_debugger_against_test_environment: true
 #       illegal_concrete_enum_member: true
 #       invalid_extension_argument_count: true
 #       invalid_field_name: true
@@ -921,7 +922,7 @@ linter:
 #       workspace_member_order: true
 
 #       #
-#       # --- TIER 3: PROFESSIONAL (677 rules) ---
+#       # --- TIER 3: PROFESSIONAL (678 rules) ---
 #       #
 #       always_specify_parameter_names: true
 #       avoid_absorb_pointer_misuse: true
@@ -1119,6 +1120,7 @@ linter:
 #       avoid_top_level_members_in_tests: true
 #       avoid_ui_in_domain_layer: true
 #       avoid_unassigned_fields: true
+#       avoid_unbounded_image_in_full_bleed_container: true
 #       avoid_unconstrained_images: true
 #       avoid_unmarked_public_class: true
 #       avoid_unnecessary_block: true

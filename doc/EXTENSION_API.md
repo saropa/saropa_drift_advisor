@@ -50,7 +50,7 @@ if (snapshot === null) {
 | `indexSuggestions` | array (optional) | `IndexSuggestion[]` |
 | `issues` | array (optional) | `{ code, message, file, range?, severity }[]` (workspace-relative paths) |
 
-Use this API when you need to pull the same data that Saropa Drift contributes to Saropa Log Capture at session end, without relying on the Log Capture integration provider having run.
+Use this API when you need to pull the same data that Saropa Drift contributes to Saropa Capture at session end, without relying on the Log Capture integration provider having run.
 
 ## Saropa Suite daily-summary contract
 
@@ -89,7 +89,7 @@ Contract version. Bumps only on a breaking shape change; consumers ignore unknow
 
 ## File-based access (Log Capture sidecar)
 
-When Saropa Log Capture ends a session and Saropa Drift contributes in **full** mode, the extension writes a well-known file so that scripts or other consumers can read the same snapshot without activating the extension.
+When Saropa Capture ends a session and Saropa Drift contributes in **full** mode, the extension writes a well-known file so that scripts or other consumers can read the same snapshot without activating the extension.
 
 - **Path:** `<workspaceRoot>/.saropa/drift-advisor-session.json`
 - **Encoding:** UTF-8 JSON

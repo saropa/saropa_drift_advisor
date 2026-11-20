@@ -27,7 +27,7 @@ describe('LogCaptureBridge lifecycle', () => {
     fetchStub.restore();
   });
 
-  it('is a no-op when saropa-log-capture is missing', async () => {
+  it('is a no-op when saropa-capture is missing', async () => {
     await bridge.init(fakeContext as any, client);
 
     bridge.writeSlowQuery({ sql: 'SELECT 1', durationMs: 1000, rowCount: 1, at: '' });
@@ -38,7 +38,7 @@ describe('LogCaptureBridge lifecycle', () => {
   it('becomes no-op after dispose', async () => {
     const writeLineSpy = sinon.spy();
 
-    extensions.setExtension('saropa.saropa-log-capture', {
+    extensions.setExtension('saropa.saropa-capture', {
       isActive: true,
       exports: {
         writeLine: writeLineSpy,

@@ -38,6 +38,7 @@
         "*/.git/subtree-cache/**": true,
         "*/.hg/store/**": true,
         "**/.dart_tool": true,
+        "**/.widget_preview": true,
         "**/.dart_tool/**": true,
         "**/build/**": true,
         "**/reports/**": true,
@@ -51,9 +52,10 @@
         "**/*.log": true,
         "**/.vs/**": true,
         "**/dependency_overrides/**/build/**": true,
-        "**/dependency_overrides/**/.dart_tool/**": true
+        "**/dependency_overrides/**/.dart_tool/**": true,
+        "extension/drift-viewer-4.4.1.vsix": true
     },
-    "saropaLogCapture.integrations.adapters": [
+    "saropaCapture.integrations.adapters": [
         "packages",
         "git",
         "environment",

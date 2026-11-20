@@ -51,7 +51,8 @@ describe('recommendableSiblings', () => {
     const out = recommendableSiblings(PUBSPEC, none, none);
     assert.deepStrictEqual(
       out.map((s) => s.extensionId).sort(),
-      ['saropa.saropa-lints', 'saropa.saropa-log-capture'],
+      // Sorted alphabetically: 'saropa-capture' precedes 'saropa-lints'.
+      ['saropa.saropa-capture', 'saropa.saropa-lints'],
     );
   });
 
@@ -61,7 +62,7 @@ describe('recommendableSiblings', () => {
       (id) => id === 'saropa.saropa-lints', // Lints installed
       none,
     );
-    assert.deepStrictEqual(out.map((s) => s.extensionId), ['saropa.saropa-log-capture']);
+    assert.deepStrictEqual(out.map((s) => s.extensionId), ['saropa.saropa-capture']);
   });
 
   it('skips a tool already offered (gated)', () => {

@@ -3,7 +3,7 @@
  * (plan 67 §3 / R5).
  *
  * These five command ids are the cross-tool contract that the sibling tools'
- * diagnostic `fix.command` entries target (Saropa Lints, Saropa Log Capture).
+ * diagnostic `fix.command` entries target (Saropa Lints, Saropa Capture).
  * They MUST keep their ids and single-options-object argument shapes stable
  * across releases, independent of how the internal commands they delegate to
  * are renamed or re-implemented. That indirection is the whole point: wrapping

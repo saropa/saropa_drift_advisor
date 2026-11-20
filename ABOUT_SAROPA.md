@@ -92,7 +92,7 @@ _Production-hardened tools for VS Code, Dart, and Flutter._
   - _SQLite/Drift at a glance:_ Inspect tables, run read-only SQL, export schema or data, compare snapshots, plus **Query Replay DVR**, **Visual Query Builder** (multi-table joins), and **NL-to-SQL** that routes generated queries into the notebook, dashboards, or saved snippets.
 - **[Saropa Lints](https://marketplace.visualstudio.com/items?itemName=saropa.saropa-lints)** (also on [Open VSX](https://open-vsx.org/extension/saropa/saropa-lints))
   - _Companion to the saropa_lints package:_ ships the **Findings Dashboard**, **Code Health Dashboard**, and **Package Vibrancy** scoring for Flutter/Dart projects. Surfaces all 2134 rules in the sidebar and exports `reports/.saropa_lints/violations.json` for CI.
-- **[Saropa Log Capture](https://marketplace.visualstudio.com/items?itemName=Saropa.saropa-log-capture)**
+- **[Saropa Capture](https://marketplace.visualstudio.com/items?itemName=Saropa.saropa-capture)**
   - _The Debugger's Safety Net:_ Automatically saves all Debug Console output to persistent log files. The log viewer ships with a read-only severity gutter, dedicated expand/collapse controls, dedup-fold pills, and within-line text selection. No setup required—hit F5 and your logs are safe.
 - **[Saropa Workspace](https://marketplace.visualstudio.com/items?itemName=saropa.saropa-workspace)**
   - _File and script shortcuts:_ Pin any file as a favorite—single-click opens it, double-click runs it. Pins are project-scoped (shareable via the repo) or global, with a per-pin command prefix, CLI args, working directory, and environment. Seeds auto-pins and imports existing favorites.

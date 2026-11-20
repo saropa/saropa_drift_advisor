@@ -1,5 +1,5 @@
 /**
- * Public API for other VS Code extensions (e.g. Saropa Log Capture).
+ * Public API for other VS Code extensions (e.g. Saropa Capture).
  * Exposes getSessionSnapshot() so consumers can pull the same data we contribute
  * at session end without relying on the integration provider having run.
  * Reuses timeout and issue-serialization helpers from the bridge to avoid duplication.

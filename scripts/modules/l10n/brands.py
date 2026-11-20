@@ -24,7 +24,7 @@ import re
 # Full strings that are brand-only but NOT composed purely of BRAND_TOKENS, so the
 # token-derivation in is_brand_only() can't catch them alone. "Saropa Drift
 # Advisor" qualifies because "Advisor" is not itself a token. Pure-token strings
-# ("Drift", "SQLite", "Saropa Log Capture") do NOT need listing here.
+# ("Drift", "SQLite", "Saropa Capture") do NOT need listing here.
 BRAND_ONLY_STRINGS: frozenset[str] = frozenset({
     "Saropa Drift",
     "Drift Viewer",
@@ -51,10 +51,10 @@ VERIFIED_IDENTICAL: dict[str, frozenset[str]] = {
 }
 
 # Substrings that must survive translation verbatim. Longest-first so
-# "Saropa Drift" / "Saropa Log Capture" match before "Saropa".
+# "Saropa Drift" / "Saropa Capture" match before "Saropa".
 BRAND_TOKENS: tuple[str, ...] = (
     "Saropa Drift",
-    "Saropa Log Capture",
+    "Saropa Capture",
     "Drift Viewer",
     "VM Service",
     "Saropa",
@@ -77,7 +77,7 @@ def is_brand_only(en_value: str) -> bool:
 
     Either an explicit BRAND_ONLY_STRINGS entry, or a string that is nothing but
     brand tokens plus whitespace/punctuation once every token is shielded
-    (e.g. "Drift", "SQLite", "Saropa Log Capture"). Without the second case a
+    (e.g. "Drift", "SQLite", "Saropa Capture"). Without the second case a
     bare-brand string is sent to the translator and then counted as untranslated
     forever (value == English).
     """

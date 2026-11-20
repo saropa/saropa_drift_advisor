@@ -3,7 +3,7 @@
  *
  * Writes the live `/api/issues` envelope to
  * `<workspace>/.saropa/diagnostics/advisor.json` so the sibling tools (Saropa
- * Lints, Saropa Log Capture) can read Advisor's issues when the debug server is
+ * Lints, Saropa Capture) can read Advisor's issues when the debug server is
  * NOT running. The server is debug-only and disappears the moment the app
  * stops, so the mirror is refreshed WHILE the server is reachable (on each
  * data-change generation tick) rather than at session end, when a fetch would
@@ -163,7 +163,7 @@ export function registerDiagnosticsMirror(
     },
   });
 
-  // Sibling tools (e.g. Saropa Log Capture's "installed but silent" check)
+  // Sibling tools (e.g. Saropa Capture's "installed but silent" check)
   // invoke this command programmatically, not just users from the palette, so
   // it must never nag: in a workspace that does not use Drift there is nothing
   // to mirror and it returns false with no toast; `{ silent: true }` suppresses

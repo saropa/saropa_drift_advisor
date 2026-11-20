@@ -330,7 +330,7 @@ When auth is configured and the request carries no valid credentials, a **reduce
 | `authScheme` | string | `"basic"` or `"bearer"`, naming which `Authorization` scheme this server expects. Present whenever `authRequired` is present (i.e. whenever auth is configured); absent otherwise. Lets a client pick the right scheme without guessing or parsing `WWW-Authenticate`. |
 | `extensionConnected` | boolean | Whether a VS Code extension client has connected recently (detected via `X-Drift-Client: vscode` header). Omitted in reduced payload. |
 | `version` | string | Package version from `pubspec.yaml` |
-| `schemaVersion` | int | Saropa Diagnostic Envelope version (see [`GET /api/issues`](#get-apiissues)). Lets a suite client (Saropa Lints, Saropa Log Capture) confirm the issue shape before parsing. Bumped only on a breaking change; consumers ignore unknown fields and refuse a higher major. |
+| `schemaVersion` | int | Saropa Diagnostic Envelope version (see [`GET /api/issues`](#get-apiissues)). Lets a suite client (Saropa Lints, Saropa Capture) confirm the issue shape before parsing. Bumped only on a breaking change; consumers ignore unknown fields and refuse a higher major. |
 | `writeEnabled` | boolean | Whether write endpoints (`/api/cell/update`, `/api/edits/apply`, `/api/import`) are configured. Omitted in reduced payload. |
 | `compareEnabled` | boolean | Whether a comparison database (`queryCompare`) is configured. Omitted in reduced payload. |
 | `monitoringEnabled` | boolean | Global monitoring & logging kill-switch state. `false` = the server is deliberately dormant: no query recording, timing capture, or change-detection sweeps, and every data-inspection endpoint answers `403 Forbidden`. Health keeps answering so probes can tell "dormant" from "gone". Toggle via [`POST /api/monitoring`](#post-apimonitoring). Omitted in reduced payload. |
@@ -1436,7 +1436,7 @@ The check is **report-only**: it suggests a `DROP TABLE` but never executes it. 
 
 Returns a single merged list of index suggestions, data-quality anomalies, and orphan physical tables in a stable issue shape. Intended for IDE integrations (e.g. Saropa Lints) and scripts that want one request instead of calling `GET /api/index-suggestions`, `GET /api/analytics/anomalies`, and `GET /api/analytics/orphan-tables` separately.
 
-The list is wrapped in the **Saropa Diagnostic Envelope** — the shared cross-tool protocol used across Saropa Lints, Saropa Drift, and Saropa Log Capture. The envelope adds top-level `schemaVersion`, `producer`, and `generatedAt`, and each issue carries `id`, `category`, and `title` in addition to its existing fields. The envelope is **additive**: every previously documented field is unchanged, so existing consumers need no update.
+The list is wrapped in the **Saropa Diagnostic Envelope** — the shared cross-tool protocol used across Saropa Lints, Saropa Drift, and Saropa Capture. The envelope adds top-level `schemaVersion`, `producer`, and `generatedAt`, and each issue carries `id`, `category`, and `title` in addition to its existing fields. The envelope is **additive**: every previously documented field is unchanged, so existing consumers need no update.
 
 **Query Parameters**
 

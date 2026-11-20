@@ -617,7 +617,7 @@ export function initSqlRunner(): void {
     });
   }
 
-  // Deep link: ?sql=... (e.g. from Saropa Log Capture SQL history) opens Run SQL tab and pre-fills the editor.
+  // Deep link: ?sql=... (e.g. from Saropa Capture SQL history) opens Run SQL tab and pre-fills the editor.
   (function applySqlFromQueryString(): void {
     try {
       var params = new URLSearchParams(location.search);

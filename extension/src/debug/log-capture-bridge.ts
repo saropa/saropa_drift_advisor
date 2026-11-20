@@ -1,8 +1,8 @@
 /**
- * Bridge to Saropa Log Capture extension.
+ * Bridge to Saropa Capture extension.
  * Registers an integration provider so session-end contributions (meta + sidecar)
  * are sent when Log Capture is installed and "Saropa Drift" is enabled.
- * No dependency on saropa-log-capture package; uses minimal compatible types.
+ * No dependency on the saropa-capture package; uses minimal compatible types.
  */
 
 import * as vscode from 'vscode';
@@ -39,7 +39,7 @@ export class LogCaptureBridge {
   private _options: LogCaptureBridgeInitOptions | undefined;
 
   /**
-   * Attempt to connect to the Saropa Log Capture extension.
+   * Attempt to connect to the Saropa Capture extension.
    * No-op if the extension is not installed.
    * When options.getLastCollectedIssues is provided, meta/sidecar include issues (Phase 2).
    */
@@ -51,7 +51,9 @@ export class LogCaptureBridge {
     this._client = client;
     this._options = options;
 
-    const ext = vscode.extensions.getExtension('saropa.saropa-log-capture');
+    // Renamed from saropa.saropa-log-capture in v9.8.0; the new extension does not
+    // register under the old ID, so the old lookup returned undefined silently.
+    const ext = vscode.extensions.getExtension('saropa.saropa-capture');
     if (!ext) return;
 
     this._api = ext.isActive

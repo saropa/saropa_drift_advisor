@@ -61,6 +61,7 @@ Safer handling of unusual characters in exports, pasted data, search and generat
 
 ### Fixed
 
+- **Integration with Saropa Capture silently broke after its rename.** Saropa Log Capture became Saropa Capture (`saropa.saropa-capture`); the bridge, the cross-extension recommendation and the suite command allowlist still looked for the old ID and `saropaLogCapture.` prefix.
 - **"Could not write the diagnostics mirror" warning in non-Drift projects.** Other Saropa tools (such as Saropa Log Capture) ask Advisor to refresh its offline diagnostics copy, which surfaced this warning in workspaces with no Drift dependency at all. Advisor now quietly skips the mirror when the workspace doesn't use Drift, and the **Write Diagnostics Mirror (Suite)** command only appears in the Command Palette for Drift projects.
 - **Generated rollback code broke on SQL containing `$` or `\`.** A `$name` in a statement was read by Dart as string interpolation, and a backslash escaped whatever character followed it, so the generated rollback could run different SQL than intended, or fail to compile. Both are now escaped.
 - **Pasted data with HTML entities was decoded twice.** Pasting a table whose cells contained `&amp;lt;` produced `<` instead of the literal text `&lt;`. Each entity is now decoded exactly once.
@@ -70,6 +71,7 @@ Safer handling of unusual characters in exports, pasted data, search and generat
 
 ### Internal
 
+- **Router cleanups** — the "Expected JSON body with "enabled": true|false" error text, written out three times in `router.dart`, is now one constant (`ServerConstants.errorExpectedEnabledBody`) with identical wording; five route methods lost parameters they never read (`response` on the SQL routes, `query` on the analytics, write, session and performance routes); a redundant `req`/`request` alias in the dispatcher was removed; and `runSqlResult` and `healthJsonForVmExtension` gained parameter and return docs. No behaviour change.
 - **Security and dependency fixes** — pasted-table HTML is now stripped of tags until stable (no reassembled or unterminated tag survives); the offline-shell test's tag filter and visible-text check handle upper-case and unterminated tags; `source-map-js` raised to 1.2.4 (event-loop denial of service), `brace-expansion` to 5.0.13 and `minimatch` to 11.0.9 (denial of service), and `serialize-javascript` to 7.1.4 (script-tag XSS); the offline-shell test's visible-text check now scans characters instead of stripping tags with a regex; `@types/node`, `@types/sinon` and `@types/vscode` bumped to their latest patch/minor releases.
 - **CodeQL code-scanning alerts resolved (18)** — the fixes above, plus: test helpers for HTML filtering and panel CSP checks now parse tags and URLs properly instead of matching substrings; the publish script creates the Open VSX token file with owner-only (`0600`) permissions before writing to it; and the CI workflow runs with read-only repository permissions.
 - **Lint sweep: 341 `saropa_lints` 16.2.1 findings resolved** — 143 fixed, 160 confirmed false positives, 38 deferred as breaking or structural. No behaviour change: `dart analyze` is clean and all 835 tests pass.

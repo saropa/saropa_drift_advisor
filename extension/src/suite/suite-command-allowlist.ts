@@ -8,7 +8,9 @@
 export const SUITE_COMMAND_PREFIXES: readonly string[] = [
   'driftViewer.',
   'saropaLints.',
-  'saropaLogCapture.',
+  // Renamed from saropaCapture. in v9.8.0 (old IDs are aliased by the extension,
+  // but only the new prefix is canonical).
+  'saropaCapture.',
 ];
 
 /** True when [command] is a non-empty string under an allowed suite prefix. */

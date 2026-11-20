@@ -3,7 +3,7 @@
  *
  * The compact, at-a-glance counterpart to the full Drift Health panel: it joins
  * the three suite lenses (Advisor's live runtime issues, Saropa Lints' static
- * findings, Saropa Log Capture's runtime signals) into per-tool and per-severity
+ * findings, Saropa Capture's runtime signals) into per-tool and per-severity
  * counts on the customizable dashboard, and links through to the full panel.
  *
  * Reuses the existing reader (`readSiblingDiagnostics`), the Advisor-envelope

@@ -121,7 +121,7 @@ describe('Suite diagnostics mirror', () => {
     });
 
     it('does nothing and shows no toast in a workspace that does not use Drift', async () => {
-      // Regression: Saropa Log Capture invokes this command programmatically in
+      // Regression: Saropa Capture invokes this command programmatically in
       // every workspace, which surfaced a "could not write" warning in
       // projects with no Drift association at all.
       register('dependencies:\n  provider: ^6.0.0\n', { issues: [] });

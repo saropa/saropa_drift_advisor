@@ -61,7 +61,7 @@ export const hostStrings: Record<string, string> = {
   'host.suite.recommend.lints':
     'This project uses the Saropa Lints package, but the Saropa Lints extension is not installed — it adds static Drift rules and quick fixes alongside Saropa Drift. Install it?',
   'host.suite.recommend.logCapture':
-    'This project uses the Saropa Log Capture package, but the Saropa Log Capture extension is not installed — it records the logs, crashes, and slow queries behind Saropa Drift findings. Install it?',
+    'This project uses the Saropa Capture package, but the Saropa Capture extension is not installed — it records the logs, crashes, and slow queries behind Saropa Drift findings. Install it?',
   'host.suite.recommend.install': 'Install',
 
   // --- Global monitoring & logging kill switch ---

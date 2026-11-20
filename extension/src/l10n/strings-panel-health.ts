@@ -66,10 +66,10 @@ export const stringsPanelHealth: Record<string, string> = {
   'panel.suiteFindings.truncated':
     'Anomaly scan was partial — open Drift Health for details',
   'panel.driftHealth.empty':
-    'No suite findings yet. Start the debug server and run Saropa Lints / Saropa Log Capture to populate this view.',
+    'No suite findings yet. Start the debug server and run Saropa Lints / Saropa Capture to populate this view.',
   'panel.driftHealth.col.advisor': 'Saropa Drift — runtime',
   'panel.driftHealth.col.lints': 'Saropa Lints — static',
-  'panel.driftHealth.col.logCapture': 'Saropa Log Capture — telemetry',
+  'panel.driftHealth.col.logCapture': 'Saropa Capture — telemetry',
   'panel.driftHealth.untabled': 'Query-level (no table)',
   'panel.driftHealth.btn.refresh': 'Refresh',
   // Shown on a finding captured at a different commit than the current checkout

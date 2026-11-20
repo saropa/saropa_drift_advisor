@@ -1,5 +1,5 @@
 /**
- * Minimal API contract consumed from the Saropa Log Capture extension.
+ * Minimal API contract consumed from the Saropa Capture extension.
  */
 
 import * as vscode from 'vscode';

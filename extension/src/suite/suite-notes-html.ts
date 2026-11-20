@@ -30,7 +30,7 @@ export function escSuite(value: unknown): string {
 export function suiteSourceLabel(source: string | undefined): string {
   switch (source) {
     case 'lints': return 'Saropa Lints';
-    case 'log-capture': return 'Saropa Log Capture';
+    case 'log-capture': return 'Saropa Capture';
     case 'advisor': return 'Saropa Drift';
     default: return source ?? 'Saropa Suite';
   }

@@ -15,7 +15,7 @@ describe('isAllowedSuiteCommand', () => {
   it('allows only suite command prefixes', () => {
     assert.ok(isAllowedSuiteCommand('driftViewer.openTable'));
     assert.ok(isAllowedSuiteCommand('saropaLints.explainRule'));
-    assert.ok(isAllowedSuiteCommand('saropaLogCapture.openSignal'));
+    assert.ok(isAllowedSuiteCommand('saropaCapture.openSignal'));
   });
 
   it('rejects other commands and non-strings', () => {
