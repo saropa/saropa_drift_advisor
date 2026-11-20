@@ -172,9 +172,16 @@ export class ClipboardParser {
       let tdMatch: RegExpExecArray | null;
 
       while ((tdMatch = tdRegex.exec(trMatch[1])) !== null) {
-        const cellContent = tdMatch[1]
-          .replace(/<br\s*\/?>/gi, ' ')
-          .replace(/<[^>]*>/g, '')
+        // Strip tags until stable: a single pass can leave a reassembled tag
+        // (e.g. `<scr<b>ipt>`), and `>?` also drops an unterminated `<script`
+        // fragment so no tag opener survives (CodeQL js/incomplete-multi-character-sanitization).
+        let stripped = tdMatch[1].replace(/<br\s*\/?>/gi, ' ');
+        let prevStripped: string;
+        do {
+          prevStripped = stripped;
+          stripped = stripped.replace(/<[^>]*>?/g, '');
+        } while (stripped !== prevStripped);
+        const cellContent = stripped
           .replace(/&(nbsp|amp|lt|gt|quot|#(\d+));/gi, (whole, name, code) => {
             if (code !== undefined) return String.fromCharCode(parseInt(code, 10));
             switch (String(name).toLowerCase()) {

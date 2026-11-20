@@ -330,7 +330,7 @@ describe('offline shell — G2: every icon has a usable fallback', () => {
       let previous;
       do {
         previous = visibleText;
-        visibleText = visibleText.replace(/<[^>]*>/g, '').replace(/&\w+;/g, '');
+        visibleText = visibleText.replace(/<[^>]*>?/g, '').replace(/&\w+;/g, '');
       } while (visibleText !== previous);
       visibleText = visibleText.trim();
       if (!hasLabelAttr && visibleText.length === 0) {
@@ -375,7 +375,8 @@ describe('offline shell — G3: the only external dependency is the fonts', () =
     // `src="x>y"`) ends the match early and lets the rest of a real tag slip
     // through unchecked. Treat quoted attribute values as opaque runs so an
     // embedded `>` or `'`/`"` inside them cannot terminate the tag early.
-    const TAG_RE = /<(link|script|img|iframe)\b(?:"[^"]*"|'[^']*'|[^>"'])*>/g;
+    // `i` flag: HTML tag names are case-insensitive, so `<SCRIPT src=...>` must be checked too.
+    const TAG_RE = /<(link|script|img|iframe)\b(?:"[^"]*"|'[^']*'|[^>"'])*>/gi;
     // Match either quoting style for the URL attribute itself, for the same reason.
     const URL_ATTR_RE = /\b(?:href|src)\s*=\s*(?:"([^"]*)"|'([^']*)')/;
     for (const m of shell.matchAll(TAG_RE)) {

@@ -1,6 +1,6 @@
 {
   "name": "drift-viewer",
-  "displayName": "Saropa Drift Advisor",
+  "displayName": "Saropa Drift",
   "description": "%extension.description%",
   "version": "4.4.2",
   "publisher": "saropa",
@@ -52,7 +52,7 @@
       "activitybar": [
         {
           "id": "driftViewer",
-          "title": "Saropa Drift Advisor",
+          "title": "Saropa Drift",
           "icon": "media/icon-activitybar.svg"
         }
       ]
@@ -126,901 +126,901 @@
         "command": "driftViewer.openInBrowser",
         "title": "%command.openInBrowser.title%",
         "icon": "$(globe)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openInPanel",
         "title": "%command.openInPanel.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.refreshTree",
         "title": "%command.refreshTree.title%",
         "icon": "$(refresh)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.monitoring.kill",
         "title": "%command.monitoring.kill.title%",
         "icon": "$(circle-slash)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.monitoring.resume",
         "title": "%command.monitoring.resume.title%",
         "icon": "$(debug-disconnect)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.groupTablesByName",
         "title": "%command.groupTablesByName.title%",
         "icon": "$(list-tree)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.flattenTables",
         "title": "%command.flattenTables.title%",
         "icon": "$(list-flat)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.viewTableData",
         "title": "%command.viewTableData.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.goToDriftTableDefinition",
         "title": "%command.goToDriftTableDefinition.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.goToDriftColumnDefinition",
         "title": "%command.goToDriftColumnDefinition.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.copyTableName",
         "title": "%command.copyTableName.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.exportTable",
         "title": "%command.exportTable.title%",
         "icon": "$(export)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.copyColumnName",
         "title": "%command.copyColumnName.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.filterByColumn",
         "title": "%command.filterByColumn.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.saveFilter",
         "title": "%command.saveFilter.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.viewTableInPanel",
         "title": "%command.viewTableInPanel.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.runTableQuery",
         "title": "%command.runTableQuery.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.refreshPerformance",
         "title": "%command.refreshPerformance.title%",
         "icon": "$(refresh)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.clearPerformance",
         "title": "%command.clearPerformance.title%",
         "icon": "$(trash)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.showQueryDetail",
         "title": "%command.showQueryDetail.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.runLinter",
         "title": "%command.runLinter.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.showAnomalies",
         "title": "%command.showAnomalies.title%",
         "icon": "$(bug)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.runSaropaLints",
         "title": "%command.runSaropaLints.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.runSaropaLintsDiagnostics",
         "title": "%command.runSaropaLintsDiagnostics.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.clearSaropaLintsDiagnostics",
         "title": "%command.clearSaropaLintsDiagnostics.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.copySuggestedSql",
         "title": "%command.copySuggestedSql.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.selectServer",
         "title": "%command.selectServer.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.retryDiscovery",
         "title": "%command.retryDiscovery.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.pauseDiscovery",
         "title": "%command.pauseDiscovery.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.resumeDiscovery",
         "title": "%command.resumeDiscovery.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openConnectionHelp",
         "title": "%command.openConnectionHelp.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.showConnectionLog",
         "title": "%command.showConnectionLog.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.refreshConnectionUi",
         "title": "%command.refreshConnectionUi.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.diagnoseConnection",
         "title": "%command.diagnoseConnection.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.forwardPortAndroid",
         "title": "%command.forwardPortAndroid.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.showAllTables",
         "title": "%command.showAllTables.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.captureSnapshot",
         "title": "%command.captureSnapshot.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.showSnapshotDiff",
         "title": "%command.showSnapshotDiff.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.timeTravel",
         "title": "%command.timeTravel.title%",
-        "category": "Saropa Drift Advisor",
+        "category": "Saropa Drift",
         "icon": "$(history)"
       },
       {
         "command": "driftViewer.openBranches",
         "title": "%command.openBranches.title%",
-        "category": "Saropa Drift Advisor",
+        "category": "Saropa Drift",
         "icon": "$(git-branch)"
       },
       {
         "command": "driftViewer.createBranch",
         "title": "%command.createBranch.title%",
-        "category": "Saropa Drift Advisor",
+        "category": "Saropa Drift",
         "icon": "$(git-branch)"
       },
       {
         "command": "driftViewer.branchFromSnapshot",
         "title": "%command.branchFromSnapshot.title%",
-        "category": "Saropa Drift Advisor",
+        "category": "Saropa Drift",
         "icon": "$(git-branch)"
       },
       {
         "command": "driftViewer.explainQuery",
         "title": "%command.explainQuery.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.analyzeQueryCost",
         "title": "%command.analyzeQueryCost.title%",
         "icon": "$(pulse)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.watchTable",
         "title": "%command.watchTable.title%",
         "icon": "$(eye)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.watchQuery",
         "title": "%command.watchQuery.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openWatchPanel",
         "title": "%command.openWatchPanel.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.generateSql",
         "title": "%command.generateSql.title%",
         "icon": "$(file-code)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.commitPendingEdits",
         "title": "%command.commitPendingEdits.title%",
         "icon": "$(check)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.editTableData",
         "title": "%command.editTableData.title%",
         "icon": "$(edit)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.discardAllEdits",
         "title": "%command.discardAllEdits.title%",
         "icon": "$(trash)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.undoEdit",
         "title": "%command.undoEdit.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.redoEdit",
         "title": "%command.redoEdit.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.toggleEditing",
         "title": "%command.toggleEditing.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.removeChange",
         "title": "%command.removeChange.title%",
         "icon": "$(close)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openSqlNotebook",
         "title": "%command.openSqlNotebook.title%",
         "icon": "$(terminal)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openQueryBuilder",
         "title": "%command.openQueryBuilder.title%",
         "icon": "$(layout)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.buildQueryFromTable",
         "title": "%command.buildQueryFromTable.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openQueryBuilderFromSql",
         "title": "%command.openQueryBuilderFromSql.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.suggestSchemaRefactorings",
         "title": "%command.suggestSchemaRefactorings.title%",
         "icon": "$(wrench)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.refactoringOpenWithHint",
         "title": "%command.refactoringOpenWithHint.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openExplainForSql",
         "title": "%command.openExplainForSql.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openTable",
         "title": "%command.openTable.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openSchemaForTable",
         "title": "%command.openSchemaForTable.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openIssues",
         "title": "%command.openIssues.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.goToDefinitionForTable",
         "title": "%command.goToDefinitionForTable.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.writeDiagnosticsMirror",
         "title": "%command.writeDiagnosticsMirror.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openDriftHealth",
         "title": "%command.openDriftHealth.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openCommitTimeline",
         "title": "%command.openCommitTimeline.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.askNaturalLanguage",
         "title": "%command.askNaturalLanguage.title%",
         "icon": "$(sparkle)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.nlSqlHistory",
         "title": "%command.nlSqlHistory.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.schemaDiff",
         "title": "%command.schemaDiff.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.scanDartSchemaDefinitions",
         "title": "%command.scanDartSchemaDefinitions.title%",
         "icon": "$(file-code)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.generateDart",
         "title": "%command.generateDart.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.exportDump",
         "title": "%command.exportDump.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.downloadDatabase",
         "title": "%command.downloadDatabase.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.migrationPreview",
         "title": "%command.migrationPreview.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.compareReport",
         "title": "%command.compareReport.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.schemaDiagram",
         "title": "%command.schemaDiagram.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.sizeAnalytics",
         "title": "%command.sizeAnalytics.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.generateSchemaDocs",
         "title": "%command.generateSchemaDocs.title%",
         "icon": "$(book)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.importData",
         "title": "%command.importData.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.shareSession",
         "title": "%command.shareSession.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openSession",
         "title": "%command.openSession.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.annotateSession",
         "title": "%command.annotateSession.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.seedTable",
         "title": "%command.seedTable.title%",
         "icon": "$(beaker)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.seedAllTables",
         "title": "%command.seedAllTables.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.clearTable",
         "title": "%command.clearTable.title%",
         "icon": "$(trash)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.clearAllTables",
         "title": "%command.clearAllTables.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.clearTableGroup",
         "title": "%command.clearTableGroup.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.importDataset",
         "title": "%command.importDataset.title%",
         "icon": "$(cloud-download)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.exportDataset",
         "title": "%command.exportDataset.title%",
         "icon": "$(cloud-upload)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.globalSearch",
         "title": "%command.globalSearch.title%",
         "icon": "$(search)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.compareRows",
         "title": "%command.compareRows.title%",
         "icon": "$(diff)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.profileColumn",
         "title": "%command.profileColumn.title%",
         "icon": "$(graph)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.snapshotChangelog",
         "title": "%command.snapshotChangelog.title%",
         "icon": "$(list-ordered)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.annotateTable",
         "title": "%command.annotateTable.title%",
         "icon": "$(bookmark)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.annotateColumn",
         "title": "%command.annotateColumn.title%",
         "icon": "$(bookmark)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openBookmarks",
         "title": "%command.openBookmarks.title%",
         "icon": "$(bookmark)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.clearAnnotations",
         "title": "%command.clearAnnotations.title%",
         "icon": "$(trash)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.removeTableAnnotations",
         "title": "%command.removeTableAnnotations.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.removeColumnAnnotations",
         "title": "%command.removeColumnAnnotations.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.exportAnnotations",
         "title": "%command.exportAnnotations.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.importAnnotations",
         "title": "%command.importAnnotations.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.addDataBreakpoint",
         "title": "%command.addDataBreakpoint.title%",
         "icon": "$(debug-breakpoint-data)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.removeDataBreakpoint",
         "title": "%command.removeDataBreakpoint.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.toggleDataBreakpoint",
         "title": "%command.toggleDataBreakpoint.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.generateMigration",
         "title": "%command.generateMigration.title%",
         "icon": "$(file-code)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.generateRollback",
         "title": "%command.generateRollback.title%",
         "icon": "$(discard)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.generateSchemaVerifierTest",
         "title": "%command.generateSchemaVerifierTest.title%",
         "icon": "$(beaker)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.validateMigrationPaths",
         "title": "%command.validateMigrationPaths.title%",
         "icon": "$(checklist)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.constraintWizard",
         "title": "%command.constraintWizard.title%",
         "icon": "$(shield)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.analyzeRowImpact",
         "title": "%command.analyzeRowImpact.title%",
         "icon": "$(type-hierarchy)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.isarToDrift",
         "title": "%command.isarToDrift.title%",
         "icon": "$(arrow-swap)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openSnippetLibrary",
         "title": "%command.openSnippetLibrary.title%",
         "icon": "$(notebook)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.saveAsSnippet",
         "title": "%command.saveAsSnippet.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.pinTable",
         "title": "%command.pinTable.title%",
         "icon": "$(pin)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.unpinTable",
         "title": "%command.unpinTable.title%",
         "icon": "$(pinned)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.healthScore",
         "title": "%command.healthScore.title%",
         "icon": "$(heart)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openDashboard",
         "title": "%command.openDashboard.title%",
         "icon": "$(dashboard)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openDriftToolsHub",
         "title": "%command.openDriftToolsHub.title%",
         "icon": "$(layout)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.addQueryWidgetToDashboard",
         "title": "%command.addQueryWidgetToDashboard.title%",
         "icon": "$(add)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.saveDashboard",
         "title": "%command.saveDashboard.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.loadDashboard",
         "title": "%command.loadDashboard.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.deleteDashboard",
         "title": "%command.deleteDashboard.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.manageInvariants",
         "title": "%command.manageInvariants.title%",
         "icon": "$(shield)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.addInvariant",
         "title": "%command.addInvariant.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.runAllInvariants",
         "title": "%command.runAllInvariants.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.narrateRow",
         "title": "%command.narrateRow.title%",
         "icon": "$(book)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.showErDiagram",
         "title": "%command.showErDiagram.title%",
         "icon": "$(type-hierarchy)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.clipboardImport",
         "title": "%command.clipboardImport.title%",
         "icon": "$(clippy)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.undoClipboardImport",
         "title": "%command.undoClipboardImport.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.showImportHistory",
         "title": "%command.showImportHistory.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.addPackageToProject",
         "title": "%command.addPackageToProject.title%",
         "icon": "$(package)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.showTroubleshooting",
         "title": "%command.showTroubleshooting.title%",
         "icon": "$(question)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.exportReport",
         "title": "%command.exportReport.title%",
         "icon": "$(file-binary)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.resetPerfBaseline",
         "title": "%command.resetPerfBaseline.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.resetAllPerfBaselines",
         "title": "%command.resetAllPerfBaselines.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openComplianceConfig",
         "title": "%command.openComplianceConfig.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openWalkthrough",
         "title": "%command.openWalkthrough.title%",
         "icon": "$(info)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.showToolsQuickPick",
         "title": "%command.showToolsQuickPick.title%",
         "icon": "$(tools)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.about",
         "title": "%command.about.title%",
         "icon": "$(info)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.aboutSaropa",
         "title": "%command.aboutSaropa.title%",
         "icon": "$(info)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.togglePolling",
         "title": "%command.togglePolling.title%",
         "icon": "$(radio-tower)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.setLogVerbosity",
         "title": "%command.setLogVerbosity.title%",
         "icon": "$(pulse)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openMutationStream",
         "title": "%command.openMutationStream.title%",
         "icon": "$(pulse)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openDvr",
         "title": "%command.openDvr.title%",
         "icon": "$(record)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.dvrStartRecording",
         "title": "%command.dvrStartRecording.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.dvrStopRecording",
         "title": "%command.dvrStopRecording.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.disableDiagnosticRule",
         "title": "%command.disableDiagnosticRule.title%",
         "icon": "$(circle-slash)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.clearRuntimeAlerts",
         "title": "%command.clearRuntimeAlerts.title%",
         "icon": "$(clear-all)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.copySuggestedName",
         "title": "%command.copySuggestedName.title%",
         "icon": "$(clippy)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.openRulesConfig",
         "title": "%command.openRulesConfig.title%",
         "icon": "$(checklist)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.suppressDiagnosticInColumn",
         "title": "%command.suppressDiagnosticInColumn.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.suppressDiagnosticInFile",
         "title": "%command.suppressDiagnosticInFile.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.seedWithProfiles",
         "title": "%command.seedWithProfiles.title%",
         "icon": "$(beaker)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.showIndexSuggestions",
         "title": "%command.showIndexSuggestions.title%",
         "icon": "$(lightbulb)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.createAllIndexes",
         "title": "%command.createAllIndexes.title%",
         "icon": "$(zap)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.generateAnomalyFixes",
         "title": "%command.generateAnomalyFixes.title%",
         "icon": "$(wrench)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.sampleTable",
         "title": "%command.sampleTable.title%",
         "icon": "$(filter)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.toggleInvariant",
         "title": "%command.toggleInvariant.title%",
         "icon": "$(check)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.viewInvariantViolations",
         "title": "%command.viewInvariantViolations.title%",
         "icon": "$(warning)",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.suppressDiagnosticAtCursor",
         "title": "%command.suppressDiagnosticAtCursor.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       },
       {
         "command": "driftViewer.suppressDiagnosticAtCursorFile",
         "title": "%command.suppressDiagnosticAtCursorFile.title%",
-        "category": "Saropa Drift Advisor"
+        "category": "Saropa Drift"
       }
     ],
     "menus": {
@@ -1407,7 +1407,7 @@
       }
     ],
     "configuration": {
-      "title": "Saropa Drift Advisor",
+      "title": "Saropa Drift",
       "properties": {
         "driftViewer.enabled": {
           "type": "boolean",
@@ -1935,9 +1935,9 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^26.6.4",
-    "@types/sinon": "^22.0.0",
-    "@types/vscode": "^1.140.0",
+    "@types/node": "^26.6.6",
+    "@types/sinon": "^22.0.2",
+    "@types/vscode": "^1.144.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "mocha": "^12.0.3",

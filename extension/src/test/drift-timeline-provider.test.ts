@@ -60,7 +60,7 @@ describe('DriftTimelineProvider', () => {
       uri('/project/lib/user.dart'), dummyOptions, dummyToken,
     );
     assert.strictEqual(result.items.length, 1);
-    assert.ok(result.items[0].label.includes('users: 5 rows'));
+    assert.ok(result.items[0]?.label?.includes('users: 5 rows'));
   });
 
   it('should show newest snapshot first', async () => {
@@ -75,8 +75,8 @@ describe('DriftTimelineProvider', () => {
       uri('/lib/user.dart'), dummyOptions, dummyToken,
     );
     assert.strictEqual(result.items.length, 2);
-    assert.ok(result.items[0].label.includes('5 rows'));
-    assert.ok(result.items[1].label.includes('3 rows'));
+    assert.ok(result.items[0]?.label?.includes('5 rows'));
+    assert.ok(result.items[1]?.label?.includes('3 rows'));
   });
 
   it('should compute delta string correctly', async () => {
@@ -91,8 +91,8 @@ describe('DriftTimelineProvider', () => {
       uri('/lib/user.dart'), dummyOptions, dummyToken,
     );
     // s2 is latest, s1 is older
-    assert.ok(result.items[0].label.includes('(latest)'));
-    assert.ok(result.items[1].label.includes('(+2)'));
+    assert.ok(result.items[0]?.label?.includes('(latest)'));
+    assert.ok(result.items[1]?.label?.includes('(+2)'));
   });
 
   it('should set showSnapshotDiff command on each item', async () => {

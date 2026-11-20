@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This changelog is for **Saropa Drift Advisor**: the Dart package that wires up
+This changelog is for **Saropa Drift** (formerly Saropa Drift Advisor): the Dart package that wires up
 Drift’s debug server and web viewer, plus the **Drift Viewer** extensions for
 [VS Code](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
 and [Open VSX](https://open-vsx.org/extension/saropa/drift-viewer).
@@ -55,6 +55,10 @@ browse source on
 
 Safer handling of unusual characters in exports, pasted data, search and generated rollback code, one fewer stray warning in projects that don't use Drift, and a behind-the-scenes cleanup. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.4.2/CHANGELOG.md)
 
+### Changed
+
+- **Product renamed to "Saropa Drift".** The extension display name, web UI, diagnostics source, walkthroughs and translations now say "Saropa Drift" instead of "Drift Advisor". Package, extension and command identifiers are unchanged.
+
 ### Fixed
 
 - **"Could not write the diagnostics mirror" warning in non-Drift projects.** Other Saropa tools (such as Saropa Log Capture) ask Advisor to refresh its offline diagnostics copy, which surfaced this warning in workspaces with no Drift dependency at all. Advisor now quietly skips the mirror when the workspace doesn't use Drift, and the **Write Diagnostics Mirror (Suite)** command only appears in the Command Palette for Drift projects.
@@ -66,6 +70,7 @@ Safer handling of unusual characters in exports, pasted data, search and generat
 
 ### Internal
 
+- **Security and dependency fixes** — pasted-table HTML is now stripped of tags until stable (no reassembled or unterminated tag survives); the offline-shell test's tag filter and visible-text check handle upper-case and unterminated tags; `source-map-js` raised to 1.2.4 (event-loop denial of service) and `brace-expansion` to 5.0.13 (quadratic-time expansion); `@types/node`, `@types/sinon` and `@types/vscode` bumped to their latest patch/minor releases.
 - **CodeQL code-scanning alerts resolved (18)** — the fixes above, plus: test helpers for HTML filtering and panel CSP checks now parse tags and URLs properly instead of matching substrings; the publish script creates the Open VSX token file with owner-only (`0600`) permissions before writing to it; and the CI workflow runs with read-only repository permissions.
 - **Lint sweep: 341 `saropa_lints` 16.2.1 findings resolved** — 143 fixed, 160 confirmed false positives, 38 deferred as breaking or structural. No behaviour change: `dart analyze` is clean and all 835 tests pass.
 - **25 `// ignore:` comments were silently doing nothing** — each named a `saropa_lints` rule without the required `saropa_lints/` prefix, so the analyzer never honoured the suppression. All 25 now carry the prefix and take effect.
