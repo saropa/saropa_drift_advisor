@@ -51,9 +51,9 @@ browse source on
 
 ---
 
-## [4.4.2] - Unreleased
+## [4.5.1]
 
-Safer handling of unusual characters in exports, pasted data, search and generated rollback code, one fewer stray warning in projects that don't use Drift, and a behind-the-scenes cleanup. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.4.2/CHANGELOG.md)
+Safer handling of unusual characters in exports, pasted data, search and generated rollback code, one fewer stray warning in projects that don't use Drift, and a behind-the-scenes cleanup. [log](https://github.com/saropa/saropa_drift_advisor/blob/v4.5.0/CHANGELOG.md)
 
 ### Changed
 
@@ -71,6 +71,7 @@ Safer handling of unusual characters in exports, pasted data, search and generat
 
 ### Internal
 
+- **Example app follows Flutter 3.50's Material split** — the example imports `package:material_ui/material_ui.dart` (new `material_ui` dependency) instead of the deprecated `package:flutter/material.dart`, clearing the `deprecated_member_use` analyzer findings that failed the `--fatal-warnings` gate.
 - **Router cleanups** — the "Expected JSON body with "enabled": true|false" error text, written out three times in `router.dart`, is now one constant (`ServerConstants.errorExpectedEnabledBody`) with identical wording; five route methods lost parameters they never read (`response` on the SQL routes, `query` on the analytics, write, session and performance routes); a redundant `req`/`request` alias in the dispatcher was removed; and `runSqlResult` and `healthJsonForVmExtension` gained parameter and return docs. No behaviour change.
 - **Security and dependency fixes** — pasted-table HTML is now stripped of tags until stable (no reassembled or unterminated tag survives); the offline-shell test's tag filter and visible-text check handle upper-case and unterminated tags; `source-map-js` raised to 1.2.4 (event-loop denial of service), `brace-expansion` to 5.0.13 and `minimatch` to 11.0.9 (denial of service), and `serialize-javascript` to 7.1.4 (script-tag XSS); the offline-shell test's visible-text check now scans characters instead of stripping tags with a regex; `@types/node`, `@types/sinon` and `@types/vscode` bumped to their latest patch/minor releases.
 - **CodeQL code-scanning alerts resolved (18)** — the fixes above, plus: test helpers for HTML filtering and panel CSP checks now parse tags and URLs properly instead of matching substrings; the publish script creates the Open VSX token file with owner-only (`0600`) permissions before writing to it; and the CI workflow runs with read-only repository permissions.

@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Asset path for the Saropa Drift logo (copied from extension/icon.png).
 const String _kLogoAsset = 'assets/logo.png';

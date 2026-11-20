@@ -2,7 +2,7 @@
   "name": "drift-viewer",
   "displayName": "Saropa Drift",
   "description": "%extension.description%",
-  "version": "4.4.2",
+  "version": "4.5.1",
   "publisher": "saropa",
   "license": "MIT",
   "repository": {
@@ -1938,7 +1938,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^26.6.6",
     "@types/sinon": "^22.0.2",
-    "@types/vscode": "^1.144.0",
+    "@types/vscode": "^1.134.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "mocha": "^12.0.3",
