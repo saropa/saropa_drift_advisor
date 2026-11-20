@@ -1928,7 +1928,8 @@
     "postprepare": "npm run compile"
   },
   "overrides": {
-    "serialize-javascript": "^7.0.3"
+    "serialize-javascript": "^7.1.4",
+    "minimatch": "^11.0.1"
   },
   "dependencies": {
     "sql-formatter": "^15.9.0"

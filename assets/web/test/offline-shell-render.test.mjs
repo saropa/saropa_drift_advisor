@@ -321,17 +321,23 @@ describe('offline shell — G2: every icon has a usable fallback', () => {
       const [, , attrs, body] = m;
       if (!body.includes(ICON_CLASS)) continue;
       const hasLabelAttr = /\b(data-label|aria-label|title)\s*=/.test(attrs);
-      // Visible text is any non-whitespace left after removing all child markup.
-      // A single non-recursive pass is unsound: stripping `<...>` once can
-      // itself produce a new, unstripped tag out of overlapping fragments
-      // (e.g. `<sc<script>ript>` loses only the inner `<script>` in one pass
-      // and leaves `<script>` behind). Loop until a pass changes nothing.
-      let visibleText = body;
-      let previous;
-      do {
-        previous = visibleText;
-        visibleText = visibleText.replace(/<[^>]*>?/g, '').replace(/&\w+;/g, '');
-      } while (visibleText !== previous);
+      // Visible text is any non-whitespace outside child markup. A single
+      // left-to-right scan that tracks "inside a tag" cannot be fooled by
+      // overlapping fragments (`<sc<script>ript>`) the way repeated regex
+      // stripping can, and an unterminated `<...` simply swallows the rest.
+      let visibleText = '';
+      let inTag = false;
+      for (const ch of body) {
+        if (inTag) {
+          if (ch === '>') inTag = false;
+        } else if (ch === '<') {
+          inTag = true;
+        } else {
+          visibleText += ch;
+        }
+      }
+      // Entities (e.g. &nbsp;) are not visible glyphs worth counting.
+      visibleText = visibleText.replace(/&\w+;/g, '');
       visibleText = visibleText.trim();
       if (!hasLabelAttr && visibleText.length === 0) {
         offenders.push(m[0].slice(0, 120));
